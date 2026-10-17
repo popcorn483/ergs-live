@@ -700,6 +700,12 @@ button.tag{cursor:pointer;font:inherit;font-size:12px;font-weight:600}
 .live-top b{font-weight:700}
 .live-top .lt-sub{font-weight:600;letter-spacing:.06em;color:var(--gold,#DCC08A);border-left:1px solid rgba(227,38,42,.45);padding-left:8px;margin-left:2px}
 @media (max-width:480px){ .live-top .lt-sub{display:none} }
+.gate-acts{flex-direction:column;align-items:center;gap:14px}
+.gate-acts .live-top{font-size:15px;padding:9px 16px}
+.gate-link{border:0;background:transparent;padding:4px;color:var(--mute);font:inherit;font-size:14px;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.gate-link:hover{color:var(--gold,#DCC08A)}
+.gate-acts .live-top .lt-sub{display:inline!important}
+.gate-acts .live-top{display:inline-flex!important;height:auto!important;white-space:nowrap}
 </style>
 
 </head>
@@ -5541,9 +5547,9 @@ function gateUI(){
   $('#gateSpin').hidden = Cloud.role !== 'pending';
   let box = $('#gateActs'); if (!box){ box = document.createElement('div'); box.id = 'gateActs'; box.className = 'gate-acts'; m.after(box); }
   const btns = [];
-  if (gh && Cloud.role === 'signedout') btns.push('<button class="btn primary" type="button" id="gateSignIn">Sign in with Google</button>');
-  if (gh && Cloud.role === 'public') btns.push('<button class="btn" type="button" id="gateSignOut">Use a different account</button>');
-  if (Cloud.role !== 'pending') btns.push(`<a class="btn ${btns.length ? 'ghost' : 'primary'}" href="${LIVE_URL}" target="_blank" rel="noopener">Live scores on ERGS Live</a>`);
+  if (Cloud.role !== 'pending') btns.push(`<a class="live-top" href="${LIVE_URL}" target="_blank" rel="noopener"><span class="livedot"></span><b>ERGS Live</b><span class="lt-sub">Live scores →</span></a>`);
+  if (gh && Cloud.role === 'signedout') btns.push('<button class="gate-link" type="button" id="gateSignIn">Coach sign in</button>');
+  if (gh && Cloud.role === 'public') btns.push('<button class="gate-link" type="button" id="gateSignOut">Use a different account</button>');
   box.innerHTML = btns.join('');
   const si = $('#gateSignIn'); if (si) si.onclick = async () => { si.disabled = true; try { await A.signIn(); } catch(e){ si.disabled = false; toast(/popup/.test(e && e.code || '') ? 'Allow pop-ups for this site, then try again.' : 'Sign-in didn’t finish. Try again.'); } };
   const so = $('#gateSignOut'); if (so) so.onclick = () => A.signOut().then(() => A.signIn()).catch(() => {});
