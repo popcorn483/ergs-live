@@ -684,7 +684,6 @@ button.tag{cursor:pointer;font:inherit;font-size:12px;font-weight:600}
 .acc-list{list-style:none;margin:8px 0;padding:0;display:grid;gap:4px}
 .acc-list li{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:6px 8px;border-radius:8px;background:rgba(255,255,255,.04)}
 .acc-list li span{min-width:0;overflow-wrap:anywhere}
-.mig-box{max-width:860px;margin-top:16px}
 #signOutTop{height:30px;padding:0 10px;font-size:13px}
 .clip-list{display:grid;gap:10px;max-height:56vh;overflow:auto}
 .clip{display:grid;gap:8px;padding:10px;border:1px solid var(--rule,#2D3962);border-radius:12px}
@@ -5636,29 +5635,6 @@ async function accessUI(){
 }
 (() => { if (window.ERGS_HOST !== 'github') return; let was = ''; setInterval(() => { if (S.screen === 'people' && was !== 'people') accessUI(); was = S.screen; }, 400); })();
 
-/* Moving to GitHub: the Claude version exports everything; the GitHub version imports it */
-async function exportAll(){
-  const docs = {}, put = (p, d) => { if (d) docs[p] = d; };
-  ['totw/boys', 'totw/girls', 'team/squads', 'team/roster', 'team/notes', 'team/tags'].forEach(p => put(p, Cloud.docs[p]));
-  Cloud.plays.forEach(x => { const d = Object.assign({}, x); delete d.id; put('plays/' + x.id, d); });
-  Cloud.sponsors.forEach(x => { const d = Object.assign({}, x); delete d.id; put('sponsors/' + x.id, d); });
-  Cloud.sheets.forEach(x => { const d = Object.assign({}, x); delete d.id; put('sheets/' + x.id, d); });
-  Cloud.schools.forEach(x => { const d = Object.assign({}, x); delete d.id; put('schools/' + x.id, d); });
-  const text = JSON.stringify(docs), urls = [...new Set(text.match(/\/_blob\/[0-9a-f]{32}/g) || [])], images = {};
-  toast(`Packing ${Object.keys(docs).length} items and ${urls.length} pictures…`);
-  for (const u of urls){ try { const b = await (await fetch(u)).blob(); images[u] = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(b); }); } catch(e){} }
-  await saveFile('ergs-rugby-data.json', new Blob([JSON.stringify({app:'ergs-rugby', version:1, exported:Date.now(), docs, images})], {type:'application/json'}));
-}
-async function importAll(file){
-  let data; try { data = JSON.parse(await file.text()); } catch(e){ toast('That file couldn’t be read.'); return; }
-  if (!data || data.app !== 'ergs-rugby' || !data.docs){ toast('That isn’t an ERGS Rugby data file. Use “Export everything” on the Claude version.'); return; }
-  let text = JSON.stringify(data.docs); const imgs = Object.entries(data.images || {}); let n = 0;
-  const msg = t => { const el = $('#migMsg'); if (el) el.textContent = t; };
-  for (const [u, d] of imgs){ msg(`Uploading pictures ${++n} of ${imgs.length}…`); try { const b = await (await fetch(d)).blob(); const r = await Cloud.assets.upload(b); text = text.split(u).join(r.url); } catch(e){} }
-  const docs = JSON.parse(text), keys = Object.keys(docs); n = 0;
-  for (const p of keys){ msg(`Saving ${++n} of ${keys.length}…`); try { await Cloud.set(p, docs[p]); } catch(e){} }
-  msg(''); toast(`Imported ${keys.length} items and ${imgs.length} pictures.`);
-}
 /* =============================== SPONSORS: add, edit, delete =============================== */
 const SPM = {edit:null, draft:null, busy:false};
 function spmEnsure(){
