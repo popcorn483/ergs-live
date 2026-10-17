@@ -523,7 +523,7 @@ const fx = $('#fx'), Q = []; let busy = false;
 function playFx(){
   const nx = Q.shift(); if (!nx){ busy = false; return; } busy = true;
   const [m, e] = nx, team = e.s === 'H' ? m.home : m.away, [h, a] = score(m);
-  const isKick = e.k === 'con' || e.k === 'pen' || e.k === 'dg', missed = isKick && e.miss;
+  const isKick = e.k === 'con' || e.k === 'pen' || e.k === 'dg', missed = !!(isKick && e.miss);
   const lab = missed ? (e.k === 'con' ? 'CONVERSION MISSED' : e.k === 'pen' ? 'PENALTY MISSED' : 'DROP GOAL MISSED') : e.k === 'try' ? 'TRY!' : e.k === 'pt' ? 'PENALTY TRY' : e.k === 'con' ? 'CONVERTED' : e.k === 'pen' ? 'PENALTY GOAL' : e.k === 'dg' ? 'DROP GOAL' : e.k === 'yc' ? 'YELLOW CARD' : 'RED CARD';
   fx.className = 'fx k-' + e.k; fx.style.setProperty('--tc', e.k === 'yc' ? '#F3C443' : e.k === 'rc' ? '#E5483B' : ((school(team) || {}).color || '#3A4466'));
   const kickIn = isKick, card = e.k === 'yc' || e.k === 'rc';
