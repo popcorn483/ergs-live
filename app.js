@@ -251,7 +251,7 @@ function openEv(m, k, s, pending){
     ${players.length ? `<div class="chips">${players.map(p => `<button type="button" class="chip" data-name="${esc(p.name)}"><i>${esc(p.n || '')}</i><span>${esc(p.name)}</span></button>`).join('')}</div>` : ''}
     <div class="field"><label class="label" for="evWho">${players.length ? 'Or type a name or shirt number' : kick ? 'Kicker (optional)' : 'Player (optional)'}</label><input class="input" id="evWho" maxlength="40" list="evNames" autocomplete="off" value="${esc(lastKicker ? lastKicker.p : '')}"><datalist id="evNames">${[...new Set(players.map(p => p.name).concat([...used]))].map(n => `<option value="${esc(n)}">`).join('')}</datalist><span class="hint" id="evHint" aria-live="polite"></span></div>
     <div class="field" style="max-width:140px"><label class="label" for="evMin">Minute</label><input class="input" id="evMin" type="number" min="0" max="120" value="${minuteNow(m)}"></div>
-    <div class="dlg-a"><button type="button" class="btn ghost" id="evSkip">${after ? 'Skip' : 'Cancel'}</button><button type="button" class="btn primary" id="evGo">${k === 'try' ? 'Next: conversion' : 'Add'}</button></div>`, d => {
+    <div class="dlg-a"><button type="button" class="btn ghost" id="evSkip">${after ? 'Skip' : 'Cancel'}</button>${kick ? '<button type="button" class="btn danger" id="evMiss">Missed</button>' : ''}<button type="button" class="btn primary" id="evGo">${k === 'try' ? 'Next: conversion' : kick ? 'Scored' : 'Add'}</button></div>`, d => {
     wireSegs(d);
     d.querySelectorAll('.chip').forEach(c => c.onclick = () => { d.querySelector('#evWho').value = c.dataset.name; d.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x === c)); d.querySelector('#evHint').textContent = ''; });
     const byNum = v => { const n = (String(v).trim().match(/^#?(\d{1,2})$/) || [])[1]; return n ? players.find(p => +p.n === +n) : null; };
@@ -261,6 +261,8 @@ function openEv(m, k, s, pending){
     who.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); d.querySelector('#evGo').click(); } });
     const commit = list => save(dd => { const x = dd.matches.find(y => y.id === m.id); list.forEach(e => x.events.push(e)); }, m.id);
     d.querySelector('#evSkip').onclick = () => { closeDialog(); if (after) commit(pending); };
+    const mb = d.querySelector('#evMiss'); if (mb) mb.onclick = () => { const seg = d.querySelector('[data-seg="res"]'); if (seg){ seg.dataset.val = 'miss'; } d.querySelector('#evGo').click(); };
+    if (kick) d.querySelector('#evGo').addEventListener('click', ev => { if (!ev.isTrusted) return; const seg = d.querySelector('[data-seg="res"]'); if (seg) seg.dataset.val = 'ok'; }, true);
     d.querySelector('#evGo').onclick = () => {
       const typed = d.querySelector('#evWho').value.trim(), hit = byNum(typed);
       const ev = {id:uid(), k, s, p:(hit ? hit.name : typed).slice(0, 40), m:Math.max(0, Math.min(120, parseInt(d.querySelector('#evMin').value, 10) || 0)), at:Math.round(elapsed(m)), ts:Date.now()};
