@@ -492,9 +492,11 @@ const fx = $('#fx'), Q = []; let busy = false;
 function playFx(){
   const nx = Q.shift(); if (!nx){ busy = false; return; } busy = true;
   const [m, e] = nx, team = e.s === 'H' ? m.home : m.away, [h, a] = score(m);
-  const lab = e.k === 'try' ? 'TRY!' : e.k === 'pt' ? 'PENALTY TRY' : e.k === 'con' ? 'CONVERTED' : e.k === 'pen' ? 'PENALTY GOAL' : e.k === 'dg' ? 'DROP GOAL' : e.k === 'yc' ? 'YELLOW CARD' : 'RED CARD';
+  const isKick = e.k === 'con' || e.k === 'pen' || e.k === 'dg', missed = isKick && e.miss;
+  const lab = missed ? (e.k === 'con' ? 'CONVERSION MISSED' : e.k === 'pen' ? 'PENALTY MISSED' : 'DROP GOAL MISSED') : e.k === 'try' ? 'TRY!' : e.k === 'pt' ? 'PENALTY TRY' : e.k === 'con' ? 'CONVERTED' : e.k === 'pen' ? 'PENALTY GOAL' : e.k === 'dg' ? 'DROP GOAL' : e.k === 'yc' ? 'YELLOW CARD' : 'RED CARD';
   fx.className = 'fx k-' + e.k; fx.style.setProperty('--tc', e.k === 'yc' ? '#F3C443' : e.k === 'rc' ? '#E5483B' : ((school(team) || {}).color || '#3A4466'));
-  const kickIn = (e.k === 'con' || e.k === 'pen' || e.k === 'dg') && !e.miss, card = e.k === 'yc' || e.k === 'rc';
+  const kickIn = isKick, card = e.k === 'yc' || e.k === 'rc';
+  fx.classList.toggle('miss', missed);
   const tryIn = e.k === 'try' || e.k === 'pt';
   fx.classList.toggle('kick', kickIn); fx.classList.toggle('cardfx', card); fx.classList.toggle('tryfx', tryIn);
   $('#fxCrest').innerHTML = card ? `<div class="fx-cardwrap"><div class="fx-rings"><i></i><i></i><i></i></div><div class="fx-card ${e.k}"><span></span></div></div>`
@@ -507,7 +509,7 @@ function playFx(){
     : crest(team, 'huge');
   let li = 0; $('#fxKind').innerHTML = lab.split(' ').map(w => `<span class="w">${w.split('').map(c => `<span style="--i:${li++}">${esc(c)}</span>`).join('')}</span>`).join('<span style="--i:0">&nbsp;</span>');
   $('#fxWho').textContent = [e.p, team].filter(Boolean).join(' · ');
-  $('#fxScore').textContent = ptsOf(e) ? `${m.home} ${h} – ${a} ${m.away}` : e.k === 'yc' ? `Sin bin · ${m.code === 'sevens' ? '2' : '10'} minutes` : e.k === 'rc' ? 'Sent off' : '';
+  $('#fxScore').textContent = ptsOf(e) || missed ? `${m.home} ${h} – ${a} ${m.away}` : e.k === 'yc' ? `Sin bin · ${m.code === 'sevens' ? '2' : '10'} minutes` : e.k === 'rc' ? 'Sent off' : '';
   const burst = $('#fxBurst'); burst.innerHTML = '';
   if (ptsOf(e)) for (let i = 0; i < 28; i++){ const s = document.createElement('i'), ang = Math.random()*Math.PI*2, d = 140 + Math.random()*260; s.style.cssText = `--x:${Math.cos(ang)*d}px;--y:${Math.sin(ang)*d}px;--d:${(Math.random()*.25).toFixed(2)}s;--s:${(.6 + Math.random()*.9).toFixed(2)}`; burst.appendChild(s); }
   fx.hidden = false; void fx.offsetWidth; fx.classList.add('on');
@@ -519,7 +521,7 @@ function newSinceLastLook(){
   let seen = null; try { seen = JSON.parse(localStorage.getItem('ergsLive.seen') || 'null'); } catch(e){}
   const now = {};
   for (const m of DATA.matches.filter(isLive)){ now[m.id] = (m.events || []).map(e => e.id);
-    if (!COACH && seen && seen[m.id]) for (const e of sorted(m)) if (!seen[m.id].includes(e.id) && e.k !== 'note' && !e.miss && Date.now() - (e.ts || 0) < 15*60e3) Q.push([m, e]); }
+    if (!COACH && seen && seen[m.id]) for (const e of sorted(m)) if (!seen[m.id].includes(e.id) && e.k !== 'note' && (!e.miss || ['con','pen','dg'].includes(e.k)) && Date.now() - (e.ts || 0) < 15*60e3) Q.push([m, e]); }
   try { localStorage.setItem('ergsLive.seen', JSON.stringify(now)); } catch(e){}
   if (Q.length && !busy){ busy = true; setTimeout(playFx, 500); }
 }

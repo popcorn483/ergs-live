@@ -319,6 +319,15 @@ textarea.input{resize:vertical;line-height:1.4}
 @keyframes slam{0%{opacity:0;transform:scale(3.4) translateY(-30%);filter:blur(6px)}100%{opacity:1;transform:none;filter:none}}
 .fx.tryfx.on .fx-who,.fx.tryfx.on .fx-score{animation-delay:1.45s}
 .fx.tryfx.on .fx-burst i{animation-delay:calc(1s + var(--d))}
+/* missed kick: ball drifts wide of the upright, posts flash red, no confetti */
+.fx.kick.miss.on .fx-ball{animation:kickmiss 1.3s .2s cubic-bezier(.3,.55,.4,1) forwards}
+@keyframes kickmiss{0%{opacity:1;left:22%;top:108%;transform:scale(2) rotate(0)}45%{opacity:1;left:55%;top:55%;transform:scale(1) rotate(300deg)}70%{opacity:1;left:72%;top:40%;transform:scale(.72) rotate(500deg)}100%{opacity:.75;left:88%;top:28%;transform:scale(.5) rotate(680deg)}}
+.fx.kick.miss.on .fx-posts .up{animation:postred .5s 1s ease 2}
+.fx.kick.miss.on .fx-posts .bar{animation:none}
+@keyframes postred{50%{fill:#E5483B;filter:drop-shadow(0 0 12px #E5483B)}}
+.fx.kick.miss .fx-band{background:linear-gradient(90deg,#1a2040,#2a3156 50%,#1a2040);box-shadow:0 0 0 6px #6B7596,0 30px 80px rgba(0,0,0,.6)}
+.fx.kick.miss .fx-kind{color:#C9CFE3;font-size:clamp(38px,9vw,96px)}
+.fx.kick.miss .fx-burst{display:none}
 .more{display:block;width:100%;margin-top:8px;min-height:42px;border:1px dashed var(--rule);border-radius:10px;background:transparent;color:var(--gold);font-family:var(--f-cond);font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase}
 .more:hover{border-color:var(--gold)}
 .team-h{font-family:var(--f-display);font-weight:800;font-size:24px;text-transform:uppercase;margin:0 0 10px}
