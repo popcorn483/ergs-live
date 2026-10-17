@@ -244,25 +244,47 @@ function seg(name, opts, val){ return `<div class="seg" data-seg="${name}">${opt
 function wireSegs(d){ d.querySelectorAll('[data-seg]').forEach(s => s.querySelectorAll('button').forEach(b => b.onclick = () => { s.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b)); s.dataset.val = b.dataset.v; s.dispatchEvent(new Event('change')); })); d.querySelectorAll('[data-seg]').forEach(s => { const p = s.querySelector('[aria-pressed="true"]'); s.dataset.val = p ? p.dataset.v : ''; }); }
 
 /* scoring */
+/* team sheets from the main app, so the scorer always has the right names */
+let TEAMS_CACHE = null, teamsAt = 0;
+async function loadTeams(force){ if (!window.FB || !FB.listTeams || !COACH) return null; if (TEAMS_CACHE && !force && Date.now() - teamsAt < 60000) return TEAMS_CACHE;
+  try { TEAMS_CACHE = await FB.listTeams(); teamsAt = Date.now(); } catch(e){} return TEAMS_CACHE; }
+const sheetPlayers = x => (x.players || []).map((p, i) => ({n:+p.n || i + 1, name:((p.f || '') + ' ' + (p.l || '')).trim()})).filter(p => p.name).sort((a, b) => a.n - b.n);
+const sheetLabel = x => (x.title || [x.team, x.opp ? 'v ' + x.opp : ''].filter(Boolean).join(' ') || 'Team sheet') + (x.date ? ' · ' + new Date(x.date + 'T12:00').toLocaleDateString('en-GB', {day:'numeric', month:'short'}) : '');
+/* the sheet for this match: same opponent on the same day, else same opponent and team, else the latest sheet for that team */
+function sheetFor(m){
+  const T = TEAMS_CACHE; if (!T || !T.sheets.length) return null;
+  const opp = canonSchool(usOf(m) === 'A' ? m.home : m.away), day = (m.ko || '').slice(0, 10), tc = teamCode(m.team);
+  const sameOpp = T.sheets.filter(x => x.opp && canonSchool(x.opp) === opp);
+  return sameOpp.find(x => x.date === day) || sameOpp.find(x => tc && teamCode(x.team) === tc) || T.sheets.find(x => tc && teamCode(x.team) === tc && x.date === day) || null;
+}
 function openEv(m, k, s, pending){
   const team = s === 'H' ? m.home : m.away, kick = k === 'con' || k === 'pen' || k === 'dg', after = !!pending;
-  const ours = usOf(m) === s, players = ours && Array.isArray(m.players) ? m.players : [];
+  const ours = usOf(m) === s;
+  let players = ours && Array.isArray(m.players) && m.players.length ? m.players : [];
+  if (ours && !players.length && COACH){
+    if (!TEAMS_CACHE){ loadTeams().then(() => openEv(m, k, s, pending)); return; }
+    const x = sheetFor(m); if (x){ players = sheetPlayers(x); toast(`Players from ${sheetLabel(x)}.`); }
+  }
   const used = new Set(); sorted(m).forEach(e => { if (e.s === s && e.p && e.k !== 'note') used.add(e.p); });
   const lastKicker = kick ? sorted(m).filter(e => e.s === s && (e.k === 'con' || e.k === 'pen') && e.p).pop() : null;
   openDialog(`<h2>${after ? 'Conversion attempt' : EVK[k][0]}</h2><p>${esc(team)}${PTS[k] ? ` · +${PTS[k]} if scored` : ''}</p>
     ${kick ? `<div class="field"><span class="label">Kick</span>${seg('res', [['ok','Scored'],['miss','Missed']], 'ok')}</div>` : ''}
+    ${ours && !players.length && COACH && TEAMS_CACHE && TEAMS_CACHE.sheets.length ? `<div class="field"><label class="label" for="evSheet">Load players from a team sheet</label><select class="input" id="evSheet"><option value="">Choose a team sheet…</option>${TEAMS_CACHE.sheets.slice(0, 40).map(x => `<option value="${esc(x.id)}">${esc(sheetLabel(x))}</option>`).join('')}</select></div>` : ''}
     ${players.length ? `<div class="chips">${players.map(p => `<button type="button" class="chip" data-name="${esc(p.name)}"><i>${esc(p.n || '')}</i><span>${esc(p.name)}</span></button>`).join('')}</div>` : ''}
     <div class="field"><label class="label" for="evWho">${players.length ? 'Or type a name or shirt number' : kick ? 'Kicker (optional)' : 'Player (optional)'}</label><input class="input" id="evWho" maxlength="40" list="evNames" autocomplete="off" value="${esc(lastKicker ? lastKicker.p : '')}"><datalist id="evNames">${[...new Set(players.map(p => p.name).concat([...used]))].map(n => `<option value="${esc(n)}">`).join('')}</datalist><span class="hint" id="evHint" aria-live="polite"></span></div>
     <div class="field" style="max-width:140px"><label class="label" for="evMin">Minute</label><input class="input" id="evMin" type="number" min="0" max="120" value="${minuteNow(m)}"></div>
     <div class="dlg-a"><button type="button" class="btn ghost" id="evSkip">${after ? 'Skip' : 'Cancel'}</button>${kick ? '<button type="button" class="btn danger" id="evMiss">Missed</button>' : ''}<button type="button" class="btn primary" id="evGo">${k === 'try' ? 'Next: conversion' : kick ? 'Scored' : 'Add'}</button></div>`, d => {
     wireSegs(d);
+    const es = d.querySelector('#evSheet'); if (es) es.onchange = () => { const x = TEAMS_CACHE.sheets.find(y => y.id === es.value); if (!x) return; const list = sheetPlayers(x), id = m.id;
+      closeDialog(); openEv(Object.assign({}, m, {players:list}), k, s, pending); };
     d.querySelectorAll('.chip').forEach(c => c.onclick = () => { d.querySelector('#evWho').value = c.dataset.name; d.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x === c)); d.querySelector('#evHint').textContent = ''; });
     const byNum = v => { const n = (String(v).trim().match(/^#?(\d{1,2})$/) || [])[1]; return n ? players.find(p => +p.n === +n) : null; };
     const who = d.querySelector('#evWho'), hint = d.querySelector('#evHint');
     who.oninput = () => { const p = byNum(who.value); hint.textContent = p ? `#${p.n} ${p.name}` : /^#?\d{1,2}$/.test(who.value.trim()) && players.length ? 'No player with that number' : '';
       d.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', !!p && x.dataset.name === p.name)); };
     who.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); d.querySelector('#evGo').click(); } });
-    const commit = list => save(dd => { const x = dd.matches.find(y => y.id === m.id); list.forEach(e => x.events.push(e)); }, m.id);
+    // the team list is saved with the score, so the next entry has it straight away
+    const commit = list => save(dd => { const x = dd.matches.find(y => y.id === m.id); list.forEach(e => x.events.push(e)); if (ours && players.length && !(x.players || []).length) x.players = players; }, m.id);
     d.querySelector('#evSkip').onclick = () => { closeDialog(); if (after) commit(pending); };
     const mb = d.querySelector('#evMiss'); if (mb) mb.onclick = () => { const seg = d.querySelector('[data-seg="res"]'); if (seg){ seg.dataset.val = 'miss'; } d.querySelector('#evGo').click(); };
     if (kick) d.querySelector('#evGo').addEventListener('click', ev => { if (!ev.isTrusted) return; const seg = d.querySelector('[data-seg="res"]'); if (seg) seg.dataset.val = 'ok'; }, true);
@@ -581,7 +603,7 @@ function boot(){
     EMAIL = user && user.email ? user.email.toLowerCase() : ''; ADMIN = !!EMAIL && EMAIL === String(CFG.admin || '').toLowerCase();
     let ok = ADMIN; if (EMAIL && !ok){ try { ok = await FB.isCoach(EMAIL); } catch(e){ ok = false; } }
     let pl = false; if (EMAIL && !ok){ try { pl = await FB.isPlayer(EMAIL); } catch(e){ pl = false; } }
-    COACH = ok; PLAYER = pl; signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL || COACH;
+    COACH = ok; PLAYER = pl; if (COACH) loadTeams(true); signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL || COACH;
     if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {};
     if (COACH || PLAYER) veoUnsub = FB.onVeo(v => { VEO = v || {}; if (READY) render(); });
     if (EMAIL && !ok && !pl) toast(`Signed in as ${EMAIL}, which isn’t on the coaches or players list.`);
