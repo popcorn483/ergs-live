@@ -16,7 +16,7 @@ service cloud.firestore {
     // who can sign in
     match /coaches/{email} {
       allow read: if isCoach() || (signedIn() && me() == email);
-      allow write: if isAdmin();
+      allow write: if isCoach();
     }
     match /players/{email} {
       allow read: if isCoach() || (signedIn() && me() == email);

@@ -5620,17 +5620,17 @@ async function accessUI(){
   const A = window.ERGS_AUTH, pg = $('#people .page'); if (!pg || !A) return;
   ['.roles', 'ol.steps'].forEach(q => { const el = pg.querySelector(q); if (el) el.hidden = true; });
   const sub = pg.querySelector('.page-head + .sub'); if (sub) sub.textContent = 'Coaches and players sign in with their Google account. Add their email below to give them access.';
-  let box = $('#accessBox'); if (!box){ box = document.createElement('div'); box.id = 'accessBox'; box.className = 'access-box'; const anchor = pg.querySelector('#memberList'); anchor.parentNode.insertBefore(box, anchor.previousElementSibling); }
+  let box = $('#accessBox'); if (!box){ box = document.createElement('div'); box.id = 'accessBox'; box.className = 'access-box'; const head = document.createElement('div'); head.className = 'lib-sec'; head.textContent = 'Who can sign in'; const sub2 = pg.querySelector('.page-head + .sub') || pg.querySelector('.page-head'); sub2.after(head); head.after(box); }
   let coaches = [], players = [];
   try { coaches = await A.list('coaches'); } catch(e){}
   try { players = await A.list('players'); } catch(e){}
   const col = (kind, title, list, canEdit, note) => `<div class="box acc-col"><h4>${title}</h4><p class="status-line">${note}</p>
-    <ul class="acc-list">${(kind === 'coaches' ? [A.adminEmail].concat(list.filter(x => x !== A.adminEmail)) : list).map(e => `<li><span>${esc(e)}${kind === 'coaches' && e === A.adminEmail ? ' <small>(admin)</small>' : ''}</span>${canEdit && !(kind === 'coaches' && e === A.adminEmail) ? `<button class="btn ghost danger" type="button" data-rm="${kind}|${esc(e)}">Remove</button>` : ''}</li>`).join('') || '<li class="status-line">Nobody yet.</li>'}</ul>
+    <ul class="acc-list">${(kind === 'coaches' ? [A.adminEmail].concat(list.filter(x => x !== A.adminEmail)) : list).map(e => `<li><span>${esc(e)}${kind === 'coaches' && e === A.adminEmail ? ' <small>(admin)</small>' : ''}</span>${canEdit && !(kind === 'coaches' && (e === A.adminEmail || e === A.email)) ? `<button class="btn ghost danger" type="button" data-rm="${kind}|${esc(e)}">Remove</button>` : ''}</li>`).join('') || '<li class="status-line">Nobody yet.</li>'}</ul>
     ${canEdit ? `<form class="row acc-add" data-kind="${kind}"><input class="input" type="email" placeholder="name@gmail.com" aria-label="Email to add" style="flex:1;min-width:180px"><button class="btn" type="submit">Add</button></form>` : ''}</div>`;
-  box.innerHTML = col('coaches', 'Coaches', coaches, A.admin, A.admin ? 'Full access, including ERGS Live scoring. Only the admin can change this list.' : `Only the admin (${esc(A.adminEmail)}) can change this list.`)
-    + col('players', 'Players', players, Cloud.role === 'coach', 'Can view the playbook and plays. No graphics, team of the week or squads.');
+  box.innerHTML = col('coaches', 'Coaches', coaches, Cloud.role === 'coach', 'Full access: plays, squads, graphics, team of the week and ERGS Live scoring. The admin account can’t be removed.')
+    + col('players', 'Players', players, Cloud.role === 'coach', 'Can open the playbook and plays only. No graphics, team of the week, squads or scoring.');
   box.querySelectorAll('.acc-add').forEach(f => f.onsubmit = async e => { e.preventDefault(); const v = f.querySelector('input').value.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)){ toast('Enter their full email address.'); return; }
-    try { await A.add(f.dataset.kind, v); toast(`${v} added. They can sign in now.`); accessUI(); } catch(err){ toast('That couldn’t be added. Only coaches can add players, and only the admin can add coaches.'); } });
+    try { await A.add(f.dataset.kind, v); toast(`${v} added. They can sign in now.`); accessUI(); } catch(err){ toast('That couldn’t be added. Check the database rules in Firebase are up to date.'); } });
   box.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { const [kind, v] = b.dataset.rm.split('|'); ask(`Remove ${v}?`, 'They’ll lose access the next time they open the app.', 'Remove', async () => { try { await A.remove(kind, v); accessUI(); } catch(err){ toast('That couldn’t be removed.'); } }); });
 }
 (() => { if (window.ERGS_HOST !== 'github') return; let was = ''; setInterval(() => { if (S.screen === 'people' && was !== 'people') accessUI(); was = S.screen; }, 400); })();

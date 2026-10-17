@@ -165,7 +165,7 @@ function coachBar(){
   const bar = $('#coachBar'); bar.hidden = !COACH; if (!COACH) return;
   bar.innerHTML = DATA.demo
     ? `<span><b>Coach view.</b> The matches below are examples. Clear them to start real scoring; supporters will see your matches straight away.</span><button type="button" class="btn primary" data-act="cleardemo">Clear the examples</button>`
-    : `<span><b>Coach view.</b> Every change goes live for everyone watching.</span><div class="ctrl"><button type="button" class="btn primary" data-act="new">New match</button><button type="button" class="btn" data-act="past">Add a past result</button><button type="button" class="btn" data-act="import">Import fixtures</button><button type="button" class="btn" data-act="schools">School crests</button>${ADMIN ? '<button type="button" class="btn" data-act="coaches">Coaches</button>' : ''}<button type="button" class="btn" data-act="tomain">Copy for main app</button><a class="btn ghost" href="${MAIN_APP}" target="_blank" rel="noopener">Main app</a><button type="button" class="btn ghost" data-act="signout">Sign out</button></div>`;
+    : `<span><b>Coach view.</b> Every change goes live for everyone watching.</span><div class="ctrl"><button type="button" class="btn primary" data-act="new">New match</button><button type="button" class="btn" data-act="past">Add a past result</button><button type="button" class="btn" data-act="import">Import fixtures</button><button type="button" class="btn" data-act="schools">School crests</button><button type="button" class="btn" data-act="coaches">Coaches</button><a class="btn ghost" href="${MAIN_APP}" target="_blank" rel="noopener">Main app</a><button type="button" class="btn ghost" data-act="signout">Sign out</button></div>`;
   if (READY && !HAS_DOC) bar.innerHTML = `<span><b>Coach view.</b> The scoreboard is empty. Bring across the matches from the Claude page to start.</span><button type="button" class="btn primary" data-act="seed">Set up the scoreboard</button><button type="button" class="btn ghost" data-act="signout">Sign out</button>`;
 }
 function render(){
@@ -307,7 +307,6 @@ function act(a, m){
     case 'new': return matchForm(null);
     case 'signout': return FB.signOut().then(() => { COACH = false; ADMIN = false; render(); toast('Signed out.'); });
     case 'coaches': return coachesDialog();
-    case 'tomain': return copy('ERGSLIVE1:' + JSON.stringify({matches:RAW.matches || [], at:Date.now()}), 'Copied. In the main app: Live scores, Import from ERGS Live, paste.');
     case 'seed': return fetch('seed.json', {cache:'no-store'}).then(r => r.ok ? r.json() : {matches:[], schools:{}}).catch(() => ({matches:[], schools:{}})).then(seed => save(d => { d.matches = seed.matches || []; d.schools = seed.schools || {}; d.demo = false; }, null));
     case 'past': return matchForm(null, true);
     case 'import': return importDialog();
@@ -489,11 +488,11 @@ $('#demoTry').onclick = () => {
 async function coachesDialog(){
   let list = []; try { list = await FB.listCoaches(); } catch(e){ toast('Couldn’t load the coaches list.'); return; }
   openDialog(`<h2>Coaches</h2><p>People who can score. They sign in with this Google account.</p>
-    <div class="schs">${[CFG.admin].concat(list.filter(x => x !== CFG.admin)).filter(Boolean).map(e => `<div class="sch" style="grid-template-columns:minmax(0,1fr) auto"><span>${esc(e)}${e === CFG.admin ? ' <small>(admin)</small>' : ''}</span>${e === CFG.admin ? '' : `<button type="button" class="btn ghost small danger" data-rmc="${esc(e)}">Remove</button>`}</div>`).join('')}</div>
+    <div class="schs">${[CFG.admin].concat(list.filter(x => x !== CFG.admin)).filter(Boolean).map(e => `<div class="sch" style="grid-template-columns:minmax(0,1fr) auto"><span>${esc(e)}${e === CFG.admin ? ' <small>(admin)</small>' : ''}</span>${e === CFG.admin || e === EMAIL ? '' : `<button type="button" class="btn ghost small danger" data-rmc="${esc(e)}">Remove</button>`}</div>`).join('')}</div>
     <form class="inline" id="addC"><input class="input" id="addCIn" type="email" placeholder="coach@gmail.com" aria-label="Coach's Google email"><button class="btn" type="submit">Add</button></form>
     <div class="dlg-a"><button type="button" class="btn primary" data-close>Done</button></div>`, d => {
     d.querySelector('#addC').onsubmit = async ev => { ev.preventDefault(); const e = d.querySelector('#addCIn').value.trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)){ toast('Enter their full email address.'); return; }
-      try { await FB.addCoach(e); closeDialog(); coachesDialog(); toast(e + ' can now score.'); } catch(err){ toast('Couldn’t add them. Only the admin can.'); } };
+      try { await FB.addCoach(e); closeDialog(); coachesDialog(); toast(e + ' can now score.'); } catch(err){ toast('Couldn’t add them. Check the database rules are up to date.'); } };
     d.querySelectorAll('[data-rmc]').forEach(b => b.onclick = async () => { try { await FB.removeCoach(b.dataset.rmc); closeDialog(); coachesDialog(); } catch(err){ toast('Couldn’t remove them.'); } });
   });
 }
