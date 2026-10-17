@@ -10,6 +10,18 @@ const DATA = clone(RAW);                           // what gets shown
 const MAIN_APP = CFG.mainApp || 'https://claude.ai/artifact/5Xp2Q4mof4rU3NYuzrAhsK';
 const OUR_RX = /\b(ergs|enniskillen)\b/i;
 const HOME_GROUND = 'Eisenhower Playing Fields';
+const SCHOOL_NICKNAMES = {'methody':'Methodist College Belfast','mcb':'Methodist College Belfast','inst':'Royal Belfast Academical Institution','rbai':'Royal Belfast Academical Institution','bra':'Belfast Royal Academy','rsd':'Royal School Dungannon','rsa':'Royal School Armagh','friends':'Friends’ School Lisburn','portora':'Portora Royal School','sullivan':'Sullivan Upper School','sullivan upper':'Sullivan Upper School'};
+/* one name per school, so "Belfast High" and "Belfast High School" (or "Wallace" and "Wallace High School") count as the same opponent */
+function canonSchool(n){
+  n = String(n || '').trim(); if (!n || OUR_RX.test(n)) return n;
+  const k = schoolKey(n); if (SCHOOL_NICKNAMES[k]) return SCHOOL_NICKNAMES[k];
+  const words = k.split(' ').filter(Boolean); if (!words.length) return n;
+  const match = list => { const exact = list.find(u => schoolKey(u) === k); if (exact) return exact;
+    const hits = list.filter(u => { const uw = schoolKey(u).split(' '); return words.length < uw.length && words.every((w, i) => uw[i] === w); }); return hits.length === 1 ? hits[0] : ''; };
+  // the official list of Ulster schools wins, then schools added by coaches
+  const others = Object.values((typeof DATA !== 'undefined' && DATA.schools) || {}).map(x => x && x.name).filter(Boolean).filter(x => !ULSTER.includes(x));
+  return match(ULSTER) || match(others) || n;
+}
 const ULSTER = ['Antrim Grammar School','Ballyclare High School','Ballymena Academy','Banbridge Academy','Bangor Grammar School','Belfast High School','Belfast Royal Academy','Cambridge House Grammar School','Campbell College','Coleraine Grammar School','Dalriada School','Down High School','Foyle College','Friends’ School Lisburn','Grosvenor Grammar School','Larne Grammar School','Limavady Grammar School','Lurgan College','Methodist College Belfast','Omagh Academy','Portadown College','Portora Royal School','Rainey Endowed School','Regent House School','Royal Belfast Academical Institution','Royal School Armagh','Royal School Dungannon','Sullivan Upper School','Wallace High School'];
 const PTS = {try:5, con:2, pen:3, dg:3, pt:7};
 const EVK = {try:['Try','T'], con:['Conversion','C'], pen:['Penalty goal','P'], dg:['Drop goal','DG'], pt:['Penalty try','PT'], yc:['Yellow card','YC'], rc:['Red card','RC'], note:['','']};
@@ -46,7 +58,7 @@ const kot = m => { const t = Date.parse(m.ko); return isNaN(t) ? 0 : t; };
 const when = (m, long) => { if (!kot(m)) return ''; const d = new Date(kot(m)); const day = d.toLocaleDateString('en-GB', long ? {weekday:'long', day:'numeric', month:'long'} : {weekday:'short', day:'numeric', month:'short'}); return m.koTbc ? day : day + ', ' + d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}); };
 function clockText(m){ if (m.status === 'HT') return 'Half time'; if (m.status === 'FT') return 'Full time'; if (m.status === 'pre') return when(m) || 'Not started'; return mm(elapsed(m)) + (m.clock && !m.clock.running ? ' · paused' : ''); }
 const compLine = m => [m.team, m.comp, m.round].filter(Boolean).join(' · ');
-const school = n => { if (OUR_RX.test(n)) return {crest:DATA.crest, color:'#1C2342'}; const S0 = DATA.schools || {}, k = schoolKey(n); return S0[k] || S0[n] || Object.values(S0).find(v => v && (schoolKey(v.name) === k || (Array.isArray(v.aliases) && v.aliases.some(a => schoolKey(a) === k)))) || null; };
+const school = n => { if (OUR_RX.test(n)) return {crest:DATA.crest, color:'#1C2342'}; const S0 = DATA.schools || {}, k = schoolKey(n); const c = canonSchool(n); return S0[k] || S0[n] || Object.values(S0).find(v => v && (schoolKey(v.name) === k || (Array.isArray(v.aliases) && v.aliases.some(a => schoolKey(a) === k)))) || Object.values(S0).find(v => v && v.name && canonSchool(v.name) === c) || null; };
 function schoolKey(n){ return String(n || '').toLowerCase().replace(/[’'`.]/g, '').replace(/\b(1st|2nd|3rd|xv|vii|7s|u1\d|medallion|girls|boys|the)\b/g, ' ').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim(); }
 const initials = n => { const w = String(n || '?').replace(/[^A-Za-z ]/g, ' ').split(/\s+/).filter(x => x && !/^(the|of|and|school|college|academy|grammar|high|royal|xv|1st|2nd|u\d+)$/i.test(x)); return (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || '?').slice(0, 2)).toUpperCase(); };
 function crest(name, cls){ const s = school(name); if (s && s.crest) return `<span class="crest ${cls || ''}"><img alt="" src="${esc(s.crest)}"></span>`; return `<span class="crest ini ${cls || ''}" style="--c:${esc(s && s.color || '#3A4466')}">${esc(initials(name))}</span>`; }
@@ -305,6 +317,7 @@ function matchForm(m, past){
       const g = id => d.querySelector(id) ? d.querySelector(id).value.trim() : '';
       const f = {home:g('#fHome'), away:g('#fAway'), us:d.querySelector('[data-seg="us"]').dataset.val, team:g('#fTeam'), comp:g('#fComp'), round:g('#fRound'), venue:g('#fVenue'), ko:g('#fKo'), koTbc:false, code:d.querySelector('[data-seg="code"]').dataset.val, half:Math.max(3, Math.min(45, +g('#fHalf') || 35)), veo:g('#fVeo')};
       if (!f.home || !f.away){ toast('Enter both team names.'); return; }
+      f.home = canonSchool(f.home); f.away = canonSchool(f.away);
       if (f.veo && !/^https:\/\//i.test(f.veo)){ toast('The VEO link must start with https://'); return; }
       if (d.querySelector('#fPlayers')) f.players = g('#fPlayers').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map((l, i) => { const mm2 = l.match(/^(\d{1,2})[.)]?\s+(.+)$/); return mm2 ? {n:+mm2[1], name:mm2[2].replace(/\s*\([^)]*\)\s*$/, '').trim()} : {n:i + 1, name:l.replace(/\s*\([^)]*\)\s*$/, '').trim()}; });
       if (d.querySelector('#fHs')){ if (g('#fHs') === '' || g('#fAs') === ''){ toast('Enter both scores.'); return; } f.final = [+g('#fHs'), +g('#fAs')]; }
@@ -520,7 +533,7 @@ $('#tabs').hidden = true;
 function applyState(s){
   const base = {matches:[], schools:{}, crest:window.ERGS_CREST || ''};
   Object.keys(RAW).forEach(k => delete RAW[k]); Object.assign(RAW, base, s || {}, {crest:window.ERGS_CREST || (s && s.crest) || ''});
-  const d = clone(RAW); d.demo = false; Object.keys(DATA).forEach(k => delete DATA[k]); Object.assign(DATA, d);
+  const d = clone(RAW); d.demo = false; (d.matches || []).forEach(m => { m.home = canonSchool(m.home); m.away = canonSchool(m.away); }); Object.keys(DATA).forEach(k => delete DATA[k]); Object.assign(DATA, d);
   if (V.open && !DATA.matches.some(m => m.id === V.open) && !READY) V.open = null;
   READY = true; stamp(); newSinceLastLook();
   if (!$('#modal').hidden) pendingRender = true; else render();
