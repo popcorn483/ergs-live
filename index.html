@@ -330,6 +330,11 @@ textarea.input{resize:vertical;line-height:1.4}
 .fx.kick.miss .fx-burst{display:none}
 .bin-x{margin-left:4px;width:22px;height:22px;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.35);color:#fff;font-size:15px;line-height:1;display:inline-grid;place-items:center;padding:0;cursor:pointer}
 .bin-x:hover{background:#E5483B;border-color:#E5483B}
+.fx-confetti{position:absolute;left:50%;top:58%;width:0;height:0;pointer-events:none;z-index:5}
+.fx-confetti i{position:absolute;width:var(--w);height:var(--h);margin:calc(var(--h)/-2) 0 0 calc(var(--w)/-2);background:var(--c);border-radius:2px;opacity:0;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.fx-confetti i:nth-child(5n){border-radius:50%;height:var(--w)}
+.fx.on .fx-confetti i{animation:confetti var(--t) calc(.92s + var(--d)) cubic-bezier(.12,.72,.32,1) forwards}
+@keyframes confetti{0%{opacity:1;transform:translate(0,0) rotate(0) scale(.6)}35%{opacity:1;transform:translate(var(--x),var(--y)) rotate(calc(var(--r)*.4)) scale(1)}100%{opacity:0;transform:translate(calc(var(--x)*1.15),calc(var(--y) + var(--f))) rotate(var(--r)) scale(1)}}
 .more{display:block;width:100%;margin-top:8px;min-height:42px;border:1px dashed var(--rule);border-radius:10px;background:transparent;color:var(--gold);font-family:var(--f-cond);font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase}
 .more:hover{border-color:var(--gold)}
 .team-h{font-family:var(--f-display);font-weight:800;font-size:24px;text-transform:uppercase;margin:0 0 10px}
@@ -337,10 +342,10 @@ textarea.input{resize:vertical;line-height:1.4}
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = 'f9d45f4e66';</script>
-<script src="config.js?v=f9d45f4e66"></script>
-<script src="crest.js?v=f9d45f4e66"></script>
-<script src="app.js?v=f9d45f4e66"></script>
-<script type="module" src="fb.js?v=f9d45f4e66"></script>
+<script>window.ERGS_VER = 'da1d18ef4b';</script>
+<script src="config.js?v=da1d18ef4b"></script>
+<script src="crest.js?v=da1d18ef4b"></script>
+<script src="app.js?v=da1d18ef4b"></script>
+<script type="module" src="fb.js?v=da1d18ef4b"></script>
 </body>
 </html>

@@ -543,6 +543,13 @@ function playFx(){
   $('#fxScore').textContent = ptsOf(e) || missed ? `${m.home} ${h} – ${a} ${m.away}` : e.k === 'yc' ? `Sin bin · ${m.code === 'sevens' ? '2' : '10'} minutes` : e.k === 'rc' ? 'Sent off' : '';
   const burst = $('#fxBurst'); burst.innerHTML = '';
   if (ptsOf(e)) for (let i = 0; i < 28; i++){ const s = document.createElement('i'), ang = Math.random()*Math.PI*2, d = 140 + Math.random()*260; s.style.cssText = `--x:${Math.cos(ang)*d}px;--y:${Math.sin(ang)*d}px;--d:${(Math.random()*.25).toFixed(2)}s;--s:${(.6 + Math.random()*.9).toFixed(2)}`; burst.appendChild(s); }
+  // our try: a big confetti explosion in school colours (not when the opposition score)
+  let conf = $('#fxConfetti'); if (!conf){ conf = document.createElement('div'); conf.id = 'fxConfetti'; conf.className = 'fx-confetti'; fx.appendChild(conf); }
+  conf.innerHTML = '';
+  if (tryIn && usOf(m) === e.s){ const cols = ['#DCC08A', '#E3262A', '#FFFFFF', '#1C2342', '#F3D27A'];
+    for (let i = 0; i < 90; i++){ const c = document.createElement('i'), ang = -Math.PI/2 + (Math.random() - .5)*Math.PI*1.3, v = 260 + Math.random()*420;
+      c.style.cssText = `--x:${Math.round(Math.cos(ang)*v)}px;--y:${Math.round(Math.sin(ang)*v)}px;--f:${Math.round(380 + Math.random()*420)}px;--r:${Math.round(360 + Math.random()*1080)}deg;--d:${(Math.random()*.18).toFixed(2)}s;--c:${cols[i % cols.length]};--w:${(6 + Math.random()*8).toFixed(1)}px;--h:${(10 + Math.random()*12).toFixed(1)}px;--t:${(2 + Math.random()*1.1).toFixed(2)}s`;
+      conf.appendChild(c); } }
   fx.hidden = false; void fx.offsetWidth; fx.classList.add('on');
   try { if (navigator.vibrate) navigator.vibrate(card ? [300] : ptsOf(e) ? [120, 60, 120] : 0); } catch(err){}
   const close = () => { fx.classList.remove('on'); fx.classList.add('off'); setTimeout(() => { fx.hidden = true; fx.classList.remove('off'); playFx(); }, 420); };
