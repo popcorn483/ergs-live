@@ -263,25 +263,21 @@ function openEv(m, k, s, pending){
   let players = ours && Array.isArray(m.players) && m.players.length ? m.players : [];
   if (ours && !players.length && COACH){
     if (!TEAMS_CACHE){ loadTeams().then(() => openEv(m, k, s, pending)); return; }
-    const x = sheetFor(m); if (x){ players = sheetPlayers(x); toast(`Players from ${sheetLabel(x)}.`); }
+    const x = (m.sheetId && TEAMS_CACHE.sheets.find(y => y.id === m.sheetId)) || sheetFor(m); if (x) players = sheetPlayers(x);
   }
   const used = new Set(); sorted(m).forEach(e => { if (e.s === s && e.p && e.k !== 'note') used.add(e.p); });
   const lastKicker = kick ? sorted(m).filter(e => e.s === s && (e.k === 'con' || e.k === 'pen') && e.p).pop() : null;
   openDialog(`<h2>${after ? 'Conversion attempt' : EVK[k][0]}</h2><p>${esc(team)}${PTS[k] ? ` · +${PTS[k]} if scored` : ''}</p>
     ${kick ? `<div class="field"><span class="label">Kick</span>${seg('res', [['ok','Scored'],['miss','Missed']], 'ok')}</div>` : ''}
-    ${ours && !players.length && COACH && TEAMS_CACHE && TEAMS_CACHE.sheets.length ? `<div class="field"><label class="label" for="evSheet">Load players from a team sheet</label><select class="input" id="evSheet"><option value="">Choose a team sheet…</option>${TEAMS_CACHE.sheets.slice(0, 40).map(x => `<option value="${esc(x.id)}">${esc(sheetLabel(x))}</option>`).join('')}</select></div>` : ''}
-    ${players.length ? `<div class="chips">${players.map(p => `<button type="button" class="chip" data-name="${esc(p.name)}"><i>${esc(p.n || '')}</i><span>${esc(p.name)}</span></button>`).join('')}</div>` : ''}
-    <div class="field"><label class="label" for="evWho">${players.length ? 'Or type a name or shirt number' : kick ? 'Kicker (optional)' : 'Player (optional)'}</label><input class="input" id="evWho" maxlength="40" list="evNames" autocomplete="off" value="${esc(lastKicker ? lastKicker.p : '')}"><datalist id="evNames">${[...new Set(players.map(p => p.name).concat([...used]))].map(n => `<option value="${esc(n)}">`).join('')}</datalist><span class="hint" id="evHint" aria-live="polite"></span></div>
+
+    <div class="field"><label class="label" for="evWho">${kick ? 'Kicker' : 'Player'}${players.length ? ' (name or shirt number)' : ' (optional)'}</label><input class="input" id="evWho" maxlength="40" list="evNames" autocomplete="off" value="${esc(lastKicker ? lastKicker.p : '')}"><datalist id="evNames">${players.map(p => `<option value="${esc(p.name)}" label="#${esc(p.n)}">`).join('')}${[...used].filter(n => !players.some(p => p.name === n)).map(n => `<option value="${esc(n)}">`).join('')}</datalist><span class="hint" id="evHint" aria-live="polite"></span></div>
     <div class="field" style="max-width:140px"><label class="label" for="evMin">Minute</label><input class="input" id="evMin" type="number" min="0" max="120" value="${minuteNow(m)}"></div>
     <div class="dlg-a"><button type="button" class="btn ghost" id="evSkip">${after ? 'Skip' : 'Cancel'}</button>${kick ? '<button type="button" class="btn danger" id="evMiss">Missed</button>' : ''}<button type="button" class="btn primary" id="evGo">${k === 'try' ? 'Next: conversion' : kick ? 'Scored' : 'Add'}</button></div>`, d => {
     wireSegs(d);
-    const es = d.querySelector('#evSheet'); if (es) es.onchange = () => { const x = TEAMS_CACHE.sheets.find(y => y.id === es.value); if (!x) return; const list = sheetPlayers(x), id = m.id;
-      closeDialog(); openEv(Object.assign({}, m, {players:list}), k, s, pending); };
-    d.querySelectorAll('.chip').forEach(c => c.onclick = () => { d.querySelector('#evWho').value = c.dataset.name; d.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x === c)); d.querySelector('#evHint').textContent = ''; });
     const byNum = v => { const n = (String(v).trim().match(/^#?(\d{1,2})$/) || [])[1]; return n ? players.find(p => +p.n === +n) : null; };
     const who = d.querySelector('#evWho'), hint = d.querySelector('#evHint');
     who.oninput = () => { const p = byNum(who.value); hint.textContent = p ? `#${p.n} ${p.name}` : /^#?\d{1,2}$/.test(who.value.trim()) && players.length ? 'No player with that number' : '';
-      d.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', !!p && x.dataset.name === p.name)); };
+      };
     who.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); d.querySelector('#evGo').click(); } });
     // the team list is saved with the score, so the next entry has it straight away
     const commit = list => save(dd => { const x = dd.matches.find(y => y.id === m.id); list.forEach(e => x.events.push(e)); if (ours && players.length && !(x.players || []).length) x.players = players; }, m.id);
@@ -314,28 +310,35 @@ function matchForm(m, past){
     <div class="row2"><div class="field"><label class="label" for="fVenue">Venue</label><input class="input" id="fVenue" maxlength="60" list="venueNames" value="${esc(isNew && !m.venue ? HOME_GROUND : m.venue || '')}"><datalist id="venueNames">${[HOME_GROUND].concat(opps).map(n => `<option value="${esc(n)}">`).join('')}</datalist></div><div class="field"><label class="label" for="fKo">Kick-off</label><input class="input" id="fKo" type="datetime-local" value="${esc(ko)}"></div></div>
     <div class="row2"><div class="field"><span class="label">Code</span>${seg('code', [['union','15s'],['sevens','7s']], m.code || 'union')}</div><div class="field"><label class="label" for="fHalf">Half length (min)</label><input class="input" id="fHalf" type="number" min="3" max="45" value="${esc(m.half || 35)}"></div></div>
     ${showFinal ? `<div class="row2"><div class="field"><label class="label" for="fHs">Home score</label><input class="input" id="fHs" type="number" min="0" value="${esc(fin[0])}"></div><div class="field"><label class="label" for="fAs">Away score</label><input class="input" id="fAs" type="number" min="0" value="${esc(fin[1])}"></div></div>` : ''}
-    ${past ? '' : `<div class="field"><label class="label" for="fSheet">Fill the players from</label><select class="input" id="fSheet"><option value="">Choose a team sheet or squad…</option></select><span class="hint" id="fSheetMsg"></span></div>`}
-    ${past ? '' : `<div class="field"><label class="label" for="fPlayers">Our players for the scorer’s buttons (one per line, e.g. “10 Kristen Fee”)</label><textarea class="input" id="fPlayers" rows="4" placeholder="Paste from the main app: Squads, Copy for live scoring">${esc((m.players || []).map(p => (p.n ? p.n + ' ' : '') + p.name).join('\n'))}</textarea></div>`}
+    ${past ? '' : `<div class="field"><label class="label" for="fSheet">Team sheet</label><select class="input" id="fSheet"><option value="">${(m.players || []).length ? 'Current list (' + m.players.length + ' players)' : 'No team sheet'}</option></select><span class="hint" id="fSheetMsg"></span> <button type="button" class="linkish" id="fListBtn">Edit list</button>
+      <textarea class="input" id="fPlayers" rows="5" hidden aria-label="Players, one per line with shirt number">${esc((m.players || []).map(p => (p.n ? p.n + ' ' : '') + p.name).join('\n'))}</textarea></div>`}
     <div class="field"><label class="label" for="fVeo">VEO link (optional)</label><input class="input" id="fVeo" type="url" maxlength="300" value="${esc(veoOf(m))}" placeholder="https://app.veo.co/matches/…"></div>
     <div class="dlg-a"><button type="button" class="btn ghost" data-close>Cancel</button><button type="button" class="btn primary" id="fGo">${isNew ? (past ? 'Add result' : 'Create match') : 'Save'}</button></div>`, d => {
     wireSegs(d);
-    const sel = d.querySelector('#fSheet');
-    if (sel){ const msg = t => d.querySelector('#fSheetMsg').textContent = t;
-      if (!window.FB || !FB.listTeams) msg('Team sheets from the main app appear here once it’s on GitHub.');
-      else FB.listTeams().then(T => {
-        const opts = [];
-        T.sheets.forEach(x => opts.push(['s:' + x.id, 'Team sheet: ' + (x.title || [x.team, x.opp ? 'v ' + x.opp : ''].filter(Boolean).join(' ') || 'Untitled') + (x.date ? ' (' + x.date + ')' : '')]));
+    const sel = d.querySelector('#fSheet'); let picked = false;
+    if (sel){ const msg = t => d.querySelector('#fSheetMsg').textContent = t, ta = d.querySelector('#fPlayers');
+      d.querySelector('#fListBtn').onclick = () => { ta.hidden = !ta.hidden; if (!ta.hidden) ta.focus(); };
+      ta.addEventListener('input', () => { picked = true; sel.value = ''; msg(`${ta.value.split(/\n/).filter(l => l.trim()).length} players typed in`); });
+      const apply = (T, v) => { let list = [];
+        if (v.startsWith('s:')){ const x = T.sheets.find(y => y.id === v.slice(2)); if (x) list = sheetPlayers(x); }
+        if (v.startsWith('t:')) list = T.roster.filter(p => (p.t || '').trim() === v.slice(2)).map((p, i) => ({n:i + 1, name:(p.f + ' ' + p.l).trim()}));
+        if (list.length){ ta.value = list.map(p => p.n + ' ' + p.name).join('\n'); msg(`${list.length} players ready for scoring`); } };
+      loadTeams(true).then(T => { if (!T){ msg(''); return; }
+        const opts = T.sheets.map(x => ['s:' + x.id, sheetLabel(x)]);
         [...new Set(T.roster.map(p => (p.t || '').trim()).filter(Boolean))].sort().forEach(t => opts.push(['t:' + t, 'Player profiles: ' + t]));
-        if (!opts.length){ msg('No team sheets yet. Add them in the main app under Squads & team sheets.'); return; }
         sel.insertAdjacentHTML('beforeend', opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join(''));
-        sel.onchange = () => { const v = sel.value; let lines = [];
-          if (v.startsWith('s:')){ const x = T.sheets.find(y => y.id === v.slice(2)); if (x){ lines = (x.players || []).map((p, i) => `${p.n || i + 1} ${((p.f || '') + ' ' + (p.l || '')).trim()}`);
-            const a = d.querySelector('#fAway'), h = d.querySelector('#fHome'), us = d.querySelector('[data-seg="us"]').dataset.val; const oppIn = us === 'A' ? h : a;
-            if (x.opp && !oppIn.value.trim()) oppIn.value = x.opp; if (x.team){ const tc = teamCode(x.team); if (TEAM_CODES.includes(tc)) d.querySelector('#fTeam').value = tc; }
-            if (x.date && !d.querySelector('#fKo').value.startsWith(x.date)) d.querySelector('#fKo').value = x.date + 'T' + (d.querySelector('#fKo').value.slice(11) || '10:30'); } }
-          if (v.startsWith('t:')) lines = T.roster.filter(p => (p.t || '').trim() === v.slice(2)).map((p, i) => `${i + 1} ${(p.f + ' ' + p.l).trim()}`);
-          if (lines.length){ d.querySelector('#fPlayers').value = lines.join('\n'); msg(`${lines.length} players added. Change any shirt numbers in the box below.`); } };
-      }).catch(() => msg('Couldn’t load team sheets. Check you’re signed in as a coach.')); }
+        // pick the sheet for this fixture automatically (same opponent and day, else same opponent and team)
+        const auto = () => { if (picked) return; const us = d.querySelector('[data-seg="us"]').dataset.val;
+          const probe = {home:d.querySelector('#fHome').value, away:d.querySelector('#fAway').value, us, team:d.querySelector('#fTeam').value, ko:d.querySelector('#fKo').value};
+          const x = m.sheetId && T.sheets.find(y => y.id === m.sheetId) || sheetFor(probe);
+          if (x){ sel.value = 's:' + x.id; apply(T, sel.value); } else if (!(m.players || []).length){ sel.value = ''; ta.value = ''; msg(T.sheets.length ? 'No sheet for this fixture yet. Pick one if it’s listed.' : 'Add team sheets in the main app under Squads & team sheets.'); } };
+        auto();
+        ['#fHome', '#fAway', '#fKo', '#fTeam'].forEach(q => d.querySelector(q).addEventListener('change', auto));
+        d.querySelector('[data-seg="us"]').addEventListener('change', () => setTimeout(auto, 0));
+        sel.onchange = () => { picked = true; if (!sel.value){ return; } apply(T, sel.value);
+          if (sel.value.startsWith('s:')){ const x = T.sheets.find(y => y.id === sel.value.slice(2)); if (x){ const us = d.querySelector('[data-seg="us"]').dataset.val, oppIn = us === 'A' ? d.querySelector('#fHome') : d.querySelector('#fAway');
+            if (x.opp && !oppIn.value.trim()) oppIn.value = x.opp; if (x.team){ const tc = teamCode(x.team); if (TEAM_CODES.includes(tc)) d.querySelector('#fTeam').value = tc; } } } };
+      }); }
     const halfIn = d.querySelector('#fHalf'); d.querySelector('[data-seg="code"]').addEventListener('change', e => { const v = e.target.dataset.val; if (+halfIn.value === 35 || +halfIn.value === 7) halfIn.value = v === 'sevens' ? 7 : 35; });
     // venue follows home/away until someone types their own: our pitches at home, the opponent's school away
     const venueIn = d.querySelector('#fVenue'); let venueAuto = isNew || !m.venue || m.venue === HOME_GROUND;
@@ -352,6 +355,7 @@ function matchForm(m, past){
       f.home = canonSchool(f.home); f.away = canonSchool(f.away);
       if (f.veo && !/^https:\/\//i.test(f.veo)){ toast('The VEO link must start with https://'); return; }
       const veo = f.veo; delete f.veo;
+      if (sel) f.sheetId = sel.value.startsWith('s:') ? sel.value.slice(2) : '';
       if (d.querySelector('#fPlayers')) f.players = g('#fPlayers').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map((l, i) => { const mm2 = l.match(/^(\d{1,2})[.)]?\s+(.+)$/); return mm2 ? {n:+mm2[1], name:mm2[2].replace(/\s*\([^)]*\)\s*$/, '').trim()} : {n:i + 1, name:l.replace(/\s*\([^)]*\)\s*$/, '').trim()}; });
       if (d.querySelector('#fHs')){ if (g('#fHs') === '' || g('#fAs') === ''){ toast('Enter both scores.'); return; } f.final = [+g('#fHs'), +g('#fAs')]; }
       closeDialog();
