@@ -2266,8 +2266,7 @@ function renderMenu(){
   const items = [];
   if (coach) items.push({t:'New play', d:'Pick a code and a set piece, then animate it', act:openNew, main:true});
   if (squad && last && last.frames) items.push({t:'Continue', d:`${last.title} · ${last.frames.length} frames`, act:()=>{ openPlay(last); }});
-  items.push({t:'Live scores', d: coach ? 'Score matches on ERGS Live, the public scoreboard' : 'ERGS Live: scores, fixtures and results', href:LIVE_URL, k:'live', main:!coach});
-  if (squad) items.push({t:'Play library', d: coach ? 'Coached moves, the ERGS playbook and saved plays' : 'The ERGS playbook and coached moves', act:()=>go('library')});
+  if (squad) items.push({t:'Play library', d: coach ? 'Coached moves, the ERGS playbook and saved plays' : 'The ERGS playbook and coached moves', act:()=>go('library'), main:!coach});
   if (coach){
     items.push({t:'Graphics', d:'Team of the week, cup team graphic and matchday graphics', act:()=>go('graphics')});
     items.push({t:'Squads & team sheets', d:`${(sqActive() || {}).title || S.squads.A.name} · team sheets, player profiles and access`, act:()=>go('squads')});
