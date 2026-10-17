@@ -32,7 +32,7 @@ shiftDemo(DATA);
 /* ---------- page shell ---------- */
 document.body.insertAdjacentHTML('beforeend', `
 <div class="wrap">
-  <header><img id="crestImg" alt="Enniskillen Royal Grammar School crest"><h1>ERGS <span>Live</span></h1><span class="sp"></span><span class="pill live">Live scores</span></header>
+  <header><img id="crestImg" alt="Enniskillen Royal Grammar School crest"><h1>ERGS <span>Live</span></h1><span class="sp"></span><div class="hd-r"><span class="pill live">Live scores</span><span id="installSlot"></span></div></header>
   <div class="coachbar" id="coachBar" hidden></div>
   <div class="demo" id="demoBar" hidden><span><b>Preview with example matches.</b> Real scores replace these once coaches start scoring here.</span><button type="button" id="demoTry">Show a try landing</button></div>
   <nav class="tabs" id="tabs" aria-label="Sections"><button type="button" data-v="matches">Matches</button><button type="button" data-v="fixtures">Fixtures</button><button type="button" data-v="results">Results</button></nav>
@@ -658,8 +658,19 @@ const signLink = document.createElement('button'); signLink.type = 'button'; sig
 const outLink = document.createElement('button'); outLink.type = 'button'; outLink.className = 'linkish'; outLink.textContent = 'Sign out'; outLink.hidden = true;
 outLink.onclick = () => FB.signOut().then(() => { PLAYER = false; COACH = false; VEO = {}; render(); });
 $('footer').appendChild(signLink); $('footer').appendChild(outLink);
-const apk = document.createElement('a'); apk.className = 'linkish'; apk.href = 'https://github.com/popcorn483/ergs-live/releases/download/android/ERGS-Live.apk'; apk.textContent = 'Android app'; apk.rel = 'noopener';
-if (!/iPhone|iPad|iPod/.test(navigator.userAgent) && !matchMedia('(display-mode: standalone)').matches) $('footer').appendChild(apk);
+/* install as an app: the APK on Android, Add to Home Screen instructions on iPhone (hidden once installed) */
+(() => {
+  const slot = $('#installSlot'); if (!slot) return;
+  const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1), android = /Android/i.test(ua);
+  const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || /\buk\.org\.ergs\.live\b/.test(document.referrer || '') || document.referrer.startsWith('android-app://');
+  if (installed || (!ios && !android)) return;
+  if (android){ slot.innerHTML = `<a class="install-btn" href="https://github.com/popcorn483/ergs-live/releases/download/android/ERGS-Live.apk" rel="noopener"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>Android install</a>`;
+    slot.querySelector('a').addEventListener('click', () => setTimeout(() => toast('Open the downloaded ERGS-Live.apk and tap Install. Allow installs from this source if asked.'), 400)); return; }
+  slot.innerHTML = `<button type="button" class="install-btn" id="iosAdd"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 15V3m0 0L8 7m4-4l4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>Add to iPhone</button>`;
+  $('#iosAdd').onclick = () => openDialog(`<h2>Add ERGS Live to your iPhone</h2>
+    <ol class="ios-steps"><li>Open this page in <b>Safari</b>.</li><li>Tap the <b>Share</b> button <span class="ios-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 0L8 7m4-4l4 4"/><path d="M6 11H5v10h14V11h-1"/></svg></span> at the bottom of the screen.</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>. ERGS Live appears on your home screen with the school crest and opens like an app.</li></ol>
+    <div class="dlg-a"><button type="button" class="btn primary" data-close>Got it</button></div>`);
+})();
 try { if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch(e){}
 signLink.onclick = async () => { try { await FB.signIn(); } catch(e){ toast(/popup/.test(e && e.code || '') ? 'Allow pop-ups for this site, then try again.' : 'Sign-in didn’t finish. Try again.'); } };
 function boot(){
