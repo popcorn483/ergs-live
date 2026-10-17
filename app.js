@@ -83,9 +83,10 @@ function board(m, full){
 function row(m){
   const d = new Date(kot(m)), us = usOf(m), opp = us === 'A' ? m.home : m.away, r = resultOf(m);
   const right = isLive(m) ? `<span class="pill live" data-clock="${esc(m.id)}">${esc(clockText(m))}</span>` : r ? `${resPill(r)} <b>${r.f}–${r.g}</b>` : '';
-  return `<button type="button" class="row" data-open="${esc(m.id)}"><span class="cd"><b>${kot(m) ? d.getDate() : '–'}</b><span>${kot(m) ? esc(d.toLocaleDateString('en-GB', {weekday:'short'})) : ''}</span></span>${crest(opp)}
+  const ha = m.status === 'FT' ? '' : us === 'H' ? ' home' : us === 'A' ? ' away' : '';
+  return `<button type="button" class="row${ha}" data-open="${esc(m.id)}"><span class="cd"><b>${kot(m) ? d.getDate() : '–'}</b><span>${kot(m) ? esc(d.toLocaleDateString('en-GB', {weekday:'short'})) : ''}</span></span>${crest(opp)}
     <span class="ri"><b>${esc((m.team ? m.team + ' ' : '') + (us === 'A' ? '@ ' : 'v ') + opp)}</b><span>${esc([m.koTbc ? 'Kick-off to be confirmed' : kot(m) ? d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '', us === 'H' ? 'Home' : us === 'A' ? 'Away' : '', m.comp, m.venue].filter(Boolean).join(' · '))}</span></span>
-    <span class="rr">${right}</span></button>`;
+    <span class="rr">${right || (ha ? `<span class="ha-tag">${us === 'H' ? 'Home' : 'Away'}</span>` : '')}</span></button>`;
 }
 function viewMatches(){
   const live = DATA.matches.filter(isLive), now = Date.now();
@@ -99,7 +100,7 @@ function viewMatches(){
 function viewFixtures(){
   const now = Date.now(), up = DATA.matches.filter(m => m.status !== 'FT' && kot(m) > now - 6*3600e3).sort((a, b) => kot(a) - kot(b));
   if (!up.length) return '<div class="empty">No upcoming fixtures yet.</div>';
-  let out = '', cur = '';
+  let out = '<div class="ha-key"><span><i class="k-h"></i>Home, at Eisenhower Playing Fields</span><span><i class="k-a"></i>Away</span></div>', cur = '';
   for (const m of up){ const k = new Date(kot(m)).toLocaleDateString('en-GB', {month:'long', year:'numeric'}); if (k !== cur){ if (cur) out += '</div>'; out += `<div class="month">${esc(k)}</div><div class="list">`; cur = k; } out += row(m); }
   return out + '</div>';
 }
