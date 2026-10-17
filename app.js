@@ -591,6 +591,17 @@ function boot(){
   });
 }
 if (window.FB) boot(); else window.addEventListener('fb-ready', boot, {once:true});
+/* stay on the newest version: when a new one is published, open phones reload to it (never mid-entry or mid-animation) */
+async function checkVersion(){
+  if (!window.ERGS_VER || /__VER__/.test(window.ERGS_VER)) return;
+  try { const r = await fetch('version.json?t=' + Date.now(), {cache:'no-store'}); if (!r.ok) return; const v = (await r.json()).v;
+    if (v && v !== window.ERGS_VER && !busy && !saving && $('#modal').hidden){
+      try { sessionStorage.setItem('ergsLive.ui', JSON.stringify({open:V.open, tab:V.tab})); } catch(e){}
+      location.replace(location.pathname + '?v=' + v + location.hash); } } catch(e){}
+}
+setInterval(checkVersion, 90000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
+setTimeout(checkVersion, 4000);
 setTimeout(() => { if (!window.FB) boot(); }, 8000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && READY) render(); });
 })();
