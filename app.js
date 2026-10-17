@@ -9,6 +9,7 @@ const RAW = {matches:[], schools:{}, crest:window.ERGS_CREST || ''};   // last s
 const DATA = clone(RAW);                           // what gets shown
 const MAIN_APP = CFG.mainApp || 'https://claude.ai/artifact/5Xp2Q4mof4rU3NYuzrAhsK';
 const OUR_RX = /\b(ergs|enniskillen)\b/i;
+const HOME_GROUND = 'Eisenhower Playing Fields';
 const ULSTER = ['Antrim Grammar School','Ballyclare High School','Ballymena Academy','Banbridge Academy','Bangor Grammar School','Belfast High School','Belfast Royal Academy','Cambridge House Grammar School','Campbell College','Coleraine Grammar School','Dalriada School','Down High School','Foyle College','Friends’ School Lisburn','Grosvenor Grammar School','Larne Grammar School','Limavady Grammar School','Lurgan College','Methodist College Belfast','Omagh Academy','Portadown College','Portora Royal School','Rainey Endowed School','Regent House School','Royal Belfast Academical Institution','Royal School Armagh','Royal School Dungannon','Sullivan Upper School','Wallace High School'];
 const PTS = {try:5, con:2, pen:3, dg:3, pt:7};
 const EVK = {try:['Try','T'], con:['Conversion','C'], pen:['Penalty goal','P'], dg:['Drop goal','DG'], pt:['Penalty try','PT'], yc:['Yellow card','YC'], rc:['Red card','RC'], note:['','']};
@@ -264,7 +265,7 @@ function matchForm(m, past){
     <datalist id="oppNames">${opps.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     <div class="row2"><div class="field"><span class="label">ERGS are</span>${seg('us', [['H','Home'],['A','Away']], usOf(m) || 'H')}</div><div class="field"><label class="label" for="fTeam">Our team</label><select class="input" id="fTeam">${teamOptions(m.team)}</select></div></div>
     <div class="row2"><div class="field"><label class="label" for="fComp">Competition</label><input class="input" id="fComp" list="compNames" maxlength="50" value="${esc(m.comp || '')}"><datalist id="compNames">${COMPS.map(t => `<option value="${esc(t)}">`).join('')}</datalist></div><div class="field"><label class="label" for="fRound">Round</label><input class="input" id="fRound" maxlength="30" value="${esc(m.round || '')}" placeholder="Quarter-final"></div></div>
-    <div class="row2"><div class="field"><label class="label" for="fVenue">Venue</label><input class="input" id="fVenue" maxlength="50" value="${esc(m.venue || '')}"></div><div class="field"><label class="label" for="fKo">Kick-off</label><input class="input" id="fKo" type="datetime-local" value="${esc(ko)}"></div></div>
+    <div class="row2"><div class="field"><label class="label" for="fVenue">Venue</label><input class="input" id="fVenue" maxlength="60" list="venueNames" value="${esc(isNew && !m.venue ? HOME_GROUND : m.venue || '')}"><datalist id="venueNames">${[HOME_GROUND].concat(opps).map(n => `<option value="${esc(n)}">`).join('')}</datalist></div><div class="field"><label class="label" for="fKo">Kick-off</label><input class="input" id="fKo" type="datetime-local" value="${esc(ko)}"></div></div>
     <div class="row2"><div class="field"><span class="label">Code</span>${seg('code', [['union','15s'],['sevens','7s']], m.code || 'union')}</div><div class="field"><label class="label" for="fHalf">Half length (min)</label><input class="input" id="fHalf" type="number" min="3" max="45" value="${esc(m.half || 35)}"></div></div>
     ${showFinal ? `<div class="row2"><div class="field"><label class="label" for="fHs">Home score</label><input class="input" id="fHs" type="number" min="0" value="${esc(fin[0])}"></div><div class="field"><label class="label" for="fAs">Away score</label><input class="input" id="fAs" type="number" min="0" value="${esc(fin[1])}"></div></div>` : ''}
     ${past ? '' : `<div class="field"><label class="label" for="fSheet">Fill the players from</label><select class="input" id="fSheet"><option value="">Choose a team sheet or squad…</option></select><span class="hint" id="fSheetMsg"></span></div>`}
@@ -290,6 +291,13 @@ function matchForm(m, past){
           if (lines.length){ d.querySelector('#fPlayers').value = lines.join('\n'); msg(`${lines.length} players added. Change any shirt numbers in the box below.`); } };
       }).catch(() => msg('Couldn’t load team sheets. Check you’re signed in as a coach.')); }
     const halfIn = d.querySelector('#fHalf'); d.querySelector('[data-seg="code"]').addEventListener('change', e => { const v = e.target.dataset.val; if (+halfIn.value === 35 || +halfIn.value === 7) halfIn.value = v === 'sevens' ? 7 : 35; });
+    // venue follows home/away until someone types their own: our pitches at home, the opponent's school away
+    const venueIn = d.querySelector('#fVenue'); let venueAuto = isNew || !m.venue || m.venue === HOME_GROUND;
+    venueIn.addEventListener('input', () => { venueAuto = false; });
+    const autoVenue = () => { if (!venueAuto) return; const us = d.querySelector('[data-seg="us"]').dataset.val, opp = (us === 'A' ? d.querySelector('#fHome') : d.querySelector('#fAway')).value.trim();
+      venueIn.value = us === 'A' ? (OUR_RX.test(opp) ? '' : opp) : HOME_GROUND; };
+    d.querySelector('[data-seg="us"]').addEventListener('change', () => setTimeout(autoVenue, 0));
+    ['#fHome', '#fAway'].forEach(q => d.querySelector(q).addEventListener('input', autoVenue));
     d.querySelector('[data-seg="us"]').addEventListener('change', () => { const h = d.querySelector('#fHome'), a = d.querySelector('#fAway'), v = d.querySelector('[data-seg="us"]').dataset.val; if ((v === 'A' && OUR_RX.test(h.value)) || (v === 'H' && OUR_RX.test(a.value))){ const t = h.value; h.value = a.value; a.value = t; } });
     d.querySelector('#fGo').onclick = () => {
       const g = id => d.querySelector(id) ? d.querySelector(id).value.trim() : '';
@@ -440,7 +448,7 @@ function importDialog(){
       if (r.length){ msg(`Found ${r.length} fixtures. Untick any you don’t want.`); show(r); } };
     d.querySelector('#impAdd').onclick = () => { const pick = rows.filter(r => r.on); if (!pick.length) return; closeDialog();
       save(dd => pick.forEach((r, i) => { const us = r.ha || 'H', sev = /7s|vii|sevens/i.test(r.team + ' ' + r.comp);
-        dd.matches.push({id:uid(), home:us === 'H' ? 'ERGS' : r.opp, away:us === 'H' ? r.opp : 'ERGS', us, team:r.team, comp:r.comp, round:'', venue:r.venue, ko:r.date + 'T' + (r.time || '12:00'), koTbc:!r.time, code:sev ? 'sevens' : 'union', half:sev ? 7 : 35, veo:'', status:'pre', clock:{base:0, since:0, running:false}, events:[], created:Date.now() + i}); }), null); };
+        dd.matches.push({id:uid(), home:us === 'H' ? 'ERGS' : r.opp, away:us === 'H' ? r.opp : 'ERGS', us, team:r.team, comp:r.comp, round:'', venue:r.venue || (us === 'H' ? HOME_GROUND : r.opp), ko:r.date + 'T' + (r.time || '12:00'), koTbc:!r.time, code:sev ? 'sevens' : 'union', half:sev ? 7 : 35, veo:'', status:'pre', clock:{base:0, since:0, running:false}, events:[], created:Date.now() + i}); }), null); };
   });
 }
 function exists(r){ return DATA.matches.some(m => { const opp = usOf(m) === 'A' ? m.home : m.away; return (m.ko || '').slice(0, 10) === r.date && schoolKey(opp) === schoolKey(r.opp); }); }
