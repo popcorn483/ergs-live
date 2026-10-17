@@ -706,6 +706,7 @@ button.tag{cursor:pointer;font:inherit;font-size:12px;font-weight:600}
 .gate-link:hover{color:var(--gold,#DCC08A)}
 .gate-acts .live-top .lt-sub{display:inline!important}
 .gate-acts .live-top{display:inline-flex!important;height:auto!important;white-space:nowrap}
+html.role-player .coach-only{display:none!important}
 </style>
 
 </head>
@@ -5913,19 +5914,19 @@ function viewPanel(){
   const srcs = viewSources(), code = S.play ? S.play.code : 'union', nOn = code === 'sevens' ? 7 : 15, total = code === 'sevens' ? 12 : BENCH;
   const names = VIEW.names || (S.squads.A.names || []).slice(0, BENCH);
   const pool = [...new Set(roster().map(p => (p.f + ' ' + p.l).trim()).concat((S.squads.A.names || []).filter(Boolean)).concat(names.filter(Boolean)))].sort((a, b) => a.localeCompare(b));
-  tagModal(`<h2>Team on the pitch</h2>
-    <div class="field"><label class="label" for="vwSrc">Names from</label><select class="input" id="vwSrc">${srcs.map(([v, t]) => `<option value="${esc(v)}" ${v === VIEW.src ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>
+  tagModal(`<h2>${Cloud.role === 'player' ? 'Headshots' : 'Team on the pitch'}</h2>
+    ${Cloud.role === 'player' ? '' : `<div class="field"><label class="label" for="vwSrc">Names from</label><select class="input" id="vwSrc">${srcs.map(([v, t]) => `<option value="${esc(v)}" ${v === VIEW.src ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></div>`}
     <label class="check"><input type="checkbox" id="vwFaces" ${VIEW.faces ? 'checked' : ''}> Show headshots on the players (2D and 3D)</label>
-    <div class="label" style="margin-top:4px">Line-up <span style="text-transform:none;letter-spacing:0;font-weight:400">· change who plays where, just for viewing</span></div>
+    ${Cloud.role === 'player' ? '' : `<div class="label" style="margin-top:4px">Line-up <span style="text-transform:none;letter-spacing:0;font-weight:400">· change who plays where, just for viewing</span></div>
     <datalist id="vwPool">${pool.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     <div class="vw-lineup">${Array.from({length:total}, (_, i) => `<label class="vw-row${i >= nOn ? ' bench' : ''}"><b>${i + 1}</b><span>${esc((POS[code][i] || POS.union[i] || ['Replacement'])[0])}</span><input class="input" list="vwPool" data-i="${i}" value="${esc(names[i] || '')}" aria-label="Player at ${i + 1}"></label>`).join('')}</div>
-    <p class="status-line">Pick a different team above, or type over a name to swap players around. The squad itself isn’t changed.</p>
-    <div class="dlg-a"><button class="btn ghost" type="button" id="vwReset">Back to current squad</button><span style="flex:1"></span><button class="btn primary" type="button" data-tclose>Done</button></div>`, d => {
-    d.querySelector('#vwSrc').onchange = e => { VIEW.src = e.target.value; VIEW.names = namesFrom(VIEW.src); viewPanel(); };
+    <p class="status-line">Pick a different team above, or type over a name to swap players around. The squad itself isn’t changed.</p>`}
+    <div class="dlg-a">${Cloud.role === 'player' ? '' : '<button class="btn ghost" type="button" id="vwReset">Back to current squad</button>'}<span style="flex:1"></span><button class="btn primary" type="button" data-tclose>Done</button></div>`, d => {
+    const src = d.querySelector('#vwSrc'); if (src) src.onchange = e => { VIEW.src = e.target.value; VIEW.names = namesFrom(VIEW.src); viewPanel(); };
     d.querySelector('#vwFaces').onchange = e => { VIEW.faces = e.target.checked; if (stage) stage.labelKeys = {}; if (VIEW.faces && !roster().some(p => p.photo)) toast('No headshots yet. Add them in Squads & team sheets › Player profiles.'); };
     d.querySelectorAll('[data-i]').forEach(inp => inp.oninput = () => { if (!VIEW.names){ VIEW.names = (S.squads.A.names || []).slice(0, BENCH); while (VIEW.names.length < BENCH) VIEW.names.push(''); VIEW.src = 'custom'; }
       VIEW.names[+inp.dataset.i] = inp.value; if (stage) stage.labelKeys = {}; });
-    d.querySelector('#vwReset').onclick = () => { VIEW.src = 'squad'; VIEW.names = null; if (stage) stage.labelKeys = {}; viewPanel(); };
+ const rs = d.querySelector('#vwReset'); if (rs) rs.onclick = () => { VIEW.src = 'squad'; VIEW.names = null; if (stage) stage.labelKeys = {}; viewPanel(); };
   });
 }
 (() => {
@@ -5992,6 +5993,13 @@ function clipBtnLabel(){ const b = $('#clipsBtn'); if (!b || !S.play) return; co
   b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor"/></svg><span class="hide-s">Clips</span>';
   b.onclick = clipsPanel; tb.after(b);
   setInterval(() => { if (S.screen === 'editor') clipBtnLabel(); }, 1500);
+})();
+/* players can watch plays but not change the age group, set piece or who's in the team */
+(() => {
+  ['ageSel', 'setSel'].forEach(id => { const el = document.getElementById(id); const b = el && el.closest('.box'); if (b) b.classList.add('coach-only'); });
+  $$('#editor .box h4').forEach(h => { if (/^(Age group|Set piece|Players)/.test(h.textContent.trim())) h.closest('.box').classList.add('coach-only'); });
+  const sync = () => document.documentElement.classList.toggle('role-player', Cloud.role === 'player');
+  Cloud.on(sync); sync();
 })();
 
 $('#gateCrest').src = SCHOOL_CREST_SRC; $('#pubCrest').src = SCHOOL_CREST_SRC; gateUI();
