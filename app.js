@@ -400,15 +400,18 @@ function fileToImage(file){ return new Promise((res, rej) => { const r = new Fil
 function shrink(im, max){ const k = Math.min(1, max/Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(im.naturalWidth*k)); c.height = Math.max(1, Math.round(im.naturalHeight*k)); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); return c; }
 function mainColour(c){ const x = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, B = new Map(); for (let i = 0; i < x.length; i += 16){ if (x[i+3] < 170) continue; const r = x[i], g = x[i+1], b = x[i+2], mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (mx > 235 && mn > 220) continue; const k = (r >> 5) << 6 | (g >> 5) << 3 | (b >> 5), w = 1 + (mx - mn)/60, o = B.get(k) || {w:0, r:0, g:0, b:0, n:0}; o.w += w; o.r += r; o.g += g; o.b += b; o.n++; B.set(k, o); } const best = [...B.values()].sort((a, b) => b.w - a.w)[0]; if (!best) return '#3A4466'; return '#' + [best.r, best.g, best.b].map(v => Math.round(v/best.n).toString(16).padStart(2, '0')).join(''); }
 function schoolsDialog(){
-  const names = new Set(); DATA.matches.forEach(m => [m.home, m.away].forEach(n => { if (n && !OUR_RX.test(n)) names.add(n); }));
-  Object.values(DATA.schools || {}).forEach(s => s.name && names.add(s.name));
+  const names = new Set(); DATA.matches.forEach(m => [m.home, m.away].forEach(n => { if (n && !OUR_RX.test(n)) names.add(canonSchool(n)); }));
+  Object.values(DATA.schools || {}).forEach(s => s.name && names.add(canonSchool(s.name)));
   const list = [...names].sort();
   openDialog(`<h2>School crests</h2><p>Add each school’s crest once and it shows on every match against them. Small images keep the page quick for supporters.</p>
-    ${list.length ? `<div class="schs">${list.map(n => { const s = school(n) || {}; return `<div class="sch">${crest(n)}<span>${esc(n)}</span><label class="btn ghost small">Crest<input type="file" accept="image/*" hidden data-crest="${esc(n)}"></label><input type="color" value="${esc(s.color || '#3A4466')}" data-col="${esc(n)}" aria-label="Colour for ${esc(n)}"></div>`; }).join('')}</div>` : '<div class="empty">Add a match first; its opponent appears here.</div>'}
+    ${list.length ? `<div class="schs">${list.map(n => { const s = school(n) || {}; return `<div class="sch">${crest(n)}<span>${esc(n)}</span><label class="btn ghost small">Crest<input type="file" accept="image/*" hidden data-crest="${esc(n)}"></label>${s.crest || s.color ? `<button type="button" class="btn ghost small danger sch-del" data-delcrest="${esc(n)}" aria-label="Delete ${esc(n)} crest">Delete</button>` : '<span></span>'}<input type="color" value="${esc(s.color || '#3A4466')}" data-col="${esc(n)}" aria-label="Colour for ${esc(n)}"></div>`; }).join('')}</div>` : '<div class="empty">Add a match first; its opponent appears here.</div>'}
     <div class="dlg-a"><button type="button" class="btn primary" data-close>Done</button></div>`, d => {
     d.querySelectorAll('[data-crest]').forEach(inp => inp.onchange = async () => { const f = inp.files[0]; if (!f) return; const n = inp.dataset.crest;
       try { const im = await fileToImage(f), c = shrink(im, 96), url = c.toDataURL('image/webp', 0.85), col = mainColour(c); closeDialog(); save(dd => { dd.schools = dd.schools || {}; const k = schoolKey(n); dd.schools[k] = Object.assign({}, dd.schools[k], {name:n, crest:url, color:(dd.schools[k] || {}).color || col}); }); }
       catch(e){ toast('That image could not be opened.'); } });
+    d.querySelectorAll('[data-delcrest]').forEach(b => b.onclick = () => { const n = b.dataset.delcrest;
+      ask(`Delete ${n}’s crest?`, 'Their matches will show initials instead. You can add a crest again any time.', 'Delete', () => save(dd => { const c = canonSchool(n);
+        Object.keys(dd.schools || {}).forEach(k => { const v = dd.schools[k]; if (k === schoolKey(n) || (v && v.name && canonSchool(v.name) === c)) delete dd.schools[k]; }); }).then(() => { toast(`${n}’s crest deleted.`); schoolsDialog(); })); });
     d.querySelectorAll('[data-col]').forEach(inp => inp.onchange = () => { const n = inp.dataset.col; closeDialog(); save(dd => { dd.schools = dd.schools || {}; const k = schoolKey(n); dd.schools[k] = Object.assign({name:n}, dd.schools[k], {color:inp.value}); }); });
   });
 }
