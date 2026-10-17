@@ -284,7 +284,7 @@ textarea.input{resize:vertical;line-height:1.4}
 .fx-kind .w{display:inline-flex;white-space:nowrap;opacity:1!important;transform:none!important;filter:none!important;animation:none!important}
 /* try: a dive over the line, impact and grass spray, then TRY! slams down */
 .fx.tryfx .fx-crest{opacity:1;transform:none;animation:none!important}
-.fx-try{position:relative;width:min(70vw,300px);height:150px}
+.fx-try{position:relative;width:min(80vw,320px);height:270px}
 .fx-turf{position:absolute;left:0;right:0;bottom:6px;height:84px;border-radius:12px;transform:perspective(420px) rotateX(52deg);transform-origin:50% 100%;
   background:repeating-linear-gradient(90deg,#1f7a36 0 26px,#22883c 26px 52px);box-shadow:0 18px 40px rgba(0,0,0,.5);overflow:hidden}
 .fx-turf i{position:absolute;top:0;bottom:0;left:46%;width:7px;background:#fff;box-shadow:0 0 14px rgba(255,255,255,.7)}
@@ -306,7 +306,11 @@ textarea.input{resize:vertical;line-height:1.4}
 .fx-plus{position:absolute;right:2%;top:4px;font-family:var(--f-display);font-weight:900;font-size:44px;color:var(--gold);text-shadow:0 4px 0 rgba(0,0,0,.4);opacity:0;z-index:4}
 .fx.on .fx-plus{animation:plus .6s 1.15s cubic-bezier(.2,1.5,.4,1) forwards}
 @keyframes plus{0%{opacity:0;transform:scale(.2) rotate(-20deg)}100%{opacity:1;transform:scale(1) rotate(-8deg)}}
-.fx.tryfx .fx-try .fx-crestmini{bottom:auto;top:0;left:12%}
+.fx-trycrest{position:absolute;left:50%;top:0;transform:translateX(-50%) scale(.2);opacity:0;z-index:3}
+.fx-trycrest .crest.huge{width:min(44vw,170px);height:min(44vw,170px);filter:drop-shadow(0 10px 24px rgba(0,0,0,.6)) drop-shadow(0 0 30px rgba(220,192,138,.45))}
+.fx.on .fx-trycrest{animation:crestpop .7s .95s cubic-bezier(.2,1.5,.4,1) forwards}
+@keyframes crestpop{0%{opacity:0;transform:translateX(-50%) scale(.2) rotate(-25deg)}100%{opacity:1;transform:translateX(-50%) scale(1) rotate(0)}}
+.fx-try .fx-plus{top:30px}
 .fx.tryfx.on .fx-in{animation:shake .45s .9s ease}
 @keyframes shake{0%,100%{transform:none}20%{transform:translate(-9px,5px)}40%{transform:translate(8px,-6px)}60%{transform:translate(-6px,3px)}80%{transform:translate(4px,-2px)}}
 .fx.tryfx .fx-band{transform:translateY(-50%) skewY(-8deg) scaleX(0)}

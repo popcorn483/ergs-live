@@ -503,7 +503,7 @@ function playFx(){
     : tryIn ? `<div class="fx-try"><div class="fx-turf"><b></b><i></i></div><div class="fx-impact"><i></i><i></i></div>
         <div class="fx-spray">${Array.from({length:16}, (_, i) => { const a = Math.PI*(1.05 + Math.random()*.9), d = 50 + Math.random()*90; return `<i style="--x:${Math.round(Math.cos(a)*d)}px;--y:${Math.round(Math.sin(a)*d*0.8)}px;--d:${(Math.random()*.12).toFixed(2)}s"></i>`; }).join('')}</div>
         <div class="fx-tball"><svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#F6EFDF" stroke="#5a3a1a" stroke-width="2"/><path d="M8 20h44" stroke="#C8102E" stroke-width="3"/><path d="M26 14v12M30 13v14M34 14v12" stroke="#5a3a1a" stroke-width="1.6"/></svg></div>
-        <div class="fx-plus">+${PTS[e.k]}</div><div class="fx-crestmini">${crest(team)}</div></div>`
+        <div class="fx-plus">+${PTS[e.k]}</div><div class="fx-trycrest">${crest(team, 'huge')}</div></div>`
     : crest(team, 'huge');
   let li = 0; $('#fxKind').innerHTML = lab.split(' ').map(w => `<span class="w">${w.split('').map(c => `<span style="--i:${li++}">${esc(c)}</span>`).join('')}</span>`).join('<span style="--i:0">&nbsp;</span>');
   $('#fxWho').textContent = [e.p, team].filter(Boolean).join(' · ');
