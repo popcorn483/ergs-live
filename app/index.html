@@ -6044,11 +6044,23 @@ if (/^#[pj]\./.test(location.hash)){ const h = location.hash; whenRole(() => { i
 })();
 </script>
 
+<style>
+.upd-bar{position:fixed;left:50%;top:calc(10px + env(safe-area-inset-top,0px));transform:translate(-50%,-160%);z-index:95;width:min(560px,calc(100vw - 24px));display:flex;align-items:center;gap:10px;padding:10px 10px 10px 16px;border-radius:12px;background:#19213F;border:1px solid #DCC08A;box-shadow:0 14px 40px rgba(0,0,0,.55);transition:transform .4s cubic-bezier(.2,1.1,.3,1);color:#9CA4C0;font-size:14px}
+.upd-bar.on{transform:translate(-50%,0)}.upd-bar span{flex:1;min-width:0}.upd-bar b{color:#F1F0EC}
+.upd-x{width:32px;height:32px;border-radius:50%;border:1px solid #2D3962;background:transparent;color:#9CA4C0;font-size:18px;cursor:pointer}
+</style>
 <script>
-/* stay on the newest version: reload to a new one when it's published, unless something is being edited */
-(() => { const check = async () => { try { const r = await fetch('version.json?t=' + Date.now(), {cache:'no-store'}); if (!r.ok) return; const v = (await r.json()).v;
-  if (v && v !== window.ERGS_VER && !document.querySelector('.modal:not([hidden]), #matchModal:not([hidden])') && !(window.S && S.exporting) && !(window.PP && PP.dirty)) location.replace(location.pathname + '?v=' + v + location.hash); } catch(e){} };
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); }); setTimeout(check, 6000); })();
+/* stay on the newest version: ask to refresh when one is published, and refresh by itself when the app is reopened (unless something is being edited) */
+(() => { let newVer = '';
+  const busy = () => !!document.querySelector('.modal:not([hidden]), #matchModal:not([hidden]), #askModal:not([hidden])') || /Unsaved/.test((document.getElementById('ppMsg') || {}).textContent || '');
+  const go = () => location.replace(location.pathname + '?v=' + newVer + location.hash);
+  const ask = () => { if (document.getElementById('updBar')) return; const b = document.createElement('div'); b.id = 'updBar'; b.className = 'upd-bar'; b.setAttribute('role', 'status');
+    b.innerHTML = '<span><b>ERGS Rugby has been updated.</b> Save anything you are working on, then refresh.</span><button type="button" class="btn primary">Refresh</button><button type="button" class="upd-x" aria-label="Later">×</button>';
+    b.querySelector('.btn').onclick = go; b.querySelector('.upd-x').onclick = () => b.remove(); document.body.appendChild(b); requestAnimationFrame(() => b.classList.add('on')); };
+  const check = async () => { try { const r = await fetch('version.json?t=' + Date.now(), {cache:'no-store'}); if (!r.ok) return; const v = (await r.json()).v; if (v && v !== window.ERGS_VER){ newVer = v; ask(); } } catch(e){} };
+  setInterval(check, 120000);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) return; if (newVer && !busy()) return go(); check(); });
+  setTimeout(check, 6000); })();
 </script>
 </body>
 </html>

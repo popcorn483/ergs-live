@@ -710,16 +710,28 @@ function boot(){
   });
 }
 if (window.FB) boot(); else window.addEventListener('fb-ready', boot, {once:true});
-/* stay on the newest version: when a new one is published, open phones reload to it (never mid-entry or mid-animation) */
+/* stay on the newest version: when one is published, ask to refresh (and refresh by itself next time the app is opened) */
+let newVer = '';
+function refreshNow(){ try { sessionStorage.setItem('ergsLive.ui', JSON.stringify({open:V.open, tab:V.tab})); } catch(e){} location.replace(location.pathname + '?v=' + newVer + location.hash); }
+function askRefresh(){
+  if (document.getElementById('updBar')) return;
+  const b = document.createElement('div'); b.id = 'updBar'; b.className = 'upd-bar'; b.setAttribute('role', 'status');
+  b.innerHTML = '<span><b>ERGS Live has been updated.</b> Refresh to get the latest version.</span><button type="button" class="btn primary">Refresh</button><button type="button" class="upd-x" aria-label="Later">×</button>';
+  b.querySelector('.btn').onclick = refreshNow; b.querySelector('.upd-x').onclick = () => b.remove();
+  document.body.appendChild(b); requestAnimationFrame(() => b.classList.add('on'));
+}
 async function checkVersion(){
   if (!window.ERGS_VER || /__VER__/.test(window.ERGS_VER)) return;
   try { const r = await fetch('version.json?t=' + Date.now(), {cache:'no-store'}); if (!r.ok) return; const v = (await r.json()).v;
-    if (v && v !== window.ERGS_VER && !busy && !saving && $('#modal').hidden){
-      try { sessionStorage.setItem('ergsLive.ui', JSON.stringify({open:V.open, tab:V.tab})); } catch(e){}
-      location.replace(location.pathname + '?v=' + v + location.hash); } } catch(e){}
+    if (v && v !== window.ERGS_VER){ newVer = v; askRefresh(); } } catch(e){}
 }
 setInterval(checkVersion, 90000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  // coming back to the app with an update waiting: refresh straight away unless something is mid-entry
+  if (newVer && !busy && !saving && $('#modal').hidden) return refreshNow();
+  checkVersion();
+});
 setTimeout(checkVersion, 4000);
 setTimeout(() => { if (!window.FB) boot(); }, 8000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && READY) render(); });
