@@ -667,14 +667,23 @@ $('footer').appendChild(signLink); $('footer').appendChild(outLink);
   if (android){ slot.innerHTML = `<a class="install-btn" href="https://github.com/popcorn483/ergs-live/releases/download/android/ERGS-Live.apk" rel="noopener"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>Android install</a>`;
     slot.querySelector('a').addEventListener('click', () => setTimeout(() => toast('Open the downloaded ERGS-Live.apk and tap Install. Allow installs from this source if asked.'), 400)); return; }
   const iosSteps = `<ol class="ios-steps"><li>Open this page in <b>Safari</b>.</li><li>Tap the <b>Share</b> button <span class="ios-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 0L8 7m4-4l4 4"/><path d="M6 11H5v10h14V11h-1"/></svg></span> at the bottom of the screen.</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>. ERGS Live appears on your home screen with the school crest and opens like an app.</li></ol>`;
-  if (!ios){ // computers and anything else: one button with both options
-    slot.innerHTML = `<button type="button" class="install-btn" id="getApp"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>Get the app</button>`;
-    $('#getApp').onclick = () => openDialog(`<h2>Get ERGS Live on your phone</h2>
+  if (!ios){ // computers: install straight from Chrome or Edge, with phone options alongside
+    let deferred = null;
+    addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; });
+    addEventListener('appinstalled', () => { slot.innerHTML = ''; toast('ERGS Live is installed. Open it from your desktop or Start menu.'); });
+    const mac = /Macintosh/.test(ua), edge = /Edg\//.test(ua), chromium = /Chrome\//.test(ua);
+    slot.innerHTML = `<button type="button" class="install-btn" id="getApp"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Install on PC</button>`;
+    $('#getApp').onclick = async () => {
+      if (deferred){ deferred.prompt(); const r = await deferred.userChoice.catch(() => null); deferred = null; if (r && r.outcome === 'accepted') return; }
+      const pc = chromium ? `<ol class="ios-steps"><li>In ${edge ? 'Edge' : 'Chrome'}, click the <b>install icon</b> at the right of the address bar (a small screen with an arrow), or open the <b>⋮ menu</b>${edge ? ' › <b>Apps</b> › <b>Install ERGS Live</b>' : ' › <b>Cast, save and share</b> › <b>Install page as app</b>'}.</li><li>Click <b>Install</b>. ERGS Live gets its own window and a desktop / Start menu icon.</li></ol>`
+        : mac ? `<ol class="ios-steps"><li>In Safari, open the <b>File</b> menu and choose <b>Add to Dock</b>.</li><li>Click <b>Add</b>. ERGS Live opens from the Dock like an app.</li></ol>`
+        : `<p>Open <b>popcorn483.github.io/ergs-live</b> in <b>Chrome</b> or <b>Edge</b> and click the install icon at the right of the address bar.</p>`;
+      openDialog(`<h2>Install ERGS Live</h2><p><b>On this computer:</b></p>${pc}
       <p><b>Android:</b> open this page on the phone and tap <b>Android install</b>, or use this link:</p>
       <a class="btn primary" href="https://github.com/popcorn483/ergs-live/releases/download/android/ERGS-Live.apk" rel="noopener">Download for Android</a>
       <p><b>iPhone:</b></p>${iosSteps}
       <p class="hint">Web address: <b>popcorn483.github.io/ergs-live</b></p>
-      <div class="dlg-a"><button type="button" class="btn ghost" data-close>Close</button></div>`);
+      <div class="dlg-a"><button type="button" class="btn ghost" data-close>Close</button></div>`); };
     return; }
   slot.innerHTML = `<button type="button" class="install-btn" id="iosAdd"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 15V3m0 0L8 7m4-4l4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>Add to iPhone</button>`;
   $('#iosAdd').onclick = () => openDialog(`<h2>Add ERGS Live to your iPhone</h2>
