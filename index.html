@@ -218,6 +218,13 @@ textarea.input{resize:vertical;line-height:1.4}
 
 .linkish{border:0;background:transparent;color:var(--mute);text-decoration:underline;text-underline-offset:3px;padding:0;font:inherit;font-size:13px}
 .linkish:hover{color:var(--gold)}
+.team-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.team-tabs button{min-height:36px;padding:4px 12px;border-radius:999px;border:1px solid var(--rule);background:var(--deck);color:var(--chalk);font-family:var(--f-cond);font-weight:700;font-size:15px;letter-spacing:.05em}
+.team-tabs button small{font-family:var(--f-mono);font-size:11px;color:var(--mute);margin-left:3px}
+.team-tabs button.none{color:var(--dim);border-style:dashed}
+.team-tabs button[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+.team-tabs button[aria-pressed="true"] small{color:var(--gold-ink)}
+.team-h{font-family:var(--f-display);font-weight:800;font-size:24px;text-transform:uppercase;margin:0 0 10px}
 
 </style>
 </head>

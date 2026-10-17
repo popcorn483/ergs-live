@@ -102,14 +102,34 @@ function viewFixtures(){
   for (const m of up){ const k = new Date(kot(m)).toLocaleDateString('en-GB', {month:'long', year:'numeric'}); if (k !== cur){ if (cur) out += '</div>'; out += `<div class="month">${esc(k)}</div><div class="list">`; cur = k; } out += row(m); }
   return out + '</div>';
 }
+const TEAM_CODES = ['1XV','2XV','3XV','U16','Meds','U14','U13','U12','SG','JG'];
+const TEAM_NAMES = {'1XV':'1st XV','2XV':'2nd XV','3XV':'3rd XV','U16':'Under 16','Meds':'Medallion','U14':'Under 14','U13':'Under 13','U12':'Under 12','SG':'Senior girls','JG':'Junior girls'};
+/* which of our teams a match was, from whatever was typed in "Our team" */
+function teamCode(t){
+  const x = String(t || '').toLowerCase().replace(/[’'.]/g, '').replace(/\s+/g, ' ').trim(); if (!x) return '';
+  const girls = /\b(girl|girls|women|ladies|sg|jg)\b/.test(x);
+  if (girls) return /\b(junior|jg|u1[2-5]|under 1[2-5]|minis?)\b/.test(x) ? 'JG' : 'SG';
+  if (/\b(med|meds|medallion)\b/.test(x)) return 'Meds';
+  const u = x.match(/\b(?:u|under ?)(1[2-9])s?\b/); if (u) return ['12','13','14','16'].includes(u[1]) ? 'U' + u[1] : u[1] === '15' ? 'Meds' : 'U16';
+  if (/\b(1st|first|1)\s*(xv|15s?)\b|\b1xv\b|\bseniors?\b/.test(x)) return '1XV';
+  if (/\b(2nd|second|2)\s*(xv|15s?)\b|\b2xv\b/.test(x)) return '2XV';
+  if (/\b(3rd|third|3)\s*(xv|15s?)\b|\b3xv\b/.test(x)) return '3XV';
+  return 'Other';
+}
 function viewResults(){
-  const res = DATA.matches.filter(m => m.status === 'FT').sort((a, b) => kot(b) - kot(a)), rs = res.map(m => [m, resultOf(m)]).filter(x => x[1]);
-  if (!rs.length) return '<div class="empty">No results yet.</div>';
+  const allRes = DATA.matches.filter(m => m.status === 'FT').sort((a, b) => kot(b) - kot(a));
+  if (!allRes.some(m => resultOf(m))) return '<div class="empty">No results yet.</div>';
+  const counts = {}; allRes.forEach(m => { if (resultOf(m)){ const c = teamCode(m.team) || 'Other'; counts[c] = (counts[c] || 0) + 1; } });
+  const codes = TEAM_CODES.concat(counts.Other ? ['Other'] : []);
+  if (V.team && !codes.includes(V.team)) V.team = '';
+  const chips = `<div class="team-tabs" role="tablist" aria-label="Team">${[''].concat(codes).map(c => `<button type="button" role="tab" data-team="${esc(c)}" aria-pressed="${(V.team || '') === c}" ${c && !counts[c] ? 'class="none"' : ''} title="${esc(c ? TEAM_NAMES[c] || 'Other teams' : 'All teams')}">${esc(c || 'All')}${c && counts[c] ? ` <small>${counts[c]}</small>` : ''}</button>`).join('')}</div>`;
+  const res = V.team ? allRes.filter(m => (teamCode(m.team) || 'Other') === V.team) : allRes, rs = res.map(m => [m, resultOf(m)]).filter(x => x[1]);
+  if (!rs.length) return chips + `<div class="empty">No ${esc(TEAM_NAMES[V.team] || V.team)} results yet.</div>`;
   const W = rs.filter(x => x[1].r === 'W').length, L = rs.filter(x => x[1].r === 'L').length, D = rs.length - W - L;
   const by = new Map(); rs.forEach(([m, r]) => { const k = schoolKey(r.opp) || r.opp, o = by.get(k) || {n:r.opp, p:0, w:0, d:0, l:0, f:0, a:0}; o.p++; o[r.r.toLowerCase()]++; o.f += r.f; o.a += r.g; by.set(k, o); });
-  return `<div class="sum"><div><b>${rs.length}</b><span>Played</span></div><div class="w"><b>${W}</b><span>Won</span></div><div><b>${D}</b><span>Drawn</span></div><div class="l"><b>${L}</b><span>Lost</span></div></div>
+  return chips + `${V.team ? `<div class="team-h">${esc(TEAM_NAMES[V.team] || 'Other teams')}</div>` : ''}<div class="sum"><div><b>${rs.length}</b><span>Played</span></div><div class="w"><b>${W}</b><span>Won</span></div><div><b>${D}</b><span>Drawn</span></div><div class="l"><b>${L}</b><span>Lost</span></div></div>
     <div class="sec">Results</div><div class="list">${res.map(row).join('')}</div>
-    <div class="sec">Record against each school</div>
+    <div class="sec">Record against each school${V.team ? ' · ' + esc(V.team) : ''}</div>
     <div class="tbl"><table><thead><tr><th>School</th><th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">For</th><th class="hide-s">Against</th></tr></thead><tbody>
     ${[...by.values()].sort((a, b) => b.p - a.p || a.n.localeCompare(b.n)).map(o => `<tr><td><span class="who">${crest(o.n)}${esc(o.n)}</span></td><td>${o.p}</td><td>${o.w}</td><td>${o.d}</td><td>${o.l}</td><td class="hide-s">${o.f}</td><td class="hide-s">${o.a}</td></tr>`).join('')}</tbody></table></div>`;
 }
@@ -156,6 +176,7 @@ function render(){
   $('#tabs').hidden = !!m;
   $$('#tabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === V.tab));
   $('#view').innerHTML = m ? viewMatch(m) : V.tab === 'fixtures' ? viewFixtures() : V.tab === 'results' ? viewResults() : viewMatches();
+  $$('[data-team]').forEach(b => b.onclick = () => { V.team = b.dataset.team; render(); });
   $$('[data-open]').forEach(b => b.onclick = () => { V.open = b.dataset.open; try { history.replaceState(null, '', '#m.' + V.open); } catch(e){} render(); scrollTo(0, 0); });
   $$('[data-home]').forEach(b => b.onclick = () => { V.open = null; try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} render(); });
   $$('[data-act]').forEach(b => b.onclick = () => act(b.dataset.act, m));
@@ -227,7 +248,7 @@ function openEv(m, k, s, pending){
 }
 /* match details */
 const COMPS = ['Ulster Schools’ Cup','Ulster Schools’ Bowl','Ulster Schools’ Shield','Ulster Schools’ Plate','Medallion Shield','Medallion Plate','Medallion Bowl','Subsidiary Cup','Ulster Schools’ Girls’ Cup','Friendly'];
-const TEAMS = ['1st XV','2nd XV','3rd XV','Medallion XV','U14 XV','U13 XV','Girls 1st XV','Girls 7s'];
+const TEAMS = ['1XV','2XV','3XV','U16','Meds','U14','U13','U12','SG','JG'];
 function matchForm(m, past){
   const isNew = !m; m = m || {home:'ERGS', away:'', us:'H', team:'1st XV', comp:'', round:'', venue:'', ko:'', code:'union', half:35, veo:'', players:[]};
   let ko = m.ko && !m.koTbc ? m.ko.slice(0, 16) : m.ko ? m.ko.slice(0, 10) + 'T12:00' : ''; if (!ko){ const d = new Date(); d.setMinutes(d.getMinutes() < 30 ? 30 : 60, 0, 0); ko = new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0, 16); }
