@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function isAdmin() { return signedIn() && request.auth.token.email.lower() == 'ergsrugby@gmail.com'; }
+    function isCoach() { return isAdmin() || (signedIn() && exists(/databases/$(database)/documents/coaches/$(request.auth.token.email.lower()))); }
+
+    // the scoreboard: anyone can watch, only coaches can score
+    match /live/{doc} {
+      allow read: if true;
+      allow write: if isCoach() && request.resource.data.json is string && request.resource.data.json.size() < 900000;
+    }
+    // the coaches list: only the admin manages it; a coach can check their own entry
+    match /coaches/{email} {
+      allow read: if isAdmin() || (signedIn() && request.auth.token.email.lower() == email);
+      allow write: if isAdmin();
+    }
+  }
+}
