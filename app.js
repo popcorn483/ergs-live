@@ -166,7 +166,8 @@ function coachPanel(m){
   return `<div class="box coach"><h3>Match clock</h3><div class="ctrl">${clock}</div></div>
     <div class="box coach"><h3>Score</h3><div class="pad">${pad}</div>${m.status === 'pre' ? '<p class="hint">Press Kick off first.</p>' : ''}</div>
     <div class="box coach"><h3>Commentary</h3><form class="inline" id="noteForm"><input class="input" id="noteIn" maxlength="140" placeholder="Big turnover at the breakdown" aria-label="Commentary line"><button class="btn" type="submit">Post</button></form></div>
-    <div class="box coach"><h3>Match video</h3><form class="inline" id="veoForm"><input class="input" id="veoIn" type="url" placeholder="https://app.veo.co/matches/…" aria-label="VEO link" value="${esc(m.veo || '')}"><button class="btn" type="submit">Save</button></form></div>
+    <div class="box coach"><h3>Match video</h3><p class="hint" style="margin:0">Only signed-in coaches and players see this link.</p><form class="inline" id="veoForm"><input class="input" id="veoIn" type="url" placeholder="https://app.veo.co/matches/…" aria-label="VEO link" value="${esc(veoOf(m))}"><button class="btn" type="submit">Save</button></form></div>
+    <div class="box coach"><h3>Match photos</h3><p class="hint" style="margin:0">Link to an album (Google Photos, Flickr, the school website…). Everyone can see this.</p><form class="inline" id="photoForm"><input class="input" id="photoIn" type="url" placeholder="https://photos.app.goo.gl/…" aria-label="Photos link" value="${esc(m.photos || '')}"><button class="btn" type="submit">Save</button></form></div>
     <div class="box coach"><h3>Match</h3><div class="ctrl">${b('edit', 'Edit details')}${b('share', 'Copy match link')}${m.status === 'FT' ? b('copyres', 'Copy result') : ''}${b('del', 'Delete match', 'ghost danger')}</div></div>`;
 }
 function viewMatch(m){
@@ -176,7 +177,7 @@ function viewMatch(m){
   return `<button class="back" type="button" data-home>All matches</button>${isLive(m) || m.status === 'FT' ? board(m, true) : `<div class="sb quiet"><div class="sb-meta">${esc(compLine(m))}</div><div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b></div><div class="score" style="font-size:40px;color:var(--dim)">v</div><div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b></div></div><span class="clock" style="border-color:var(--rule)">${esc(when(m, true) || 'Date to be confirmed')}</span></div>`}
     ${coachPanel(m)}
     ${m.venue && m.status === 'pre' ? `<div class="box"><h3>Venue</h3><div>${esc(m.venue)}</div></div>` : ''}
-    ${m.veo && !canX ? `<div class="box"><h3>Match video</h3><a class="veo" href="${esc(m.veo)}" target="_blank" rel="noopener">Watch on VEO</a></div>` : ''}
+    ${(veoOf(m) && !canX) || m.photos ? `<div class="box media"><h3>Watch &amp; photos</h3><div class="ctrl">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ Watch on VEO</a>` : ''}${m.photos ? `<a class="veo photos" href="${esc(m.photos)}" target="_blank" rel="noopener">Match photos</a>` : ''}</div></div>` : ''}
     ${kicks.length ? `<div class="box"><h3>Goal kicking</h3>${kicks.join('')}</div>` : ''}
     <div class="box"><h3>Match timeline</h3>${evs.length ? `<ul class="tl">${evs.slice().reverse().map(e => `<li class="${e.miss ? 'miss' : ''}${canX ? ' x' : ''}"><span class="mn">${e.m}′</span><span class="ic ${e.k}">${e.k === 'note' ? '…' : EVK[e.k][1]}</span><span class="tx"><b>${esc(label(e))}</b> <span>${e.k === 'note' ? '' : esc(e.s === 'H' ? m.home : m.away)}</span></span><span class="run">${ptsOf(e) ? run.get(e) : ''}</span>${canX ? `<button type="button" class="rm" data-rm="${esc(e.id)}" aria-label="Remove this entry">×</button>` : ''}</li>`).join('')}</ul>` : `<p style="margin:0;color:var(--mute)">${m.status === 'pre' ? 'The timeline fills in once the match kicks off.' : 'Final score only.'}</p>`}</div>`;
 }
@@ -203,7 +204,9 @@ function render(){
   $$('[data-ev]').forEach(b => b.onclick = () => openEv(m, b.dataset.ev, b.dataset.side));
   $$('[data-rm]').forEach(b => b.onclick = () => { const e = m.events.find(x => x.id === b.dataset.rm); ask('Remove this entry?', `${label(e)} at ${e.m}′ will come off the timeline and the score for everyone.`, 'Remove', () => save(d => { const x = d.matches.find(y => y.id === m.id); x.events = x.events.filter(y => y.id !== e.id); }, m.id)); });
   const nf = $('#noteForm'); if (nf) nf.onsubmit = ev => { ev.preventDefault(); const t = $('#noteIn').value.trim(); if (!t) return; save(d => { const x = d.matches.find(y => y.id === m.id); x.events.push({id:uid(), k:'note', s:'', p:t.slice(0, 140), m:minuteNow(m), at:Math.round(elapsed(m)), ts:Date.now()}); }, m.id); };
-  const vf = $('#veoForm'); if (vf) vf.onsubmit = ev => { ev.preventDefault(); const v = $('#veoIn').value.trim(); if (v && !/^https:\/\//i.test(v)){ toast('Paste the full link, starting with https://'); return; } save(d => { d.matches.find(y => y.id === m.id).veo = v; }, m.id); };
+  const vf = $('#veoForm'); if (vf) vf.onsubmit = async ev => { ev.preventDefault(); const v = $('#veoIn').value.trim(); if (v && !/^https:\/\//i.test(v)){ toast('Paste the full link, starting with https://'); return; }
+    try { await FB.setVeo(m.id, v); if (m.veo) await save(d => { delete d.matches.find(y => y.id === m.id).veo; }, m.id); toast(v ? 'VEO link saved. Coaches and players can watch it.' : 'VEO link removed.'); } catch(e){ toast('That didn’t save. Try again.'); } };
+  const pf = $('#photoForm'); if (pf) pf.onsubmit = ev => { ev.preventDefault(); const v = $('#photoIn').value.trim(); if (v && !/^https:\/\//i.test(v)){ toast('Paste the full link, starting with https://'); return; } save(d => { d.matches.find(y => y.id === m.id).photos = v; }, m.id); };
 }
 $$('#tabs button').forEach(b => b.onclick = () => { V.tab = b.dataset.v; render(); });
 setInterval(() => {
@@ -212,7 +215,9 @@ setInterval(() => {
 }, 1000);
 
 /* ---------- saving: a transaction on the shared scoreboard; every phone gets it within a second ---------- */
-let saving = false, READY = false, HAS_DOC = false, EMAIL = '', ADMIN = false;
+let saving = false, READY = false, HAS_DOC = false, EMAIL = '', ADMIN = false, PLAYER = false, VEO = {}, veoUnsub = null;
+/* VEO links are kept in a private record only coaches and players can read; older ones may still sit on the match */
+const veoOf = m => (COACH || PLAYER) ? (VEO[m.id] || m.veo || '') : '';
 async function save(fn, keepOpen){
   if (!COACH || !window.FB || saving) return;
   if (keepOpen !== undefined){ V.open = keepOpen; V.openAt = Date.now(); }
@@ -284,7 +289,7 @@ function matchForm(m, past){
     ${showFinal ? `<div class="row2"><div class="field"><label class="label" for="fHs">Home score</label><input class="input" id="fHs" type="number" min="0" value="${esc(fin[0])}"></div><div class="field"><label class="label" for="fAs">Away score</label><input class="input" id="fAs" type="number" min="0" value="${esc(fin[1])}"></div></div>` : ''}
     ${past ? '' : `<div class="field"><label class="label" for="fSheet">Fill the players from</label><select class="input" id="fSheet"><option value="">Choose a team sheet or squad…</option></select><span class="hint" id="fSheetMsg"></span></div>`}
     ${past ? '' : `<div class="field"><label class="label" for="fPlayers">Our players for the scorer’s buttons (one per line, e.g. “10 Kristen Fee”)</label><textarea class="input" id="fPlayers" rows="4" placeholder="Paste from the main app: Squads, Copy for live scoring">${esc((m.players || []).map(p => (p.n ? p.n + ' ' : '') + p.name).join('\n'))}</textarea></div>`}
-    <div class="field"><label class="label" for="fVeo">VEO link (optional)</label><input class="input" id="fVeo" type="url" maxlength="300" value="${esc(m.veo || '')}" placeholder="https://app.veo.co/matches/…"></div>
+    <div class="field"><label class="label" for="fVeo">VEO link (optional)</label><input class="input" id="fVeo" type="url" maxlength="300" value="${esc(veoOf(m))}" placeholder="https://app.veo.co/matches/…"></div>
     <div class="dlg-a"><button type="button" class="btn ghost" data-close>Cancel</button><button type="button" class="btn primary" id="fGo">${isNew ? (past ? 'Add result' : 'Create match') : 'Save'}</button></div>`, d => {
     wireSegs(d);
     const sel = d.querySelector('#fSheet');
@@ -319,11 +324,13 @@ function matchForm(m, past){
       if (!f.home || !f.away){ toast('Enter both team names.'); return; }
       f.home = canonSchool(f.home); f.away = canonSchool(f.away);
       if (f.veo && !/^https:\/\//i.test(f.veo)){ toast('The VEO link must start with https://'); return; }
+      const veo = f.veo; delete f.veo;
       if (d.querySelector('#fPlayers')) f.players = g('#fPlayers').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map((l, i) => { const mm2 = l.match(/^(\d{1,2})[.)]?\s+(.+)$/); return mm2 ? {n:+mm2[1], name:mm2[2].replace(/\s*\([^)]*\)\s*$/, '').trim()} : {n:i + 1, name:l.replace(/\s*\([^)]*\)\s*$/, '').trim()}; });
       if (d.querySelector('#fHs')){ if (g('#fHs') === '' || g('#fAs') === ''){ toast('Enter both scores.'); return; } f.final = [+g('#fHs'), +g('#fAs')]; }
       closeDialog();
-      if (isNew){ const id = uid(); save(dd => dd.matches.push(Object.assign({id, status:past ? 'FT' : 'pre', clock:{base:0, since:0, running:false}, events:[], created:Date.now()}, f)), past ? null : id); }
-      else save(dd => Object.assign(dd.matches.find(y => y.id === m.id), f), m.id);
+      const keepVeo = id => { if (veo !== (VEO[id] || '')) FB.setVeo(id, veo).catch(() => toast('The VEO link didn’t save. Try again from the match.')); };
+      if (isNew){ const id = uid(); save(dd => dd.matches.push(Object.assign({id, status:past ? 'FT' : 'pre', clock:{base:0, since:0, running:false}, events:[], created:Date.now()}, f)), past ? null : id).then(() => keepVeo(id)); }
+      else save(dd => { const x = dd.matches.find(y => y.id === m.id); Object.assign(x, f); delete x.veo; }, m.id).then(() => keepVeo(m.id));
     };
   });
 }
@@ -487,16 +494,21 @@ function playFx(){
   const [m, e] = nx, team = e.s === 'H' ? m.home : m.away, [h, a] = score(m);
   const lab = e.k === 'try' ? 'TRY!' : e.k === 'pt' ? 'PENALTY TRY' : e.k === 'con' ? 'CONVERTED' : e.k === 'pen' ? 'PENALTY GOAL' : e.k === 'dg' ? 'DROP GOAL' : e.k === 'yc' ? 'YELLOW CARD' : 'RED CARD';
   fx.className = 'fx k-' + e.k; fx.style.setProperty('--tc', e.k === 'yc' ? '#F3C443' : e.k === 'rc' ? '#E5483B' : ((school(team) || {}).color || '#3A4466'));
-  $('#fxCrest').innerHTML = crest(team, 'huge');
-  $('#fxKind').innerHTML = lab.split('').map((c, i) => `<span style="--i:${i}">${c === ' ' ? '&nbsp;' : esc(c)}</span>`).join('');
+  const kickIn = (e.k === 'con' || e.k === 'pen' || e.k === 'dg') && !e.miss, card = e.k === 'yc' || e.k === 'rc';
+  fx.classList.toggle('kick', kickIn); fx.classList.toggle('cardfx', card);
+  $('#fxCrest').innerHTML = card ? `<div class="fx-cardwrap"><div class="fx-rings"><i></i><i></i><i></i></div><div class="fx-card ${e.k}"><span></span></div></div>`
+    : kickIn ? `<div class="fx-posts"><svg viewBox="0 0 200 230" aria-hidden="true"><rect class="up" x="56" y="6" width="7" height="224" rx="3"/><rect class="up" x="137" y="6" width="7" height="224" rx="3"/><rect class="bar" x="56" y="132" width="88" height="7" rx="3"/><rect class="pad" x="52" y="170" width="15" height="60" rx="3"/><rect class="pad" x="133" y="170" width="15" height="60" rx="3"/></svg>
+        <div class="fx-ball"><svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#F6EFDF" stroke="#5a3a1a" stroke-width="2"/><path d="M8 20h44" stroke="#C8102E" stroke-width="3"/><path d="M26 14v12M30 13v14M34 14v12" stroke="#5a3a1a" stroke-width="1.6"/></svg></div><div class="fx-crestmini">${crest(team)}</div></div>`
+    : crest(team, 'huge');
+  let li = 0; $('#fxKind').innerHTML = lab.split(' ').map(w => `<span class="w">${w.split('').map(c => `<span style="--i:${li++}">${esc(c)}</span>`).join('')}</span>`).join('<span style="--i:0">&nbsp;</span>');
   $('#fxWho').textContent = [e.p, team].filter(Boolean).join(' · ');
-  $('#fxScore').textContent = ptsOf(e) ? `${m.home} ${h} – ${a} ${m.away}` : '';
+  $('#fxScore').textContent = ptsOf(e) ? `${m.home} ${h} – ${a} ${m.away}` : e.k === 'yc' ? `Sin bin · ${m.code === 'sevens' ? '2' : '10'} minutes` : e.k === 'rc' ? 'Sent off' : '';
   const burst = $('#fxBurst'); burst.innerHTML = '';
   if (ptsOf(e)) for (let i = 0; i < 28; i++){ const s = document.createElement('i'), ang = Math.random()*Math.PI*2, d = 140 + Math.random()*260; s.style.cssText = `--x:${Math.cos(ang)*d}px;--y:${Math.sin(ang)*d}px;--d:${(Math.random()*.25).toFixed(2)}s;--s:${(.6 + Math.random()*.9).toFixed(2)}`; burst.appendChild(s); }
   fx.hidden = false; void fx.offsetWidth; fx.classList.add('on');
-  try { if (navigator.vibrate && ptsOf(e)) navigator.vibrate([120, 60, 120]); } catch(err){}
+  try { if (navigator.vibrate) navigator.vibrate(card ? [300] : ptsOf(e) ? [120, 60, 120] : 0); } catch(err){}
   const close = () => { fx.classList.remove('on'); fx.classList.add('off'); setTimeout(() => { fx.hidden = true; fx.classList.remove('off'); playFx(); }, 420); };
-  clearTimeout(playFx.t); playFx.t = setTimeout(close, ptsOf(e) ? 3000 : 2300); fx.onclick = () => { clearTimeout(playFx.t); close(); };
+  clearTimeout(playFx.t); playFx.t = setTimeout(close, kickIn ? 3700 : card ? 3400 : ptsOf(e) ? 3000 : 2300); fx.onclick = () => { clearTimeout(playFx.t); close(); };
 }
 function newSinceLastLook(){
   let seen = null; try { seen = JSON.parse(localStorage.getItem('ergsLive.seen') || 'null'); } catch(e){}
@@ -525,6 +537,11 @@ async function coachesDialog(){
   });
 }
 
+/* older VEO links were stored on the public scoreboard; move them to the private record */
+let veoMoved = false;
+async function migrateVeo(){ if (veoMoved) return; veoMoved = true; const old = (RAW.matches || []).filter(m => m.veo); if (!old.length) return;
+  try { for (const m of old) await FB.setVeo(m.id, m.veo); await FB.save(cur => { const n = clone(cur); (n.matches || []).forEach(m => { delete m.veo; }); n.updated = Date.now(); return n; }); } catch(e){ veoMoved = false; } }
+
 /* ---------- start ---------- */
 function stamp(){ $('#updated').textContent = DATA.updated ? 'Last update ' + new Date(DATA.updated).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : ''; }
 const hm = location.hash.match(/^#m\.([A-Za-z0-9_-]+)$/); if (hm) V.open = hm[1];
@@ -539,8 +556,10 @@ function applyState(s){
   if (!$('#modal').hidden) pendingRender = true; else render();
 }
 // footer: coach sign-in
-const signLink = document.createElement('button'); signLink.type = 'button'; signLink.className = 'linkish'; signLink.textContent = 'Coach sign in';
-$('footer').appendChild(signLink);
+const signLink = document.createElement('button'); signLink.type = 'button'; signLink.className = 'linkish'; signLink.textContent = 'Coach & player sign in';
+const outLink = document.createElement('button'); outLink.type = 'button'; outLink.className = 'linkish'; outLink.textContent = 'Sign out'; outLink.hidden = true;
+outLink.onclick = () => FB.signOut().then(() => { PLAYER = false; COACH = false; VEO = {}; render(); });
+$('footer').appendChild(signLink); $('footer').appendChild(outLink);
 signLink.onclick = async () => { try { await FB.signIn(); } catch(e){ toast(/popup/.test(e && e.code || '') ? 'Allow pop-ups for this site, then try again.' : 'Sign-in didn’t finish. Try again.'); } };
 function boot(){
   const FB = window.FB;
@@ -549,8 +568,13 @@ function boot(){
   FB.onAuth(async user => {
     EMAIL = user && user.email ? user.email.toLowerCase() : ''; ADMIN = !!EMAIL && EMAIL === String(CFG.admin || '').toLowerCase();
     let ok = ADMIN; if (EMAIL && !ok){ try { ok = await FB.isCoach(EMAIL); } catch(e){ ok = false; } }
-    COACH = ok; signLink.hidden = !!EMAIL;
-    if (EMAIL && !ok) toast(`Signed in as ${EMAIL}, which isn’t a coach. The admin is ${CFG.admin}.`);
+    let pl = false; if (EMAIL && !ok){ try { pl = await FB.isPlayer(EMAIL); } catch(e){ pl = false; } }
+    COACH = ok; PLAYER = pl; signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL || COACH;
+    if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {};
+    if (COACH || PLAYER) veoUnsub = FB.onVeo(v => { VEO = v || {}; if (READY) render(); });
+    if (EMAIL && !ok && !pl) toast(`Signed in as ${EMAIL}, which isn’t on the coaches or players list.`);
+    else if (pl) toast('Signed in as a player. Match videos are now available.');
+    if (COACH) migrateVeo();
     if (READY) render();
   });
 }

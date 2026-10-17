@@ -5874,6 +5874,7 @@ function saveLabel(){
 const VIEW = {src:'squad', names:null, faces:false};
 const DEMO_NAMES = {names:null};
 function nameOf(t, n, mode){
+  if (Cloud.role === 'player') return '';   // players see numbers and positions, never names
   if (mode === 'demo') return t === 'A' && DEMO_NAMES.names ? (DEMO_NAMES.names[n-1] || '') : '';
   if (t === 'A' && VIEW.names) return VIEW.names[n-1] || '';
   return (S.squads[t].names || [])[n-1] || '';
@@ -5935,20 +5936,24 @@ function viewPanel(){
   b.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1-3.5 3.5-5.5 6.5-5.5s5.5 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2 .6 3.2 2.6 3.7 5.5"/></svg><span class="hide-s">Team</span>';
   b.onclick = viewPanel; cam.after(b);
 })();
-/* homepage demo: a different squad's names each play */
-function demoNames(){
-  const tabs = [...new Set(roster().map(p => (p.t || '').trim()).filter(Boolean))];
-  const pools = tabs.map(t => roster().filter(p => (p.t || '').trim() === t).map(p => (p.f + ' ' + p.l).trim()));
-  const all = roster().map(p => (p.f + ' ' + p.l).trim()).filter(Boolean);
-  if (all.length) pools.push(all);
-  (Cloud.role === 'coach' ? Cloud.sheets : []).forEach(x => pools.push((x.players || []).map(p => ((p.f || '') + ' ' + (p.l || '')).trim()).filter(Boolean)));
-  const sq = (S.squads.A.names || []).filter(Boolean); if (sq.length) pools.push(sq);
-  const usable = pools.filter(p => p.length >= 5); if (!usable.length) return null;
-  const pick = usable[Math.floor(Math.random()*usable.length)].slice();
-  for (let i = pick.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i + 1)); [pick[i], pick[j]] = [pick[j], pick[i]]; }
-  return pick.slice(0, BENCH);
+/* homepage demo: each play shows the next team in turn, with every player in their own position (no shuffling) */
+let demoTeamIdx = -1;
+function demoTeams(){
+  const teams = [];
+  const tabs = [...new Set(roster().map(p => (p.t || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, undefined, {numeric:true}));
+  tabs.forEach(t => teams.push({label:t, names:roster().filter(p => (p.t || '').trim() === t).map(p => (p.f + ' ' + p.l).trim())}));
+  if (Cloud.role === 'coach') Cloud.sheets.slice().sort((a, b) => (b.created || 0) - (a.created || 0)).slice(0, 6).forEach(x => { const a = Array(BENCH).fill('');
+    (x.players || []).forEach((p, i) => { const k = +p.n >= 1 && +p.n <= BENCH ? p.n - 1 : i; if (k < BENCH && !a[k]) a[k] = ((p.f || '') + ' ' + (p.l || '')).trim(); });
+    teams.push({label:x.title || x.team || 'Team sheet', names:a}); });
+  if (!teams.length && (S.squads.A.names || []).some(Boolean)) teams.push({label:S.squads.A.name || 'Squad', names:S.squads.A.names.slice(0, BENCH)});
+  return teams.filter(t => t.names.filter(Boolean).length >= 5);
 }
-(() => { const orig = nextDemo; nextDemo = function(){ DEMO_NAMES.names = demoNames(); if (stage) stage.labelKeys = {}; return orig.apply(this, arguments); }; })();
+function demoNames(){
+  const teams = demoTeams(); if (!teams.length){ DEMO_NAMES.label = ''; return null; }
+  demoTeamIdx = (demoTeamIdx + 1) % teams.length; const t = teams[demoTeamIdx];
+  DEMO_NAMES.label = t.label; return t.names.slice(0, BENCH);
+}
+(() => { const orig = nextDemo; nextDemo = function(){ DEMO_NAMES.names = demoNames(); if (stage) stage.labelKeys = {}; const r = orig.apply(this, arguments); const nt = $('#nowTitle'); if (nt && DEMO_NAMES.label && Cloud.role !== 'player') nt.textContent = demo.play.title + ' · ' + DEMO_NAMES.label; return r; }; })();
 /* matchday graphics: choose which team's names go on the line-up */
 const SHEET_NAMES = {src:'squad', names:null};
 (() => {
@@ -6000,6 +6005,27 @@ function clipBtnLabel(){ const b = $('#clipsBtn'); if (!b || !S.play) return; co
   $$('#editor .box h4').forEach(h => { if (/^(Age group|Set piece|Players)/.test(h.textContent.trim())) h.closest('.box').classList.add('coach-only'); });
   const sync = () => document.documentElement.classList.toggle('role-player', Cloud.role === 'player');
   Cloud.on(sync); sync();
+})();
+
+/* players: watch and play back only. No editing tools, no saving, no settings */
+(() => {
+  ['durRow', 'kickRow'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('coach-only'); });
+  $$('#editor .box h4').forEach(h => { if (/^(Display|Selected)/.test(h.textContent.trim())) h.closest('.box').classList.add('coach-only'); });
+  const hint = document.getElementById('stageHint'); if (hint) hint.classList.add('coach-only');
+  $$('#editor .box').forEach(b => { if (/add frame/i.test(b.textContent) && /undo/i.test(b.textContent) && b.querySelector('.kbd, kbd')) b.classList.add('coach-only'); });
+  ['dtools', 'undoBtn', 'simBtn', 'saveBtn', 'saveAsBtn', 'sheetBtn', 'exportBtn', 'teamBtn'].forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('coach-only'); });
+  const player = () => Cloud.role === 'player';
+  const lock = () => { const on = player(); ['playTitle', 'fCap'].forEach(id => { const el = document.getElementById(id); if (el) el.readOnly = on; }); if (on && S.tool && S.tool !== 'move' && typeof setTool === 'function') setTool('move'); };
+  Cloud.on(lock); lock();
+  const c = document.getElementById('c2d');
+  // one finger can't move players or draw (two-finger zoom still works)
+  if (c) c.addEventListener('pointerdown', e => { if (player() && (!e.isPrimary || true)){ if (typeof ptrs !== 'undefined' && ptrs.size >= 2) return; e.stopImmediatePropagation(); } }, true);
+  document.addEventListener('keydown', e => { if (!player() || S.screen !== 'editor') return;
+    const k = e.key.toLowerCase();
+    if ((e.ctrlKey || e.metaKey) && (k === 'z' || k === 'y' || k === 's')) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+    if (!/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) && ['n', 'v', 'a', 'p', 'd', 'z', 't', 'e', 'delete', 'backspace'].includes(k)) e.stopImmediatePropagation(); }, true);
+  // the frame strip's add/delete buttons are rebuilt each time, so hide them by class
+  const fr = document.getElementById('frames'); if (fr) new MutationObserver(() => { if (player()) fr.querySelectorAll('.fchip.add').forEach(b => b.hidden = true); }).observe(fr, {childList:true});
 })();
 
 $('#gateCrest').src = SCHOOL_CREST_SRC; $('#pubCrest').src = SCHOOL_CREST_SRC; gateUI();

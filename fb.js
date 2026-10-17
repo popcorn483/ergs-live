@@ -14,6 +14,10 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
     signOut(){ return signOut(auth); },
     async isCoach(email){ return (await getDoc(doc(db, 'coaches', email))).exists(); },
+    async isPlayer(email){ return (await getDoc(doc(db, 'players', email))).exists(); },
+    // private VEO links (team/veo, readable by coaches and players only)
+    onVeo(cb){ return onSnapshot(doc(db, 'team', 'veo'), s => { let v = {}; if (s.exists()){ try { v = (JSON.parse(s.data().j) || {}).byMatch || {}; } catch(e){} } cb(v); }, () => cb({})); },
+    setVeo(id, url){ const r = doc(db, 'team', 'veo'); return runTransaction(db, async tx => { const s = await tx.get(r); let v = {byMatch:{}}; if (s.exists()){ try { v = JSON.parse(s.data().j) || v; } catch(e){} } v.byMatch = v.byMatch || {}; if (url) v.byMatch[id] = url; else delete v.byMatch[id]; v.updated = Date.now(); tx.set(r, {j:JSON.stringify(v), u:Date.now()}); }); },
     async listCoaches(){ return (await getDocs(collection(db, 'coaches'))).docs.map(d => d.id).sort(); },
     addCoach(email){ return setDoc(doc(db, 'coaches', email), {added:Date.now()}); },
     removeCoach(email){ return deleteDoc(doc(db, 'coaches', email)); },
