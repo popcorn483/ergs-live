@@ -591,8 +591,9 @@ function newSinceLastLook(){
   try { localStorage.setItem('ergsLive.seen', JSON.stringify(now)); } catch(e){}
   // full time: once per match, for matches that finished in the last 15 minutes while someone was following
   let ftSeen = []; try { ftSeen = JSON.parse(localStorage.getItem('ergsLive.ft') || '[]'); } catch(e){}
-  for (const m of DATA.matches) if (m.status === 'FT' && m.ftAt && Date.now() - m.ftAt < 15*60e3 && !ftSeen.includes(m.id)){
-    ftSeen.push(m.id); if (!COACH && seen && seen[m.id] && usOf(m)) Q.push([m, {id:'ft-' + m.id, k:'ft', s:usOf(m), ts:m.ftAt}]); }
+  // keyed by when the whistle went, so a reopened match that finishes again celebrates again
+  for (const m of DATA.matches) if (m.status === 'FT' && m.ftAt && Date.now() - m.ftAt < 15*60e3 && !ftSeen.includes(m.id + ':' + m.ftAt)){
+    ftSeen.push(m.id + ':' + m.ftAt); if (!COACH && seen && seen[m.id] && usOf(m)) Q.push([m, {id:'ft-' + m.id, k:'ft', s:usOf(m), ts:m.ftAt}]); }
   try { localStorage.setItem('ergsLive.ft', JSON.stringify(ftSeen.slice(-40))); } catch(e){}
   if (Q.length && !busy){ busy = true; setTimeout(playFx, 500); }
   if (CQ.length && !cbusy) setTimeout(playComm, Q.length ? 4200 : 600);
