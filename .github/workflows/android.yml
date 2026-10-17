@@ -1,0 +1,36 @@
+name: Android app
+
+# Builds ERGS Live for Android and publishes ERGS-Live.apk to the "android" release.
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+      - name: Build the APK
+        run: gradle -p android assembleRelease --no-daemon --stacktrace
+      - name: Name it
+        run: cp android/app/build/outputs/apk/release/app-release.apk ERGS-Live.apk
+      - name: Publish to Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android --yes --cleanup-tag || true
+          gh release create android ERGS-Live.apk --latest \
+            --title "ERGS Live for Android" \
+            --notes "Download ERGS-Live.apk on an Android phone, open it and allow installing from this source. Live scores, fixtures and results for Enniskillen Royal Grammar School rugby. Build ${{ github.run_number }}."

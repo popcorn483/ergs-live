@@ -657,6 +657,9 @@ const signLink = document.createElement('button'); signLink.type = 'button'; sig
 const outLink = document.createElement('button'); outLink.type = 'button'; outLink.className = 'linkish'; outLink.textContent = 'Sign out'; outLink.hidden = true;
 outLink.onclick = () => FB.signOut().then(() => { PLAYER = false; COACH = false; VEO = {}; render(); });
 $('footer').appendChild(signLink); $('footer').appendChild(outLink);
+const apk = document.createElement('a'); apk.className = 'linkish'; apk.href = 'https://github.com/popcorn483/ergs-live/releases/download/android/ERGS-Live.apk'; apk.textContent = 'Android app'; apk.rel = 'noopener';
+if (!/iPhone|iPad|iPod/.test(navigator.userAgent) && !matchMedia('(display-mode: standalone)').matches) $('footer').appendChild(apk);
+try { if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch(e){}
 signLink.onclick = async () => { try { await FB.signIn(); } catch(e){ toast(/popup/.test(e && e.code || '') ? 'Allow pop-ups for this site, then try again.' : 'Sign-in didn’t finish. Try again.'); } };
 function boot(){
   const FB = window.FB;
