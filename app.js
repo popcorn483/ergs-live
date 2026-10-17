@@ -31,7 +31,7 @@ document.body.insertAdjacentHTML('beforeend', `
 <div class="toast" id="toast" hidden role="status"></div>`);
 $('#crestImg').src = DATA.crest;
 let toastT = 0;
-function toast(t){ const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => el.hidden = true, 3200); }
+function toast(t){ const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => el.hidden = true, Math.max(3200, t.length * 60)); }
 
 /* ---------- helpers ---------- */
 const isLive = m => m.status === '1H' || m.status === 'HT' || m.status === '2H';
@@ -144,7 +144,7 @@ function coachBar(){
   const bar = $('#coachBar'); bar.hidden = !COACH; if (!COACH) return;
   bar.innerHTML = DATA.demo
     ? `<span><b>Coach view.</b> The matches below are examples. Clear them to start real scoring; supporters will see your matches straight away.</span><button type="button" class="btn primary" data-act="cleardemo">Clear the examples</button>`
-    : `<span><b>Coach view.</b> Every change goes live for everyone watching.</span><div class="ctrl"><button type="button" class="btn primary" data-act="new">New match</button><button type="button" class="btn" data-act="past">Add a past result</button><button type="button" class="btn" data-act="import">Import fixtures</button><button type="button" class="btn" data-act="schools">School crests</button>${ADMIN ? '<button type="button" class="btn" data-act="coaches">Coaches</button>' : ''}<a class="btn ghost" href="${MAIN_APP}" target="_blank" rel="noopener">Main app</a><button type="button" class="btn ghost" data-act="signout">Sign out</button></div>`;
+    : `<span><b>Coach view.</b> Every change goes live for everyone watching.</span><div class="ctrl"><button type="button" class="btn primary" data-act="new">New match</button><button type="button" class="btn" data-act="past">Add a past result</button><button type="button" class="btn" data-act="import">Import fixtures</button><button type="button" class="btn" data-act="schools">School crests</button>${ADMIN ? '<button type="button" class="btn" data-act="coaches">Coaches</button>' : ''}<button type="button" class="btn" data-act="tomain">Copy for main app</button><a class="btn ghost" href="${MAIN_APP}" target="_blank" rel="noopener">Main app</a><button type="button" class="btn ghost" data-act="signout">Sign out</button></div>`;
   if (READY && !HAS_DOC) bar.innerHTML = `<span><b>Coach view.</b> The scoreboard is empty. Bring across the matches from the Claude page to start.</span><button type="button" class="btn primary" data-act="seed">Set up the scoreboard</button><button type="button" class="btn ghost" data-act="signout">Sign out</button>`;
 }
 function render(){
@@ -177,7 +177,7 @@ async function save(fn, keepOpen){
   saving = true; const t = setTimeout(() => { if (saving) $('#saving').hidden = false; }, 400);
   try { await FB.save(cur => { const next = clone(cur || {matches:[], schools:{}}); fn(next); next.updated = Date.now(); return next; }); }
   catch(e){ const c = e && (e.code || '');
-    if (/permission/.test(c)){ COACH = false; render(); toast('Your account isn’t on the coaches list. Ask the admin to add you.'); }
+    if (/permission/.test(c)){ toast(ADMIN ? `The database refused the save. In Firebase → Firestore → Rules, check the admin email reads ${CFG.admin} and press Publish.` : 'The database refused the save: your account isn’t on the coaches list. Ask the admin to add you.'); }
     else if (/unavailable|network/.test(c)) toast('No signal. That change didn’t save; try again.');
     else toast('That didn’t save. Try again.'); console.error(e); }
   finally { clearTimeout(t); saving = false; $('#saving').hidden = true; render(); }
@@ -261,6 +261,7 @@ function act(a, m){
     case 'new': return matchForm(null);
     case 'signout': return FB.signOut().then(() => { COACH = false; ADMIN = false; render(); toast('Signed out.'); });
     case 'coaches': return coachesDialog();
+    case 'tomain': return copy('ERGSLIVE1:' + JSON.stringify({matches:RAW.matches || [], at:Date.now()}), 'Copied. In the main app: Live scores, Import from ERGS Live, paste.');
     case 'seed': return fetch('seed.json', {cache:'no-store'}).then(r => r.ok ? r.json() : {matches:[], schools:{}}).catch(() => ({matches:[], schools:{}})).then(seed => save(d => { d.matches = seed.matches || []; d.schools = seed.schools || {}; d.demo = false; }, null));
     case 'past': return matchForm(null, true);
     case 'import': return importDialog();
@@ -476,7 +477,7 @@ function boot(){
     EMAIL = user && user.email ? user.email.toLowerCase() : ''; ADMIN = !!EMAIL && EMAIL === String(CFG.admin || '').toLowerCase();
     let ok = ADMIN; if (EMAIL && !ok){ try { ok = await FB.isCoach(EMAIL); } catch(e){ ok = false; } }
     COACH = ok; signLink.hidden = !!EMAIL;
-    if (EMAIL && !ok) toast(`${EMAIL} isn’t on the coaches list. Ask the admin to add you.`);
+    if (EMAIL && !ok) toast(`Signed in as ${EMAIL}, which isn’t a coach. The admin is ${CFG.admin}.`);
     if (READY) render();
   });
 }
