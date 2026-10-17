@@ -698,6 +698,9 @@ button.tag{cursor:pointer;font:inherit;font-size:12px;font-weight:600}
 @media (max-width:1500px){ #teamBtn .hide-s,#clipsBtn .hide-s{display:none} #teamBtn,#clipsBtn{padding-inline:10px} }
 #saveAsBtn{padding-inline:10px}
 @media (max-width:1500px){ #saveAsBtn .hide-s{display:none} #saveAsBtn .show-s{display:inline} }
+.live-top b{font-weight:700}
+.live-top .lt-sub{font-weight:600;letter-spacing:.06em;color:var(--gold,#DCC08A);border-left:1px solid rgba(227,38,42,.45);padding-left:8px;margin-left:2px}
+@media (max-width:480px){ .live-top .lt-sub{display:none} }
 </style>
 
 </head>
@@ -5527,12 +5530,8 @@ function gxTabs(){ $$('.gx-tabs button').forEach(b => b.setAttribute('aria-press
 /* =============================== ERGS LIVE (public scoreboard page) =============================== */
 const LIVE_URL = 'https://popcorn483.github.io/ergs-live/';
 function menuLive(){
-  const box = $('#homeLive'); if (!box) return;
+  const box = $('#homeLive'); if (box) box.hidden = true;
   const chip = $('#liveChip'); if (chip) chip.hidden = true;
-  if (Cloud.role === 'pending'){ box.hidden = true; return; }
-  box.hidden = false;
-  box.innerHTML = `<div class="hl-head"><span class="livedot"></span><b>ERGS Live</b><a class="hl-all" href="${LIVE_URL}" target="_blank" rel="noopener">Open scores</a></div>
-    <p class="hl-msg">Live scores, fixtures and results are on ERGS Live. Parents can open it on any phone.${Cloud.role === 'coach' ? ' Coaches sign in there to score.' : ''}</p>`;
 }
 function gateUI(){
   const m = $('#gateMsg'); if (!m) return;
@@ -5602,7 +5601,7 @@ function importLiveUI(){
 (() => {
   const who = $('#whoChip'); if (!who) return;
   const a = document.createElement('a'); a.id = 'liveTop'; a.className = 'live-top'; a.href = LIVE_URL; a.target = '_blank'; a.rel = 'noopener';
-  a.innerHTML = '<span class="livedot"></span>ERGS Live';
+  a.innerHTML = '<span class="livedot"></span><b>ERGS Live</b><span class="lt-sub">Open scores →</span>'; a.title = 'Live scores, fixtures and results on ERGS Live';
   who.after(a);
 })();
 
@@ -5660,17 +5659,6 @@ async function importAll(file){
   for (const p of keys){ msg(`Saving ${++n} of ${keys.length}…`); try { await Cloud.set(p, docs[p]); } catch(e){} }
   msg(''); toast(`Imported ${keys.length} items and ${imgs.length} pictures.`);
 }
-(() => {
-  const pg = $('#people .page'); if (!pg) return;
-  const box = document.createElement('div'); box.className = 'box mig-box'; box.hidden = true;
-  const gh = window.ERGS_HOST === 'github';
-  box.innerHTML = gh ? `<h4>Bring your data across</h4><p class="status-line">On the Claude version, open Squads & team sheets › Player profiles & access and press <b>Export everything</b>. Then load that file here. Plays, squads, player profiles, headshots, team sheets, sponsors, tags and team of the week all come across.</p><div class="row"><label class="btn primary" for="migFile">Import from the Claude version</label><input type="file" id="migFile" accept=".json,application/json" hidden><span class="status-line" id="migMsg" aria-live="polite"></span></div>`
-    : `<h4>Moving to the GitHub version</h4><p class="status-line">Download everything (plays, squads, player profiles, headshots, team sheets, sponsors, tags and team of the week) as one file, then import it on the GitHub version.</p><div class="row"><button class="btn primary" type="button" id="migExport">Export everything</button></div>`;
-  pg.appendChild(box);
-  Cloud.on(() => { box.hidden = Cloud.role !== 'coach'; });
-  const ex = $('#migExport'); if (ex) ex.onclick = () => exportAll().catch(() => toast('The export didn’t finish. Try again.'));
-  const im = $('#migFile'); if (im) im.onchange = e => { const f = e.target.files[0]; e.target.value = ''; if (f) importAll(f); };
-})();
 /* =============================== SPONSORS: add, edit, delete =============================== */
 const SPM = {edit:null, draft:null, busy:false};
 function spmEnsure(){
@@ -5783,7 +5771,7 @@ async function spmSave(){
 /* Squads & team sheets: one section with two tabs */
 (() => {
   const mk = cur => { const d = document.createElement('div'); d.className = 'seg sq-tabs'; d.setAttribute('role', 'group'); d.setAttribute('aria-label', 'Squads');
-    d.innerHTML = `<button type="button" data-sq="squads" aria-pressed="${cur === 'squads'}">Team sheets</button><button type="button" data-sq="people" aria-pressed="${cur === 'people'}">Players aria-pressed="${cur === 'people'}">Player profiles &amp; access</button>amp; access</button>`;
+    d.innerHTML = `<button type="button" data-sq="squads" aria-pressed="${cur === 'squads'}">Team sheets</button><button type="button" data-sq="people" aria-pressed="${cur === 'people'}">Players &amp; access</button>`;
     d.querySelectorAll('[data-sq]').forEach(b => b.onclick = () => { if (S.screen !== b.dataset.sq) go(b.dataset.sq); }); return d; };
   ['squads', 'people'].forEach(id => { const pg = document.querySelector('#' + id + ' .page'); if (pg) pg.insertBefore(mk(id), pg.firstChild); });
   const back = document.querySelector('#people .page-head [data-go="menu"]'); if (back) back.dataset.go = 'menu';
