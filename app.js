@@ -495,10 +495,15 @@ function playFx(){
   const lab = e.k === 'try' ? 'TRY!' : e.k === 'pt' ? 'PENALTY TRY' : e.k === 'con' ? 'CONVERTED' : e.k === 'pen' ? 'PENALTY GOAL' : e.k === 'dg' ? 'DROP GOAL' : e.k === 'yc' ? 'YELLOW CARD' : 'RED CARD';
   fx.className = 'fx k-' + e.k; fx.style.setProperty('--tc', e.k === 'yc' ? '#F3C443' : e.k === 'rc' ? '#E5483B' : ((school(team) || {}).color || '#3A4466'));
   const kickIn = (e.k === 'con' || e.k === 'pen' || e.k === 'dg') && !e.miss, card = e.k === 'yc' || e.k === 'rc';
-  fx.classList.toggle('kick', kickIn); fx.classList.toggle('cardfx', card);
+  const tryIn = e.k === 'try' || e.k === 'pt';
+  fx.classList.toggle('kick', kickIn); fx.classList.toggle('cardfx', card); fx.classList.toggle('tryfx', tryIn);
   $('#fxCrest').innerHTML = card ? `<div class="fx-cardwrap"><div class="fx-rings"><i></i><i></i><i></i></div><div class="fx-card ${e.k}"><span></span></div></div>`
     : kickIn ? `<div class="fx-posts"><svg viewBox="0 0 200 230" aria-hidden="true"><rect class="up" x="56" y="6" width="7" height="224" rx="3"/><rect class="up" x="137" y="6" width="7" height="224" rx="3"/><rect class="bar" x="56" y="132" width="88" height="7" rx="3"/><rect class="pad" x="52" y="170" width="15" height="60" rx="3"/><rect class="pad" x="133" y="170" width="15" height="60" rx="3"/></svg>
         <div class="fx-ball"><svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#F6EFDF" stroke="#5a3a1a" stroke-width="2"/><path d="M8 20h44" stroke="#C8102E" stroke-width="3"/><path d="M26 14v12M30 13v14M34 14v12" stroke="#5a3a1a" stroke-width="1.6"/></svg></div><div class="fx-crestmini">${crest(team)}</div></div>`
+    : tryIn ? `<div class="fx-try"><div class="fx-turf"><b></b><i></i></div><div class="fx-impact"><i></i><i></i></div>
+        <div class="fx-spray">${Array.from({length:16}, (_, i) => { const a = Math.PI*(1.05 + Math.random()*.9), d = 50 + Math.random()*90; return `<i style="--x:${Math.round(Math.cos(a)*d)}px;--y:${Math.round(Math.sin(a)*d*0.8)}px;--d:${(Math.random()*.12).toFixed(2)}s"></i>`; }).join('')}</div>
+        <div class="fx-tball"><svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#F6EFDF" stroke="#5a3a1a" stroke-width="2"/><path d="M8 20h44" stroke="#C8102E" stroke-width="3"/><path d="M26 14v12M30 13v14M34 14v12" stroke="#5a3a1a" stroke-width="1.6"/></svg></div>
+        <div class="fx-plus">+${PTS[e.k]}</div><div class="fx-crestmini">${crest(team)}</div></div>`
     : crest(team, 'huge');
   let li = 0; $('#fxKind').innerHTML = lab.split(' ').map(w => `<span class="w">${w.split('').map(c => `<span style="--i:${li++}">${esc(c)}</span>`).join('')}</span>`).join('<span style="--i:0">&nbsp;</span>');
   $('#fxWho').textContent = [e.p, team].filter(Boolean).join(' · ');
@@ -508,7 +513,7 @@ function playFx(){
   fx.hidden = false; void fx.offsetWidth; fx.classList.add('on');
   try { if (navigator.vibrate) navigator.vibrate(card ? [300] : ptsOf(e) ? [120, 60, 120] : 0); } catch(err){}
   const close = () => { fx.classList.remove('on'); fx.classList.add('off'); setTimeout(() => { fx.hidden = true; fx.classList.remove('off'); playFx(); }, 420); };
-  clearTimeout(playFx.t); playFx.t = setTimeout(close, kickIn ? 3700 : card ? 3400 : ptsOf(e) ? 3000 : 2300); fx.onclick = () => { clearTimeout(playFx.t); close(); };
+  clearTimeout(playFx.t); playFx.t = setTimeout(close, kickIn ? 3700 : tryIn ? 3800 : card ? 3400 : ptsOf(e) ? 3000 : 2300); fx.onclick = () => { clearTimeout(playFx.t); close(); };
 }
 function newSinceLastLook(){
   let seen = null; try { seen = JSON.parse(localStorage.getItem('ergsLive.seen') || 'null'); } catch(e){}

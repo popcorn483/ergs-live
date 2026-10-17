@@ -252,8 +252,11 @@ textarea.input{resize:vertical;line-height:1.4}
 @keyframes ring{0%{opacity:.9;transform:scale(.4)}100%{opacity:0;transform:scale(3.2)}}
 .fx.k-rc.on{animation:fxbg .35s ease forwards,redflash .9s .7s ease-in-out 2}
 @keyframes redflash{0%,100%{box-shadow:inset 0 0 0 0 rgba(229,72,59,0)}50%{box-shadow:inset 0 0 160px 40px rgba(229,72,59,.75)}}
-.fx.k-yc .fx-band,.fx.k-rc .fx-band{opacity:.9}
-.fx.k-yc .fx-kind,.fx.k-yc .fx-who{color:#1a1500}
+.fx.k-rc .fx-band{opacity:.95}
+/* yellow card: dark band, bright glowing yellow text */
+.fx.k-yc .fx-band{background:linear-gradient(90deg,#10162f,#1f2852 50%,#10162f);box-shadow:0 0 0 6px #F3C443,0 30px 80px rgba(0,0,0,.6)}
+.fx.k-yc .fx-kind,.fx.k-yc .fx-who{color:#FFDD55!important;text-shadow:0 0 22px rgba(255,214,70,.65),0 4px 0 rgba(0,0,0,.55)!important}
+.fx.k-yc .fx-score,.fx.k-rc .fx-score{color:#fff}
 .fx.cardfx.on .fx-kind span{animation-delay:calc(.75s + var(--i)*.03s)}
 .fx.cardfx.on .fx-who,.fx.cardfx.on .fx-score{animation-delay:1.15s}
 /* successful kick: ball over the bar */
@@ -279,6 +282,39 @@ textarea.input{resize:vertical;line-height:1.4}
 .media .ctrl{gap:10px}
 .veo.photos{background:transparent;color:var(--gold);border:1px solid var(--gold)}
 .fx-kind .w{display:inline-flex;white-space:nowrap;opacity:1!important;transform:none!important;filter:none!important;animation:none!important}
+/* try: a dive over the line, impact and grass spray, then TRY! slams down */
+.fx.tryfx .fx-crest{opacity:1;transform:none;animation:none!important}
+.fx-try{position:relative;width:min(70vw,300px);height:150px}
+.fx-turf{position:absolute;left:0;right:0;bottom:6px;height:84px;border-radius:12px;transform:perspective(420px) rotateX(52deg);transform-origin:50% 100%;
+  background:repeating-linear-gradient(90deg,#1f7a36 0 26px,#22883c 26px 52px);box-shadow:0 18px 40px rgba(0,0,0,.5);overflow:hidden}
+.fx-turf i{position:absolute;top:0;bottom:0;left:46%;width:7px;background:#fff;box-shadow:0 0 14px rgba(255,255,255,.7)}
+.fx-turf b{position:absolute;inset:0 0 0 calc(46% + 7px);background:rgba(255,255,255,.06)}
+.fx-tball{position:absolute;left:58%;bottom:34px;width:64px;aspect-ratio:60/40;margin-left:-32px;opacity:0;z-index:2}
+.fx-tball svg{width:100%;height:100%;display:block;filter:drop-shadow(0 8px 10px rgba(0,0,0,.55))}
+.fx.on .fx-tball{animation:dive .75s .15s cubic-bezier(.5,0,.85,.4) forwards,squash .35s .9s ease-out forwards}
+@keyframes dive{0%{opacity:1;transform:translate(-210px,-150px) rotate(-200deg) scale(1.5)}100%{opacity:1;transform:translate(0,0) rotate(-18deg) scale(1)}}
+@keyframes squash{0%{transform:rotate(-18deg) scale(1.15,.72)}100%{opacity:1;transform:rotate(-18deg) scale(1)}}
+.fx-impact{position:absolute;left:58%;bottom:28px;width:0;height:0;z-index:1}
+.fx-impact i{position:absolute;left:-50px;top:-18px;width:100px;height:36px;border-radius:50%;border:4px solid #fff;opacity:0}
+.fx.on .fx-impact i{animation:impact .7s .9s ease-out forwards}.fx.on .fx-impact i:nth-child(2){animation-delay:1.02s;border-color:var(--gold)}
+@keyframes impact{0%{opacity:1;transform:scale(.3)}100%{opacity:0;transform:scale(2.6)}}
+.fx-spray{position:absolute;left:58%;bottom:40px;z-index:3}
+.fx-spray i{position:absolute;width:7px;height:7px;border-radius:2px;background:#3fae5a;opacity:0}
+.fx-spray i:nth-child(3n){background:#7dd18f}.fx-spray i:nth-child(4n){background:#fff;width:5px;height:5px;border-radius:50%}
+.fx.on .fx-spray i{animation:spray .8s calc(.9s + var(--d)) cubic-bezier(.15,.7,.3,1) forwards}
+@keyframes spray{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(var(--x),var(--y)) rotate(320deg)}}
+.fx-plus{position:absolute;right:2%;top:4px;font-family:var(--f-display);font-weight:900;font-size:44px;color:var(--gold);text-shadow:0 4px 0 rgba(0,0,0,.4);opacity:0;z-index:4}
+.fx.on .fx-plus{animation:plus .6s 1.15s cubic-bezier(.2,1.5,.4,1) forwards}
+@keyframes plus{0%{opacity:0;transform:scale(.2) rotate(-20deg)}100%{opacity:1;transform:scale(1) rotate(-8deg)}}
+.fx.tryfx .fx-try .fx-crestmini{bottom:auto;top:0;left:12%}
+.fx.tryfx.on .fx-in{animation:shake .45s .9s ease}
+@keyframes shake{0%,100%{transform:none}20%{transform:translate(-9px,5px)}40%{transform:translate(8px,-6px)}60%{transform:translate(-6px,3px)}80%{transform:translate(4px,-2px)}}
+.fx.tryfx .fx-band{transform:translateY(-50%) skewY(-8deg) scaleX(0)}
+.fx.tryfx.on .fx-band{animation:band .45s .85s cubic-bezier(.7,0,.2,1) forwards}
+.fx.tryfx.on .fx-kind span{animation:slam .45s calc(1s + var(--i)*.07s) cubic-bezier(.3,1.6,.5,1) forwards}
+@keyframes slam{0%{opacity:0;transform:scale(3.4) translateY(-30%);filter:blur(6px)}100%{opacity:1;transform:none;filter:none}}
+.fx.tryfx.on .fx-who,.fx.tryfx.on .fx-score{animation-delay:1.45s}
+.fx.tryfx.on .fx-burst i{animation-delay:calc(1s + var(--d))}
 .more{display:block;width:100%;margin-top:8px;min-height:42px;border:1px dashed var(--rule);border-radius:10px;background:transparent;color:var(--gold);font-family:var(--f-cond);font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase}
 .more:hover{border-color:var(--gold)}
 .team-h{font-family:var(--f-display);font-weight:800;font-size:24px;text-transform:uppercase;margin:0 0 10px}
