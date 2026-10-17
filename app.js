@@ -72,12 +72,14 @@ const UI = (() => { try { const u = JSON.parse(sessionStorage.getItem('ergsLive.
 const V = {tab:UI && UI.tab || 'matches', open:UI && UI.open || null};
 let COACH = false, ART = null;
 const prev = new Map();
-function bins(m, s){
+function bins(m, s, full){
   if (m.status === 'pre' || m.status === 'FT') return '';
-  return sorted(m).filter(e => e.s === s && (e.k === 'yc' || e.k === 'rc')).map(e => {
-    if (e.k === 'rc') return `<span class="bin rc"><i></i>${esc(e.p || 'Red card')}</span>`;
+  // coaches get a quick × to clear a card from the scoreboard (it stays in the timeline)
+  const x = e => full && COACH && !DATA.demo ? `<button type="button" class="bin-x" data-unbin="${esc(e.id)}" aria-label="Remove this card from the scoreboard">×</button>` : '';
+  return sorted(m).filter(e => e.s === s && (e.k === 'yc' || e.k === 'rc') && !e.ret).map(e => {
+    if (e.k === 'rc') return `<span class="bin rc"><i></i>${esc(e.p || 'Red card')}${x(e)}</span>`;
     const left = (e.at || 0) + (m.code === 'sevens' ? 120 : 600) - elapsed(m); if (left <= 0) return '';
-    return `<span class="bin yc"><i></i>${esc(e.p || 'Sin bin')} <b data-bin="${esc(m.id)}|${esc(e.id)}">${mm(left)}</b></span>`; }).join('');
+    return `<span class="bin yc"><i></i>${esc(e.p || 'Sin bin')} <b data-bin="${esc(m.id)}|${esc(e.id)}">${mm(left)}</b>${x(e)}</span>`; }).join('');
 }
 function board(m, full){
   const [h, a] = score(m), p = prev.get(m.id); prev.set(m.id, [h, a]);
@@ -85,9 +87,9 @@ function board(m, full){
   const last = sorted(m).filter(e => e.k !== 'note' || e.p).slice(-3).reverse(), run = isLive(m) && m.clock && m.clock.running;
   return `<${full ? 'div' : 'button type="button" data-open="' + esc(m.id) + '"'} class="sb${isLive(m) ? '' : ' quiet'}" style="--hc:${esc(hc)};--ac:${esc(ac)}">
     <div class="sb-meta">${esc([compLine(m), m.status === '1H' ? '1st half' : m.status === '2H' ? '2nd half' : '', full ? m.venue : ''].filter(Boolean).join(' · '))}</div>
-    <div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b><div class="bins">${bins(m, 'H')}</div></div>
+    <div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b><div class="bins">${bins(m, 'H', full)}</div></div>
       <div class="score"><span class="${h > a ? 'lead' : ''}${p && p[0] !== h ? ' bump' : ''}">${h}</span><span class="dash">–</span><span class="${a > h ? 'lead' : ''}${p && p[1] !== a ? ' bump' : ''}">${a}</span></div>
-      <div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b><div class="bins">${bins(m, 'A')}</div></div></div>
+      <div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b><div class="bins">${bins(m, 'A', full)}</div></div></div>
     <span class="clock">${run ? '<span class="dot"></span>' : ''}<span data-clock="${esc(m.id)}">${esc(clockText(m))}</span>${m.status === 'FT' ? ' ' + resPill(resultOf(m)) : ''}</span>
     ${!full && last.length ? `<div class="last3">${last.map(e => `<div><span>${e.m}′</span><span>${esc(label(e))}${e.k !== 'note' ? ' (' + esc(e.s === 'H' ? m.home : m.away) + ')' : ''}</span></div>`).join('')}</div><span class="tap">Tap for the full timeline</span>` : ''}
   </${full ? 'div' : 'button'}>`;
@@ -196,6 +198,7 @@ function render(){
   $('#tabs').hidden = !!m;
   $$('#tabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === V.tab));
   $('#view').innerHTML = m ? viewMatch(m) : V.tab === 'fixtures' ? viewFixtures() : V.tab === 'results' ? viewResults() : viewMatches();
+  $$('[data-unbin]').forEach(b => b.onclick = ev => { ev.stopPropagation(); const id = b.dataset.unbin; save(d => { const x = d.matches.find(y => y.id === m.id); const e = x && x.events.find(y => y.id === id); if (e) e.ret = Date.now(); }, m.id); });
   $$('[data-team]').forEach(b => b.onclick = () => { V.team = b.dataset.team; render(); });
   $$('[data-more]').forEach(b => b.onclick = () => { V['more' + b.dataset.more] = !V['more' + b.dataset.more]; render(); });
   $$('[data-open]').forEach(b => b.onclick = () => { V.open = b.dataset.open; try { history.replaceState(null, '', '#m.' + V.open); } catch(e){} render(); scrollTo(0, 0); });
