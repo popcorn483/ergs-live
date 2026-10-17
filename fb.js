@@ -16,7 +16,12 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     async isCoach(email){ return (await getDoc(doc(db, 'coaches', email))).exists(); },
     async listCoaches(){ return (await getDocs(collection(db, 'coaches'))).docs.map(d => d.id).sort(); },
     addCoach(email){ return setDoc(doc(db, 'coaches', email), {added:Date.now()}); },
-    removeCoach(email){ return deleteDoc(doc(db, 'coaches', email)); }
+    removeCoach(email){ return deleteDoc(doc(db, 'coaches', email)); },
+    // team sheets and player profiles kept by the main app (stored as JSON in the "j" field)
+    async listTeams(){ const dj = d => { try { return JSON.parse(d.j); } catch(e){ return null; } };
+      const sh = await getDocs(collection(db, 'sheets')); const sheets = sh.docs.map(x => Object.assign({id:x.id}, dj(x.data()) || {})).sort((a, b) => (b.created || 0) - (a.created || 0));
+      let roster = []; try { const r = await getDoc(doc(db, 'team', 'roster')); if (r.exists()){ const v = dj(r.data()); roster = v && Array.isArray(v.players) ? v.players : []; } } catch(e){}
+      return {sheets, roster}; }
   };
 }
 window.dispatchEvent(new Event('fb-ready'));

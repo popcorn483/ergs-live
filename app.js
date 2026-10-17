@@ -9,6 +9,7 @@ const RAW = {matches:[], schools:{}, crest:window.ERGS_CREST || ''};   // last s
 const DATA = clone(RAW);                           // what gets shown
 const MAIN_APP = CFG.mainApp || 'https://claude.ai/artifact/5Xp2Q4mof4rU3NYuzrAhsK';
 const OUR_RX = /\b(ergs|enniskillen)\b/i;
+const ULSTER = ['Antrim Grammar School','Ballyclare High School','Ballymena Academy','Banbridge Academy','Bangor Grammar School','Belfast High School','Belfast Royal Academy','Cambridge House Grammar School','Campbell College','Coleraine Grammar School','Dalriada School','Down High School','Foyle College','Friends’ School Lisburn','Grosvenor Grammar School','Larne Grammar School','Limavady Grammar School','Lurgan College','Methodist College Belfast','Omagh Academy','Portadown College','Portora Royal School','Rainey Endowed School','Regent House School','Royal Belfast Academical Institution','Royal School Armagh','Royal School Dungannon','Sullivan Upper School','Wallace High School'];
 const PTS = {try:5, con:2, pen:3, dg:3, pt:7};
 const EVK = {try:['Try','T'], con:['Conversion','C'], pen:['Penalty goal','P'], dg:['Drop goal','DG'], pt:['Penalty try','PT'], yc:['Yellow card','YC'], rc:['Red card','RC'], note:['','']};
 const ptsOf = e => e.miss ? 0 : (PTS[e.k] || 0);
@@ -23,7 +24,7 @@ document.body.insertAdjacentHTML('beforeend', `
   <div class="demo" id="demoBar" hidden><span><b>Preview with example matches.</b> Real scores replace these once coaches start scoring here.</span><button type="button" id="demoTry">Show a try landing</button></div>
   <nav class="tabs" id="tabs" aria-label="Sections"><button type="button" data-v="matches">Matches</button><button type="button" data-v="fixtures">Fixtures</button><button type="button" data-v="results">Results</button></nav>
   <main id="view" aria-live="polite"></main>
-  <footer><span>Enniskillen Royal Grammar School Rugby · no sign-in needed</span><span><span id="autoNote" hidden>Refreshes every 30 seconds during a match · </span><span id="updated"></span></span></footer>
+  <footer><span>Enniskillen Royal Grammar School Rugby</span><span><span id="autoNote" hidden>Refreshes every 30 seconds during a match · </span><span id="updated"></span></span></footer>
 </div>
 <div class="fx" id="fx" hidden aria-live="assertive"><div class="fx-band"></div><div class="fx-burst" id="fxBurst"></div><div class="fx-in"><div class="fx-crest" id="fxCrest"></div><div class="fx-kind" id="fxKind"></div><div class="fx-who" id="fxWho"></div><div class="fx-score" id="fxScore"></div></div></div>
 <div class="modal" id="modal" hidden><div class="dialog" id="dialog" role="dialog" aria-modal="true"></div></div>
@@ -44,7 +45,7 @@ const kot = m => { const t = Date.parse(m.ko); return isNaN(t) ? 0 : t; };
 const when = (m, long) => { if (!kot(m)) return ''; const d = new Date(kot(m)); const day = d.toLocaleDateString('en-GB', long ? {weekday:'long', day:'numeric', month:'long'} : {weekday:'short', day:'numeric', month:'short'}); return m.koTbc ? day : day + ', ' + d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}); };
 function clockText(m){ if (m.status === 'HT') return 'Half time'; if (m.status === 'FT') return 'Full time'; if (m.status === 'pre') return when(m) || 'Not started'; return mm(elapsed(m)) + (m.clock && !m.clock.running ? ' · paused' : ''); }
 const compLine = m => [m.team, m.comp, m.round].filter(Boolean).join(' · ');
-const school = n => OUR_RX.test(n) ? {crest:DATA.crest, color:'#1C2342'} : (DATA.schools || {})[schoolKey(n)] || (DATA.schools || {})[n] || null;
+const school = n => { if (OUR_RX.test(n)) return {crest:DATA.crest, color:'#1C2342'}; const S0 = DATA.schools || {}, k = schoolKey(n); return S0[k] || S0[n] || Object.values(S0).find(v => v && (schoolKey(v.name) === k || (Array.isArray(v.aliases) && v.aliases.some(a => schoolKey(a) === k)))) || null; };
 function schoolKey(n){ return String(n || '').toLowerCase().replace(/[’'`.]/g, '').replace(/\b(1st|2nd|3rd|xv|vii|7s|u1\d|medallion|girls|boys|the)\b/g, ' ').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim(); }
 const initials = n => { const w = String(n || '?').replace(/[^A-Za-z ]/g, ' ').split(/\s+/).filter(x => x && !/^(the|of|and|school|college|academy|grammar|high|royal|xv|1st|2nd|u\d+)$/i.test(x)); return (w.length > 1 ? w[0][0] + w[1][0] : (w[0] || '?').slice(0, 2)).toUpperCase(); };
 function crest(name, cls){ const s = school(name); if (s && s.crest) return `<span class="crest ${cls || ''}"><img alt="" src="${esc(s.crest)}"></span>`; return `<span class="crest ini ${cls || ''}" style="--c:${esc(s && s.color || '#3A4466')}">${esc(initials(name))}</span>`; }
@@ -149,7 +150,7 @@ function coachBar(){
 }
 function render(){
   const m = V.open && DATA.matches.find(x => x.id === V.open);
-  if (V.open && !m) V.open = null;
+  if (V.open && !m && !(Date.now() - (V.openAt || 0) < 6000)) V.open = null;
   $('#demoBar').hidden = !DATA.demo || COACH;
   coachBar();
   $('#tabs').hidden = !!m;
@@ -173,7 +174,7 @@ setInterval(() => {
 let saving = false, READY = false, HAS_DOC = false, EMAIL = '', ADMIN = false;
 async function save(fn, keepOpen){
   if (!COACH || !window.FB || saving) return;
-  if (keepOpen !== undefined) V.open = keepOpen;
+  if (keepOpen !== undefined){ V.open = keepOpen; V.openAt = Date.now(); }
   saving = true; const t = setTimeout(() => { if (saving) $('#saving').hidden = false; }, 400);
   try { await FB.save(cur => { const next = clone(cur || {matches:[], schools:{}}); fn(next); next.updated = Date.now(); return next; }); }
   catch(e){ const c = e && (e.code || '');
@@ -202,15 +203,21 @@ function openEv(m, k, s, pending){
   openDialog(`<h2>${after ? 'Conversion attempt' : EVK[k][0]}</h2><p>${esc(team)}${PTS[k] ? ` · +${PTS[k]} if scored` : ''}</p>
     ${kick ? `<div class="field"><span class="label">Kick</span>${seg('res', [['ok','Scored'],['miss','Missed']], 'ok')}</div>` : ''}
     ${players.length ? `<div class="chips">${players.map(p => `<button type="button" class="chip" data-name="${esc(p.name)}"><i>${esc(p.n || '')}</i><span>${esc(p.name)}</span></button>`).join('')}</div>` : ''}
-    <div class="field"><label class="label" for="evWho">${players.length ? 'Or type a name' : kick ? 'Kicker (optional)' : 'Player (optional)'}</label><input class="input" id="evWho" maxlength="40" list="evNames" autocomplete="off" value="${esc(lastKicker ? lastKicker.p : '')}"><datalist id="evNames">${[...used].map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
+    <div class="field"><label class="label" for="evWho">${players.length ? 'Or type a name or shirt number' : kick ? 'Kicker (optional)' : 'Player (optional)'}</label><input class="input" id="evWho" maxlength="40" list="evNames" autocomplete="off" value="${esc(lastKicker ? lastKicker.p : '')}"><datalist id="evNames">${[...new Set(players.map(p => p.name).concat([...used]))].map(n => `<option value="${esc(n)}">`).join('')}</datalist><span class="hint" id="evHint" aria-live="polite"></span></div>
     <div class="field" style="max-width:140px"><label class="label" for="evMin">Minute</label><input class="input" id="evMin" type="number" min="0" max="120" value="${minuteNow(m)}"></div>
     <div class="dlg-a"><button type="button" class="btn ghost" id="evSkip">${after ? 'Skip' : 'Cancel'}</button><button type="button" class="btn primary" id="evGo">${k === 'try' ? 'Next: conversion' : 'Add'}</button></div>`, d => {
     wireSegs(d);
-    d.querySelectorAll('.chip').forEach(c => c.onclick = () => { d.querySelector('#evWho').value = c.dataset.name; d.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x === c)); });
+    d.querySelectorAll('.chip').forEach(c => c.onclick = () => { d.querySelector('#evWho').value = c.dataset.name; d.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', x === c)); d.querySelector('#evHint').textContent = ''; });
+    const byNum = v => { const n = (String(v).trim().match(/^#?(\d{1,2})$/) || [])[1]; return n ? players.find(p => +p.n === +n) : null; };
+    const who = d.querySelector('#evWho'), hint = d.querySelector('#evHint');
+    who.oninput = () => { const p = byNum(who.value); hint.textContent = p ? `#${p.n} ${p.name}` : /^#?\d{1,2}$/.test(who.value.trim()) && players.length ? 'No player with that number' : '';
+      d.querySelectorAll('.chip').forEach(x => x.setAttribute('aria-pressed', !!p && x.dataset.name === p.name)); };
+    who.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); d.querySelector('#evGo').click(); } });
     const commit = list => save(dd => { const x = dd.matches.find(y => y.id === m.id); list.forEach(e => x.events.push(e)); }, m.id);
     d.querySelector('#evSkip').onclick = () => { closeDialog(); if (after) commit(pending); };
     d.querySelector('#evGo').onclick = () => {
-      const ev = {id:uid(), k, s, p:d.querySelector('#evWho').value.trim().slice(0, 40), m:Math.max(0, Math.min(120, parseInt(d.querySelector('#evMin').value, 10) || 0)), at:Math.round(elapsed(m)), ts:Date.now()};
+      const typed = d.querySelector('#evWho').value.trim(), hit = byNum(typed);
+      const ev = {id:uid(), k, s, p:(hit ? hit.name : typed).slice(0, 40), m:Math.max(0, Math.min(120, parseInt(d.querySelector('#evMin').value, 10) || 0)), at:Math.round(elapsed(m)), ts:Date.now()};
       if (kick && d.querySelector('[data-seg="res"]').dataset.val === 'miss') ev.miss = true;
       closeDialog();
       if (k === 'try') openEv(m, 'con', s, [ev]);
@@ -225,7 +232,7 @@ function matchForm(m, past){
   const isNew = !m; m = m || {home:'ERGS', away:'', us:'H', team:'1st XV', comp:'', round:'', venue:'', ko:'', code:'union', half:35, veo:'', players:[]};
   let ko = m.ko && !m.koTbc ? m.ko.slice(0, 16) : m.ko ? m.ko.slice(0, 10) + 'T12:00' : ''; if (!ko){ const d = new Date(); d.setMinutes(d.getMinutes() < 30 ? 30 : 60, 0, 0); ko = new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0, 16); }
   const noPts = !(m.events || []).some(e => ptsOf(e)), showFinal = past || (m.status === 'FT' && noPts), fin = Array.isArray(m.final) ? m.final : ['', ''];
-  const opps = Object.values(DATA.schools || {}).map(s => s.name).filter(Boolean);
+  const opps = [...new Set(Object.values(DATA.schools || {}).map(s => s.name).filter(Boolean).concat(ULSTER))].sort();
   openDialog(`<h2>${isNew ? (past ? 'Add a past result' : 'New match') : 'Match details'}</h2>
     <div class="row2"><div class="field"><label class="label" for="fHome">Home team</label><input class="input" id="fHome" list="oppNames" maxlength="50" value="${esc(m.home)}"></div><div class="field"><label class="label" for="fAway">Away team</label><input class="input" id="fAway" list="oppNames" maxlength="50" value="${esc(m.away)}"></div></div>
     <datalist id="oppNames">${opps.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
@@ -234,10 +241,28 @@ function matchForm(m, past){
     <div class="row2"><div class="field"><label class="label" for="fVenue">Venue</label><input class="input" id="fVenue" maxlength="50" value="${esc(m.venue || '')}"></div><div class="field"><label class="label" for="fKo">Kick-off</label><input class="input" id="fKo" type="datetime-local" value="${esc(ko)}"></div></div>
     <div class="row2"><div class="field"><span class="label">Code</span>${seg('code', [['union','15s'],['sevens','7s']], m.code || 'union')}</div><div class="field"><label class="label" for="fHalf">Half length (min)</label><input class="input" id="fHalf" type="number" min="3" max="45" value="${esc(m.half || 35)}"></div></div>
     ${showFinal ? `<div class="row2"><div class="field"><label class="label" for="fHs">Home score</label><input class="input" id="fHs" type="number" min="0" value="${esc(fin[0])}"></div><div class="field"><label class="label" for="fAs">Away score</label><input class="input" id="fAs" type="number" min="0" value="${esc(fin[1])}"></div></div>` : ''}
+    ${past ? '' : `<div class="field"><label class="label" for="fSheet">Fill the players from</label><select class="input" id="fSheet"><option value="">Choose a team sheet or squad…</option></select><span class="hint" id="fSheetMsg"></span></div>`}
     ${past ? '' : `<div class="field"><label class="label" for="fPlayers">Our players for the scorer’s buttons (one per line, e.g. “10 Kristen Fee”)</label><textarea class="input" id="fPlayers" rows="4" placeholder="Paste from the main app: Squads, Copy for live scoring">${esc((m.players || []).map(p => (p.n ? p.n + ' ' : '') + p.name).join('\n'))}</textarea></div>`}
     <div class="field"><label class="label" for="fVeo">VEO link (optional)</label><input class="input" id="fVeo" type="url" maxlength="300" value="${esc(m.veo || '')}" placeholder="https://app.veo.co/matches/…"></div>
     <div class="dlg-a"><button type="button" class="btn ghost" data-close>Cancel</button><button type="button" class="btn primary" id="fGo">${isNew ? (past ? 'Add result' : 'Create match') : 'Save'}</button></div>`, d => {
     wireSegs(d);
+    const sel = d.querySelector('#fSheet');
+    if (sel){ const msg = t => d.querySelector('#fSheetMsg').textContent = t;
+      if (!window.FB || !FB.listTeams) msg('Team sheets from the main app appear here once it’s on GitHub.');
+      else FB.listTeams().then(T => {
+        const opts = [];
+        T.sheets.forEach(x => opts.push(['s:' + x.id, 'Team sheet: ' + (x.title || [x.team, x.opp ? 'v ' + x.opp : ''].filter(Boolean).join(' ') || 'Untitled') + (x.date ? ' (' + x.date + ')' : '')]));
+        [...new Set(T.roster.map(p => (p.t || '').trim()).filter(Boolean))].sort().forEach(t => opts.push(['t:' + t, 'Player profiles: ' + t]));
+        if (!opts.length){ msg('No team sheets yet. Add them in the main app under Squads & team sheets.'); return; }
+        sel.insertAdjacentHTML('beforeend', opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join(''));
+        sel.onchange = () => { const v = sel.value; let lines = [];
+          if (v.startsWith('s:')){ const x = T.sheets.find(y => y.id === v.slice(2)); if (x){ lines = (x.players || []).map((p, i) => `${p.n || i + 1} ${((p.f || '') + ' ' + (p.l || '')).trim()}`);
+            const a = d.querySelector('#fAway'), h = d.querySelector('#fHome'), us = d.querySelector('[data-seg="us"]').dataset.val; const oppIn = us === 'A' ? h : a;
+            if (x.opp && !oppIn.value.trim()) oppIn.value = x.opp; if (x.team && !d.querySelector('#fTeam').value.trim()) d.querySelector('#fTeam').value = x.team;
+            if (x.date && !d.querySelector('#fKo').value.startsWith(x.date)) d.querySelector('#fKo').value = x.date + 'T' + (d.querySelector('#fKo').value.slice(11) || '10:30'); } }
+          if (v.startsWith('t:')) lines = T.roster.filter(p => (p.t || '').trim() === v.slice(2)).map((p, i) => `${i + 1} ${(p.f + ' ' + p.l).trim()}`);
+          if (lines.length){ d.querySelector('#fPlayers').value = lines.join('\n'); msg(`${lines.length} players added. Change any shirt numbers in the box below.`); } };
+      }).catch(() => msg('Couldn’t load team sheets. Check you’re signed in as a coach.')); }
     const halfIn = d.querySelector('#fHalf'); d.querySelector('[data-seg="code"]').addEventListener('change', e => { const v = e.target.dataset.val; if (+halfIn.value === 35 || +halfIn.value === 7) halfIn.value = v === 'sevens' ? 7 : 35; });
     d.querySelector('[data-seg="us"]').addEventListener('change', () => { const h = d.querySelector('#fHome'), a = d.querySelector('#fAway'), v = d.querySelector('[data-seg="us"]').dataset.val; if ((v === 'A' && OUR_RX.test(h.value)) || (v === 'H' && OUR_RX.test(a.value))){ const t = h.value; h.value = a.value; a.value = t; } });
     d.querySelector('#fGo').onclick = () => {
@@ -276,7 +301,7 @@ function act(a, m){
     case 'plus': return upd(x => { x.clock = {base:el() + 60, since:now, running:!!(x.clock && x.clock.running)}; });
     case 'reopen': return upd(x => { x.status = '2H'; x.clock = Object.assign({}, x.clock, {running:false}); });
     case 'del': return ask('Delete this match?', `${m.home} v ${m.away} and its timeline will be removed for everyone.`, 'Delete', () => save(d => { d.matches = d.matches.filter(y => y.id !== m.id); }, null));
-    case 'share': { const link = location.origin + location.pathname + '#m.' + m.id; copy(link, 'Match link copied. Anyone can open it, no sign-in needed.'); return; }
+    case 'share': { const link = location.origin + location.pathname + '#m.' + m.id; copy(link, 'Match link copied. Anyone can open it.'); return; }
     case 'copyres': { const [h, aa] = score(m), sc = s => ['try','pt','con','pen','dg'].map(k => { const l = sorted(m).filter(e => e.s === s && e.k === k && !e.miss); if (!l.length) return ''; const names = l.map(e => e.p ? e.p.split(/\s+/).pop() : '').filter(Boolean); return ({try:'Try',pt:'Pen try',con:'Con',pen:'Pen',dg:'DG'})[k] + (names.length ? ': ' + names.join(', ') : ' ' + l.length); }).filter(Boolean).join('\n');
       copy(`${m.home} ${h} – ${aa} ${m.away}\n${compLine(m)}\n\n${m.home}\n${sc('H')}\n\n${m.away}\n${sc('A')}`.trim(), 'Result copied. Paste it into the full-time graphic in the main app.'); return; }
   }

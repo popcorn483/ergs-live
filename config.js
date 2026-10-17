@@ -9,5 +9,5 @@ window.ERGS_CONFIG = {
     appId: '1:1104768412:web:f34a84195be98eb2a2ac59'
   },
   admin: 'ergsrugby@gmail.com',     // the Google account that can add other coaches
-  mainApp: 'https://claude.ai/artifact/5Xp2Q4mof4rU3NYuzrAhsK'
+  mainApp: 'https://popcorn483.github.io/ergs-live/app/'
 };
