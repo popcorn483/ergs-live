@@ -181,6 +181,8 @@ function viewMatch(m){
     ${m.venue && m.status === 'pre' ? `<div class="box"><h3>Venue</h3><div>${esc(m.venue)}</div></div>` : ''}
     ${(veoOf(m) && !canX) || m.photos ? `<div class="box media"><h3>Watch &amp; photos</h3><div class="ctrl">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ Watch on VEO</a>` : ''}${m.photos ? `<a class="veo photos" href="${esc(m.photos)}" target="_blank" rel="noopener">Match photos</a>` : ''}</div></div>` : ''}
     ${kicks.length ? `<div class="box"><h3>Goal kicking</h3>${kicks.join('')}</div>` : ''}
+    ${evs.some(e => e.k === 'note' && e.p) ? `<div class="box commfeed"><h3><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0" fill="none" stroke="currentColor" stroke-width="2"/></svg>Live commentary</h3>
+      ${evs.filter(e => e.k === 'note' && e.p).slice().reverse().slice(0, 12).map((e, i) => `<div class="cf${i === 0 ? ' latest' : ''}"><span class="cf-m">${e.m}′</span><p>${esc(e.p)}</p></div>`).join('')}</div>` : ''}
     <div class="box"><h3>Match timeline</h3>${evs.length ? `<ul class="tl">${evs.slice().reverse().map(e => `<li class="${e.miss ? 'miss' : ''}${canX ? ' x' : ''}"><span class="mn">${e.m}′</span><span class="ic ${e.k}">${e.k === 'note' ? '…' : EVK[e.k][1]}</span><span class="tx"><b>${esc(label(e))}</b> <span>${e.k === 'note' ? '' : esc(e.s === 'H' ? m.home : m.away)}</span></span><span class="run">${ptsOf(e) ? run.get(e) : ''}</span>${canX ? `<button type="button" class="rm" data-rm="${esc(e.id)}" aria-label="Remove this entry">×</button>` : ''}</li>`).join('')}</ul>` : `<p style="margin:0;color:var(--mute)">${m.status === 'pre' ? 'The timeline fills in once the match kicks off.' : 'Final score only.'}</p>`}</div>`;
 }
 function coachBar(){
@@ -562,9 +564,29 @@ function newSinceLastLook(){
   let seen = null; try { seen = JSON.parse(localStorage.getItem('ergsLive.seen') || 'null'); } catch(e){}
   const now = {};
   for (const m of DATA.matches.filter(isLive)){ now[m.id] = (m.events || []).map(e => e.id);
+    if (!COACH && seen && seen[m.id]) for (const e of sorted(m)) if (!seen[m.id].includes(e.id) && e.k === 'note' && e.p && Date.now() - (e.ts || 0) < 10*60e3) CQ.push([m, e]);
     if (!COACH && seen && seen[m.id]) for (const e of sorted(m)) if (!seen[m.id].includes(e.id) && e.k !== 'note' && (!e.miss || ['con','pen','dg'].includes(e.k)) && Date.now() - (e.ts || 0) < 15*60e3) Q.push([m, e]); }
   try { localStorage.setItem('ergsLive.seen', JSON.stringify(now)); } catch(e){}
   if (Q.length && !busy){ busy = true; setTimeout(playFx, 500); }
+  if (CQ.length && !cbusy) setTimeout(playComm, Q.length ? 4200 : 600);
+}
+/* commentary arrives like a commentator on air: a lower-third with a mic, typed out word by word */
+const CQ = []; let cbusy = false;
+function playComm(){
+  if (busy){ setTimeout(playComm, 800); return; }
+  const nx = CQ.shift(); if (!nx){ cbusy = false; return; } cbusy = true;
+  const [m, e] = nx; let el = $('#comm');
+  if (!el){ el = document.createElement('div'); el.id = 'comm'; el.className = 'comm'; el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); document.body.appendChild(el); }
+  const [h, a] = score(m);
+  el.innerHTML = `<div class="comm-mic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 18v4M8 22h8" stroke="currentColor" stroke-width="2"/></svg><i></i><i></i></div>
+    <div class="comm-body"><div class="comm-h"><b>Live commentary</b><span>${e.m}′ · ${esc(m.home)} ${h}–${a} ${esc(m.away)}</span></div><p class="comm-t"></p></div><button type="button" class="comm-x" aria-label="Close">×</button>`;
+  const t = el.querySelector('.comm-t'), words = String(e.p).split(/(\s+)/); let i = 0;
+  el.hidden = false; void el.offsetWidth; el.classList.add('on');
+  const type = () => { if (i >= words.length){ t.classList.add('done'); return; } t.textContent += words[i++]; el._t = setTimeout(type, /\s/.test(words[i - 1]) ? 0 : 70 + Math.random()*60); };
+  setTimeout(type, 450);
+  const close = () => { clearTimeout(el._t); clearTimeout(el._c); el.classList.remove('on'); setTimeout(() => { el.hidden = true; playComm(); }, 400); };
+  el.querySelector('.comm-x').onclick = close; el.onclick = ev => { if (ev.target === el){ V.open = m.id; render(); close(); } };
+  el._c = setTimeout(close, 2600 + String(e.p).length*90);
 }
 $('#demoTry').onclick = () => {
   const m = DATA.matches.find(isLive); if (!m) return;
