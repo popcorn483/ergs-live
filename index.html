@@ -359,6 +359,36 @@ textarea.input{resize:vertical;line-height:1.4}
 .cf p{margin:0;font-style:italic;line-height:1.4}
 .cf-m{font-family:var(--f-mono);font-size:13px;color:var(--mute);text-align:right;padding-top:2px}
 .cf.latest{background:linear-gradient(100deg,rgba(220,192,138,.16),var(--deck));box-shadow:inset 3px 0 0 var(--gold)}
+/* full time: win */
+.fx.ftwin .fx-crest{opacity:0;transform:scale(.3);position:relative}
+.fx.ftwin.on .fx-crest{animation:pop .7s .5s cubic-bezier(.2,1.5,.4,1) forwards}
+.fx.ftwin .fx-crest .crest.huge{width:min(46vw,190px);height:min(46vw,190px);position:relative;z-index:1;filter:drop-shadow(0 10px 24px rgba(0,0,0,.6)) drop-shadow(0 0 40px rgba(220,192,138,.55))}
+.ft-rays{position:absolute;left:50%;top:50%;width:min(160vw,900px);height:min(160vw,900px);margin:calc(min(160vw,900px)/-2) 0 0 calc(min(160vw,900px)/-2);border-radius:50%;
+  background:repeating-conic-gradient(rgba(220,192,138,.28) 0 9deg,transparent 9deg 22deg);-webkit-mask:radial-gradient(circle,#000 20%,transparent 68%);mask:radial-gradient(circle,#000 20%,transparent 68%);opacity:0}
+.fx.ftwin.on .ft-rays{animation:raysin .8s .4s ease forwards,spin 14s .4s linear infinite}
+@keyframes raysin{to{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+.fx.ftwin .fx-band{background:linear-gradient(90deg,#B8913F,#F3D27A 50%,#B8913F);box-shadow:0 0 0 6px #1C2342,0 0 0 10px #E3262A,0 30px 80px rgba(0,0,0,.6);height:min(58vh,440px)}
+.fx.ftwin .fx-kind{font-size:clamp(70px,19vw,190px);color:#1C2342;text-shadow:0 5px 0 rgba(255,255,255,.35)}
+.fx.ftwin.on .fx-kind span{animation:slam .5s calc(.9s + var(--i)*.06s) cubic-bezier(.3,1.6,.5,1) forwards}
+.fx.ftwin .fx-who{font-family:var(--f-display);font-weight:900;font-size:clamp(30px,8vw,60px);color:#E3262A;letter-spacing:.02em;text-shadow:0 3px 0 rgba(255,255,255,.4)}
+.fx.ftwin.on .fx-who{animation:plus .6s 1.6s cubic-bezier(.2,1.5,.4,1) forwards}
+.fx.ftwin .fx-score{background:#1C2342;color:var(--gold);font-size:clamp(22px,5vw,38px)}
+.fx.ftwin.on .fx-score{animation-delay:1.9s}
+.fx.ftwin.on .fx-confetti i{animation-delay:calc(1.1s + var(--d))}
+.fx.ftwin.on .fx-in{animation:shake .45s 1.05s ease}
+/* full time: loss or draw, kept low-key */
+.fx.ftquiet.on{animation:ftdim .35s ease forwards}
+@keyframes ftdim{from{background:rgba(4,8,18,0)}to{background:rgba(4,8,18,.55)}}
+.fx.ftquiet .fx-band,.fx.ftquiet .fx-burst{display:none}
+.fx.ftquiet .fx-in{width:min(400px,calc(100vw - 40px));box-sizing:border-box;background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:20px 26px;box-shadow:0 20px 50px rgba(0,0,0,.5);opacity:0;transform:translateY(20px)}
+.fx.ftquiet.on .fx-in{animation:up .45s .1s ease forwards}
+.fx.ftquiet .fx-kind{font-size:clamp(28px,7vw,44px);color:var(--chalk);text-shadow:none}
+.fx.ftquiet.on .fx-kind span{animation:ftin .35s calc(.25s + var(--i)*.02s) ease forwards}
+@keyframes ftin{to{opacity:1;transform:none;filter:none}}
+.fx.ftquiet .fx-who{font-size:16px;color:var(--mute)}
+.fx.ftquiet .fx-score{font-size:20px;background:transparent;padding:0}
+.fx.ftquiet .fx-crest{opacity:1;transform:none;animation:none!important}
 .more{display:block;width:100%;margin-top:8px;min-height:42px;border:1px dashed var(--rule);border-radius:10px;background:transparent;color:var(--gold);font-family:var(--f-cond);font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase}
 .more:hover{border-color:var(--gold)}
 .team-h{font-family:var(--f-display);font-weight:800;font-size:24px;text-transform:uppercase;margin:0 0 10px}
@@ -366,10 +396,10 @@ textarea.input{resize:vertical;line-height:1.4}
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = '3e9b04e834';</script>
-<script src="config.js?v=3e9b04e834"></script>
-<script src="crest.js?v=3e9b04e834"></script>
-<script src="app.js?v=3e9b04e834"></script>
-<script type="module" src="fb.js?v=3e9b04e834"></script>
+<script>window.ERGS_VER = '4116841407';</script>
+<script src="config.js?v=4116841407"></script>
+<script src="crest.js?v=4116841407"></script>
+<script src="app.js?v=4116841407"></script>
+<script type="module" src="fb.js?v=4116841407"></script>
 </body>
 </html>

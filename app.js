@@ -383,7 +383,7 @@ function act(a, m){
     case 'ko': return upd(x => { x.status = '1H'; x.clock = {base:0, since:now, running:true}; });
     case 'ht': return upd(x => { x.status = 'HT'; x.clock = {base:el(), since:0, running:false}; });
     case '2h': return upd(x => { x.status = '2H'; x.clock = {base:Math.max(el(), (+x.half || 35)*60), since:now, running:true}; });
-    case 'ft': return ask('Blow full time?', 'The clock stops and the match moves to Results for everyone.', 'Full time', () => upd(x => { x.status = 'FT'; x.clock = {base:el(), since:0, running:false}; }));
+    case 'ft': return ask('Blow full time?', 'The clock stops and the match moves to Results for everyone.', 'Full time', () => upd(x => { x.status = 'FT'; x.ftAt = Date.now(); x.clock = {base:el(), since:0, running:false}; }));
     case 'pause': return upd(x => { const r = x.clock && x.clock.running; x.clock = r ? {base:el(), since:0, running:false} : {base:el(), since:now, running:true}; });
     case 'minus': return upd(x => { x.clock = {base:Math.max(0, el() - 60), since:now, running:!!(x.clock && x.clock.running)}; });
     case 'plus': return upd(x => { x.clock = {base:el() + 60, since:now, running:!!(x.clock && x.clock.running)}; });
@@ -528,6 +528,7 @@ const fx = $('#fx'), Q = []; let busy = false;
 function playFx(){
   const nx = Q.shift(); if (!nx){ busy = false; return; } busy = true;
   const [m, e] = nx, team = e.s === 'H' ? m.home : m.away, [h, a] = score(m);
+  if (e.k === 'ft') return playFullTime(m);
   const isKick = e.k === 'con' || e.k === 'pen' || e.k === 'dg', missed = !!(isKick && e.miss);
   const lab = missed ? (e.k === 'con' ? 'CONVERSION MISSED' : e.k === 'pen' ? 'PENALTY MISSED' : 'DROP GOAL MISSED') : e.k === 'try' ? 'TRY!' : e.k === 'pt' ? 'PENALTY TRY' : e.k === 'con' ? 'CONVERTED' : e.k === 'pen' ? 'PENALTY GOAL' : e.k === 'dg' ? 'DROP GOAL' : e.k === 'yc' ? 'YELLOW CARD' : 'RED CARD';
   fx.className = 'fx k-' + e.k; fx.style.setProperty('--tc', e.k === 'yc' ? '#F3C443' : e.k === 'rc' ? '#E5483B' : ((school(team) || {}).color || '#3A4466'));
@@ -560,6 +561,27 @@ function playFx(){
   const close = () => { fx.classList.remove('on'); fx.classList.add('off'); setTimeout(() => { fx.hidden = true; fx.classList.remove('off'); playFx(); }, 420); };
   clearTimeout(playFx.t); playFx.t = setTimeout(close, kickIn ? 3700 : tryIn ? 3800 : card ? 3400 : ptsOf(e) ? 3000 : 2300); fx.onclick = () => { clearTimeout(playFx.t); close(); };
 }
+/* full time: a giant celebration when we win, a quiet card when we don't */
+function playFullTime(m){
+  const r = resultOf(m), [h, a] = score(m), win = r && r.r === 'W', draw = r && r.r === 'D';
+  fx.className = 'fx k-ft ' + (win ? 'ftwin' : 'ftquiet'); fx.style.setProperty('--tc', win ? '#1C2342' : '#3A4466');
+  $('#fxCrest').innerHTML = win ? `<div class="ft-rays" aria-hidden="true"></div>${crest(OUR_RX.test(m.home) ? m.home : m.away, 'huge')}` : crest(OUR_RX.test(m.home) ? m.home : m.away);
+  const lab = 'FULL TIME'; let li = 0;
+  $('#fxKind').innerHTML = lab.split(' ').map(w => `<span class="w">${w.split('').map(c => `<span style="--i:${li++}">${esc(c)}</span>`).join('')}</span>`).join('<span style="--i:0">&nbsp;</span>');
+  $('#fxWho').textContent = win ? `ERGS win!` : draw ? 'A draw' : `${r ? r.opp : ''} win`;
+  $('#fxScore').textContent = `${m.home} ${h} – ${a} ${m.away}`;
+  $('#fxBurst').innerHTML = '';
+  let conf = $('#fxConfetti'); if (!conf){ conf = document.createElement('div'); conf.id = 'fxConfetti'; conf.className = 'fx-confetti'; fx.appendChild(conf); }
+  conf.innerHTML = '';
+  if (win){ const cols = ['#DCC08A', '#E3262A', '#FFFFFF', '#1C2342', '#F3D27A'];
+    for (let w = 0; w < 3; w++) for (let i = 0; i < 70; i++){ const c = document.createElement('i'), ang = -Math.PI/2 + (Math.random() - .5)*Math.PI*1.5, v = 280 + Math.random()*460;
+      c.style.cssText = `--x:${Math.round(Math.cos(ang)*v)}px;--y:${Math.round(Math.sin(ang)*v)}px;--f:${Math.round(420 + Math.random()*460)}px;--r:${Math.round(360 + Math.random()*1080)}deg;--d:${(w*1.1 + Math.random()*.25).toFixed(2)}s;--c:${cols[i % cols.length]};--w:${(6 + Math.random()*9).toFixed(1)}px;--h:${(10 + Math.random()*13).toFixed(1)}px;--t:${(2.2 + Math.random()*1.2).toFixed(2)}s`;
+      conf.appendChild(c); } }
+  fx.hidden = false; void fx.offsetWidth; fx.classList.add('on');
+  try { if (win && navigator.vibrate) navigator.vibrate([150, 80, 150, 80, 300]); } catch(err){}
+  const close = () => { fx.classList.remove('on'); fx.classList.add('off'); setTimeout(() => { fx.hidden = true; fx.classList.remove('off'); playFx(); }, 420); };
+  clearTimeout(playFx.t); playFx.t = setTimeout(close, win ? 6500 : 4000); fx.onclick = () => { clearTimeout(playFx.t); close(); };
+}
 function newSinceLastLook(){
   let seen = null; try { seen = JSON.parse(localStorage.getItem('ergsLive.seen') || 'null'); } catch(e){}
   const now = {};
@@ -567,6 +589,11 @@ function newSinceLastLook(){
     if (!COACH && seen && seen[m.id]) for (const e of sorted(m)) if (!seen[m.id].includes(e.id) && e.k === 'note' && e.p && Date.now() - (e.ts || 0) < 10*60e3) CQ.push([m, e]);
     if (!COACH && seen && seen[m.id]) for (const e of sorted(m)) if (!seen[m.id].includes(e.id) && e.k !== 'note' && (!e.miss || ['con','pen','dg'].includes(e.k)) && Date.now() - (e.ts || 0) < 15*60e3) Q.push([m, e]); }
   try { localStorage.setItem('ergsLive.seen', JSON.stringify(now)); } catch(e){}
+  // full time: once per match, for matches that finished in the last 15 minutes while someone was following
+  let ftSeen = []; try { ftSeen = JSON.parse(localStorage.getItem('ergsLive.ft') || '[]'); } catch(e){}
+  for (const m of DATA.matches) if (m.status === 'FT' && m.ftAt && Date.now() - m.ftAt < 15*60e3 && !ftSeen.includes(m.id)){
+    ftSeen.push(m.id); if (!COACH && seen && seen[m.id] && usOf(m)) Q.push([m, {id:'ft-' + m.id, k:'ft', s:usOf(m), ts:m.ftAt}]); }
+  try { localStorage.setItem('ergsLive.ft', JSON.stringify(ftSeen.slice(-40))); } catch(e){}
   if (Q.length && !busy){ busy = true; setTimeout(playFx, 500); }
   if (CQ.length && !cbusy) setTimeout(playComm, Q.length ? 4200 : 600);
 }
