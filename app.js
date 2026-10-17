@@ -103,6 +103,11 @@ function viewFixtures(){
   return out + '</div>';
 }
 const TEAM_CODES = ['1XV','2XV','3XV','U16','Meds','U14','U13','U12','SG','JG'];
+/* "Our team" dropdown: every team, with an older free-typed name kept if it doesn't match one */
+function teamOptions(cur){
+  const c = teamCode(cur), sel = TEAM_CODES.includes(c) ? c : cur ? 'custom' : '1XV';
+  return TEAM_CODES.map(t => `<option value="${t}" ${sel === t ? 'selected' : ''}>${t} · ${TEAM_NAMES[t]}</option>`).join('') + (sel === 'custom' ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : '');
+}
 const TEAM_NAMES = {'1XV':'1st XV','2XV':'2nd XV','3XV':'3rd XV','U16':'Under 16','Meds':'Medallion','U14':'Under 14','U13':'Under 13','U12':'Under 12','SG':'Senior girls','JG':'Junior girls'};
 /* which of our teams a match was, from whatever was typed in "Our team" */
 function teamCode(t){
@@ -257,7 +262,7 @@ function matchForm(m, past){
   openDialog(`<h2>${isNew ? (past ? 'Add a past result' : 'New match') : 'Match details'}</h2>
     <div class="row2"><div class="field"><label class="label" for="fHome">Home team</label><input class="input" id="fHome" list="oppNames" maxlength="50" value="${esc(m.home)}"></div><div class="field"><label class="label" for="fAway">Away team</label><input class="input" id="fAway" list="oppNames" maxlength="50" value="${esc(m.away)}"></div></div>
     <datalist id="oppNames">${opps.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
-    <div class="row2"><div class="field"><span class="label">ERGS are</span>${seg('us', [['H','Home'],['A','Away']], usOf(m) || 'H')}</div><div class="field"><label class="label" for="fTeam">Our team</label><input class="input" id="fTeam" list="teamNames" maxlength="30" value="${esc(m.team || '')}"><datalist id="teamNames">${TEAMS.map(t => `<option value="${esc(t)}">`).join('')}</datalist></div></div>
+    <div class="row2"><div class="field"><span class="label">ERGS are</span>${seg('us', [['H','Home'],['A','Away']], usOf(m) || 'H')}</div><div class="field"><label class="label" for="fTeam">Our team</label><select class="input" id="fTeam">${teamOptions(m.team)}</select></div></div>
     <div class="row2"><div class="field"><label class="label" for="fComp">Competition</label><input class="input" id="fComp" list="compNames" maxlength="50" value="${esc(m.comp || '')}"><datalist id="compNames">${COMPS.map(t => `<option value="${esc(t)}">`).join('')}</datalist></div><div class="field"><label class="label" for="fRound">Round</label><input class="input" id="fRound" maxlength="30" value="${esc(m.round || '')}" placeholder="Quarter-final"></div></div>
     <div class="row2"><div class="field"><label class="label" for="fVenue">Venue</label><input class="input" id="fVenue" maxlength="50" value="${esc(m.venue || '')}"></div><div class="field"><label class="label" for="fKo">Kick-off</label><input class="input" id="fKo" type="datetime-local" value="${esc(ko)}"></div></div>
     <div class="row2"><div class="field"><span class="label">Code</span>${seg('code', [['union','15s'],['sevens','7s']], m.code || 'union')}</div><div class="field"><label class="label" for="fHalf">Half length (min)</label><input class="input" id="fHalf" type="number" min="3" max="45" value="${esc(m.half || 35)}"></div></div>
@@ -279,7 +284,7 @@ function matchForm(m, past){
         sel.onchange = () => { const v = sel.value; let lines = [];
           if (v.startsWith('s:')){ const x = T.sheets.find(y => y.id === v.slice(2)); if (x){ lines = (x.players || []).map((p, i) => `${p.n || i + 1} ${((p.f || '') + ' ' + (p.l || '')).trim()}`);
             const a = d.querySelector('#fAway'), h = d.querySelector('#fHome'), us = d.querySelector('[data-seg="us"]').dataset.val; const oppIn = us === 'A' ? h : a;
-            if (x.opp && !oppIn.value.trim()) oppIn.value = x.opp; if (x.team && !d.querySelector('#fTeam').value.trim()) d.querySelector('#fTeam').value = x.team;
+            if (x.opp && !oppIn.value.trim()) oppIn.value = x.opp; if (x.team){ const tc = teamCode(x.team); if (TEAM_CODES.includes(tc)) d.querySelector('#fTeam').value = tc; }
             if (x.date && !d.querySelector('#fKo').value.startsWith(x.date)) d.querySelector('#fKo').value = x.date + 'T' + (d.querySelector('#fKo').value.slice(11) || '10:30'); } }
           if (v.startsWith('t:')) lines = T.roster.filter(p => (p.t || '').trim() === v.slice(2)).map((p, i) => `${i + 1} ${(p.f + ' ' + p.l).trim()}`);
           if (lines.length){ d.querySelector('#fPlayers').value = lines.join('\n'); msg(`${lines.length} players added. Change any shirt numbers in the box below.`); } };
