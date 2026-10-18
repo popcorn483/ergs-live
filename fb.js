@@ -16,8 +16,14 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     async isCoach(email){ return (await getDoc(doc(db, 'coaches', email))).exists(); },
     async isPlayer(email){ return (await getDoc(doc(db, 'players', email))).exists(); },
     // private VEO links (team/veo, readable by coaches and players only)
-    onVeo(cb){ return onSnapshot(doc(db, 'team', 'veo'), s => { let v = {}; if (s.exists()){ try { v = (JSON.parse(s.data().j) || {}).byMatch || {}; } catch(e){} } cb(v); }, () => cb({})); },
-    setVeo(id, url){ const r = doc(db, 'team', 'veo'); return runTransaction(db, async tx => { const s = await tx.get(r); let v = {byMatch:{}}; if (s.exists()){ try { v = JSON.parse(s.data().j) || v; } catch(e){} } v.byMatch = v.byMatch || {}; if (url) v.byMatch[id] = url; else delete v.byMatch[id]; v.updated = Date.now(); tx.set(r, {j:JSON.stringify(v), u:Date.now()}); }); },
+    onVeo(cb){ return onSnapshot(doc(db, 'team', 'veo'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(v.byMatch || {}, v.photos || {}); }, () => cb({}, {})); },
+    setVeo(id, url){ return this.setMedia('byMatch', id, url); },
+    setPhotos(id, url){ return this.setMedia('photos', id, url); },
+    setMedia(kind, id, url){ const r = doc(db, 'team', 'veo'); return runTransaction(db, async tx => { const s = await tx.get(r); let v = {byMatch:{}}; if (s.exists()){ try { v = JSON.parse(s.data().j) || v; } catch(e){} } v[kind] = v[kind] || {}; if (url) v[kind][id] = url; else delete v[kind][id]; v.updated = Date.now(); tx.set(r, {j:JSON.stringify(v), u:Date.now()}); }); },
+    // headshots shown in the score animations: small public copies, made when a coach records a score
+    async face(key){ try { const s = await getDoc(doc(db, 'faces', key)); return s.exists() ? (s.data().d || '') : ''; } catch(e){ return ''; } },
+    setFace(key, d){ return setDoc(doc(db, 'faces', key), {d, u:Date.now()}); },
+    async image(id){ const s = await getDoc(doc(db, 'images', id)); return s.exists() ? (s.data().d || '') : ''; },
     async listCoaches(){ return (await getDocs(collection(db, 'coaches'))).docs.map(d => d.id).sort(); },
     addCoach(email){ return setDoc(doc(db, 'coaches', email), {added:Date.now()}); },
     removeCoach(email){ return deleteDoc(doc(db, 'coaches', email)); },

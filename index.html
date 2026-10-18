@@ -220,6 +220,12 @@ textarea.input{resize:vertical;line-height:1.4}
 .linkish{border:0;background:transparent;color:var(--mute);text-decoration:underline;text-underline-offset:3px;padding:0;font:inherit;font-size:13px}
 .linkish:hover{color:var(--gold)}
 .team-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.team-tabs .tt-l{align-self:center;min-width:64px;font-family:var(--f-cond);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.season-tabs{margin-bottom:8px}
+.prog-seg{display:inline-flex;flex-wrap:wrap;margin:0 0 10px;max-width:100%}
+.prog-seg button{padding:0 12px;min-height:38px}
+.lnk{background:none;border:0;padding:0;color:var(--gold);font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.tbl tr.on td{background:rgba(220,192,138,.1)}
 .team-tabs button{min-height:36px;padding:4px 12px;border-radius:999px;border:1px solid var(--rule);background:var(--deck);color:var(--chalk);font-family:var(--f-cond);font-weight:700;font-size:15px;letter-spacing:.05em}
 .team-tabs button small{font-family:var(--f-mono);font-size:11px;color:var(--mute);margin-left:3px}
 .team-tabs button.none{color:var(--dim);border-style:dashed}
@@ -256,6 +262,11 @@ textarea.input{resize:vertical;line-height:1.4}
 .fx.k-rc .fx-band{opacity:.95}
 /* yellow card: dark band, bright glowing yellow text */
 .fx.k-yc .fx-band{background:linear-gradient(90deg,#10162f,#1f2852 50%,#10162f);box-shadow:0 0 0 6px #F3C443,0 30px 80px rgba(0,0,0,.6)}
+.fx-face{width:clamp(96px,26vw,150px);aspect-ratio:1;max-width:100%;margin:6px auto 2px;border-radius:50%;overflow:hidden;border:4px solid #DCC08A;box-shadow:0 0 0 6px rgba(220,192,138,.25),0 18px 40px rgba(0,0,0,.55);opacity:0;transform:scale(.3) rotate(-12deg)}
+.fx-face img{width:100%;height:100%;object-fit:cover;display:block}
+.fx.on .fx-face{animation:facein .7s 1.2s cubic-bezier(.2,1.5,.4,1) forwards}
+.fx.kick.on .fx-face{animation-delay:1.5s}.fx.tryfx.on .fx-face{animation-delay:1.3s}
+@keyframes facein{to{opacity:1;transform:none}}
 .fx.k-yc .fx-kind,.fx.k-yc .fx-who{color:#FFDD55!important;text-shadow:0 0 22px rgba(255,214,70,.65),0 4px 0 rgba(0,0,0,.55)!important}
 .fx.k-yc .fx-score,.fx.k-rc .fx-score{color:#fff}
 .fx.cardfx.on .fx-kind span{animation-delay:calc(.75s + var(--i)*.03s)}
@@ -407,10 +418,10 @@ textarea.input{resize:vertical;line-height:1.4}
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = '57044bb54a';</script>
-<script src="config.js?v=57044bb54a"></script>
-<script src="crest.js?v=57044bb54a"></script>
-<script src="app.js?v=57044bb54a"></script>
-<script type="module" src="fb.js?v=57044bb54a"></script>
+<script>window.ERGS_VER = '22045f27e2';</script>
+<script src="config.js?v=22045f27e2"></script>
+<script src="crest.js?v=22045f27e2"></script>
+<script src="app.js?v=22045f27e2"></script>
+<script type="module" src="fb.js?v=22045f27e2"></script>
 </body>
 </html>

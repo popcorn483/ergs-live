@@ -39,7 +39,7 @@ document.body.insertAdjacentHTML('beforeend', `
   <main id="view" aria-live="polite"></main>
   <footer><span>Enniskillen Royal Grammar School Rugby</span><span><span id="autoNote" hidden>Refreshes every 30 seconds during a match · </span><span id="updated"></span></span></footer>
 </div>
-<div class="fx" id="fx" hidden aria-live="assertive"><div class="fx-band"></div><div class="fx-burst" id="fxBurst"></div><div class="fx-in"><div class="fx-crest" id="fxCrest"></div><div class="fx-kind" id="fxKind"></div><div class="fx-who" id="fxWho"></div><div class="fx-score" id="fxScore"></div></div></div>
+<div class="fx" id="fx" hidden aria-live="assertive"><div class="fx-band"></div><div class="fx-burst" id="fxBurst"></div><div class="fx-in"><div class="fx-crest" id="fxCrest"></div><div class="fx-kind" id="fxKind"></div><div class="fx-face" id="fxFace" hidden></div><div class="fx-who" id="fxWho"></div><div class="fx-score" id="fxScore"></div></div></div>
 <div class="modal" id="modal" hidden><div class="dialog" id="dialog" role="dialog" aria-modal="true"></div></div>
 <div class="saving" id="saving" hidden><span class="spin"></span><span id="savingT">Sending to everyone…</span></div>
 <div class="toast" id="toast" hidden role="status"></div>`);
@@ -137,20 +137,43 @@ function teamCode(t){
   if (/\b(3rd|third|3)\s*(xv|15s?)\b|\b3xv\b/.test(x)) return '3XV';
   return 'Other';
 }
+/* seasons run from August to July: a match on 14 Feb 2026 is in 2025/26 */
+const seasonOf = m => { const t = kot(m); if (!t) return 0; const d = new Date(t); return d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1; };
+const seasonLabel = y => `${y}/${String((y + 1) % 100).padStart(2, '0')}`;
+// a year group moves up one team each season
+const COHORT = ['U12','U13','U14','Meds','U16'];
 function viewResults(){
-  const allRes = DATA.matches.filter(m => m.status === 'FT').sort((a, b) => kot(b) - kot(a));
-  if (!allRes.some(m => resultOf(m))) return '<div class="empty">No results yet.</div>';
+  const ftAll = DATA.matches.filter(m => m.status === 'FT').sort((a, b) => kot(b) - kot(a));
+  if (!ftAll.some(m => resultOf(m))) return '<div class="empty">No results yet.</div>';
+  const seasons = [...new Set(ftAll.filter(m => resultOf(m)).map(seasonOf).filter(Boolean))].sort((a, b) => b - a);
+  if (V.season && !seasons.includes(V.season)) V.season = 0;
+  const sChips = seasons.length > 1 || V.season ? `<div class="team-tabs season-tabs" role="tablist" aria-label="Season"><span class="tt-l">Season</span>${[0].concat(seasons).map(y => `<button type="button" role="tab" data-season="${y}" aria-pressed="${(V.season || 0) === y}">${y ? seasonLabel(y) : 'All seasons'}</button>`).join('')}</div>` : '';
+  const allRes = V.season ? ftAll.filter(m => seasonOf(m) === V.season) : ftAll;
   const counts = {}; allRes.forEach(m => { if (resultOf(m)){ const c = teamCode(m.team) || 'Other'; counts[c] = (counts[c] || 0) + 1; } });
   const codes = TEAM_CODES.concat(counts.Other ? ['Other'] : []);
   if (V.team && !codes.includes(V.team)) V.team = '';
-  const chips = `<div class="team-tabs" role="tablist" aria-label="Team">${[''].concat(codes).map(c => `<button type="button" role="tab" data-team="${esc(c)}" aria-pressed="${(V.team || '') === c}" ${c && !counts[c] ? 'class="none"' : ''} title="${esc(c ? TEAM_NAMES[c] || 'Other teams' : 'All teams')}">${esc(c || 'All')}${c && counts[c] ? ` <small>${counts[c]}</small>` : ''}</button>`).join('')}</div>`;
+  const chips = sChips + `<div class="team-tabs" role="tablist" aria-label="Team">${sChips ? '<span class="tt-l">Team</span>' : ''}${[''].concat(codes).map(c => `<button type="button" role="tab" data-team="${esc(c)}" aria-pressed="${(V.team || '') === c}" ${c && !counts[c] ? 'class="none"' : ''} title="${esc(c ? TEAM_NAMES[c] || 'Other teams' : 'All teams')}">${esc(c || 'All')}${c && counts[c] ? ` <small>${counts[c]}</small>` : ''}</button>`).join('')}</div>`;
   const res = V.team ? allRes.filter(m => (teamCode(m.team) || 'Other') === V.team) : allRes, rs = res.map(m => [m, resultOf(m)]).filter(x => x[1]);
-  if (!rs.length) return chips + `<div class="empty">No ${esc(TEAM_NAMES[V.team] || V.team)} results yet.</div>`;
+  if (!rs.length) return chips + `<div class="empty">No ${esc(TEAM_NAMES[V.team] || V.team)} results${V.season ? ' in ' + seasonLabel(V.season) : ''} yet.</div>`;
+  // season by season for one team: the same team each year, or one year group as it moves up
+  let prog = '';
+  if (V.team && V.team !== 'Other'){
+    const ci = COHORT.indexOf(V.team), cohort = ci >= 0 && V.prog === 'cohort', base = V.season || seasons[0];
+    const rowsP = seasons.slice().sort((a, b) => a - b).map(y => { const code = cohort ? COHORT[ci + (y - base)] : V.team; if (!code) return null;
+      const list = ftAll.filter(m => seasonOf(m) === y && teamCode(m.team) === code).map(resultOf).filter(Boolean); if (!list.length) return null;
+      const w = list.filter(r => r.r === 'W').length, l = list.filter(r => r.r === 'L').length, f = list.reduce((a, r) => a + r.f, 0), g = list.reduce((a, r) => a + r.g, 0);
+      return `<tr${y === V.season ? ' class="on"' : ''}><td><button type="button" class="lnk" data-season="${y}">${seasonLabel(y)}</button></td>${cohort ? `<td>${esc(code)}</td>` : ''}<td>${list.length}</td><td>${w}</td><td>${list.length - w - l}</td><td>${l}</td><td class="hide-s">${f}</td><td class="hide-s">${g}</td><td>${Math.round(w/list.length*100)}%</td></tr>`; }).filter(Boolean);
+    if (rowsP.length){
+      prog = `<div class="sec">Season by season${cohort ? ' · this year group' : ' · ' + esc(V.team)}</div>
+      ${ci >= 0 ? `<div class="seg prog-seg" role="group" aria-label="Follow"><button type="button" data-prog="team" aria-pressed="${!cohort}">Same team each year</button><button type="button" data-prog="cohort" aria-pressed="${cohort}">Follow this year group</button></div>${cohort ? `<p class="hint">The ${esc(TEAM_NAMES[V.team])} of ${seasonLabel(base)}, followed as they move up a team each season (${COHORT.join(' → ')}).</p>` : ''}` : ''}
+      <div class="tbl"><table><thead><tr><th>Season</th>${cohort ? '<th>Team</th>' : ''}<th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">For</th><th class="hide-s">Against</th><th>Won</th></tr></thead><tbody>${rowsP.join('')}</tbody></table></div>`;
+    }
+  }
   const W = rs.filter(x => x[1].r === 'W').length, L = rs.filter(x => x[1].r === 'L').length, D = rs.length - W - L;
   const by = new Map(); rs.forEach(([m, r]) => { const k = schoolKey(r.opp) || r.opp, o = by.get(k) || {n:r.opp, p:0, w:0, d:0, l:0, f:0, a:0}; o.p++; o[r.r.toLowerCase()]++; o.f += r.f; o.a += r.g; by.set(k, o); });
-  return chips + `${V.team ? `<div class="team-h">${esc(TEAM_NAMES[V.team] || 'Other teams')}</div>` : ''}<div class="sum"><div><b>${rs.length}</b><span>Played</span></div><div class="w"><b>${W}</b><span>Won</span></div><div><b>${D}</b><span>Drawn</span></div><div class="l"><b>${L}</b><span>Lost</span></div></div>
+  return chips + `${V.team || V.season ? `<div class="team-h">${esc(V.team ? TEAM_NAMES[V.team] || 'Other teams' : 'All teams')}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>` : ''}<div class="sum"><div><b>${rs.length}</b><span>Played</span></div><div class="w"><b>${W}</b><span>Won</span></div><div><b>${D}</b><span>Drawn</span></div><div class="l"><b>${L}</b><span>Lost</span></div></div>
     <div class="sec">Results</div><div class="list">${res.map(row).join('')}</div>
-    <div class="sec">Record against each school${V.team ? ' · ' + esc(V.team) : ''}</div>
+    ${prog}<div class="sec">Record against each school${V.team ? ' · ' + esc(V.team) : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>
     <div class="tbl"><table><thead><tr><th>School</th><th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">For</th><th class="hide-s">Against</th></tr></thead><tbody>
     ${[...by.values()].sort((a, b) => b.p - a.p || a.n.localeCompare(b.n)).map(o => `<tr><td><span class="who">${crest(o.n)}${esc(o.n)}</span></td><td>${o.p}</td><td>${o.w}</td><td>${o.d}</td><td>${o.l}</td><td class="hide-s">${o.f}</td><td class="hide-s">${o.a}</td></tr>`).join('')}</tbody></table></div>`;
 }
@@ -169,7 +192,7 @@ function coachPanel(m){
     <div class="box coach"><h3>Score</h3><div class="pad">${pad}</div>${m.status === 'pre' ? '<p class="hint">Press Kick off first.</p>' : ''}</div>
     <div class="box coach"><h3>Commentary</h3><form class="inline" id="noteForm"><input class="input" id="noteIn" maxlength="140" placeholder="Big turnover at the breakdown" aria-label="Commentary line"><button class="btn" type="submit">Post</button></form></div>
     <div class="box coach"><h3>Match video</h3><p class="hint" style="margin:0">Only signed-in coaches and players see this link.</p><form class="inline" id="veoForm"><input class="input" id="veoIn" type="url" placeholder="https://app.veo.co/matches/…" aria-label="VEO link" value="${esc(veoOf(m))}"><button class="btn" type="submit">Save</button></form></div>
-    <div class="box coach"><h3>Match photos</h3><p class="hint" style="margin:0">Link to an album (Google Photos, Flickr, the school website…). Everyone can see this.</p><form class="inline" id="photoForm"><input class="input" id="photoIn" type="url" placeholder="https://photos.app.goo.gl/…" aria-label="Photos link" value="${esc(m.photos || '')}"><button class="btn" type="submit">Save</button></form></div>
+    <div class="box coach"><h3>Match photos</h3><p class="hint" style="margin:0">Link to an album (Google Drive, Google Photos…). Only signed-in coaches and players see this link.</p><form class="inline" id="photoForm"><input class="input" id="photoIn" type="url" placeholder="https://photos.app.goo.gl/…" aria-label="Photos link" value="${esc(photosOf(m))}"><button class="btn" type="submit">Save</button></form></div>
     <div class="box coach"><h3>Match</h3><div class="ctrl">${b('edit', 'Edit details')}${b('share', 'Copy match link')}${m.status === 'FT' ? b('copyres', 'Copy result') : ''}${b('del', 'Delete match', 'ghost danger')}</div></div>`;
 }
 function viewMatch(m){
@@ -179,7 +202,7 @@ function viewMatch(m){
   return `<button class="back" type="button" data-home>All matches</button>${isLive(m) || m.status === 'FT' ? board(m, true) : `<div class="sb quiet"><div class="sb-meta">${esc(compLine(m))}</div><div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b></div><div class="score" style="font-size:40px;color:var(--dim)">v</div><div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b></div></div><span class="clock" style="border-color:var(--rule)">${esc(when(m, true) || 'Date to be confirmed')}</span></div>`}
     ${coachPanel(m)}
     ${m.venue && m.status === 'pre' ? `<div class="box"><h3>Venue</h3><div>${esc(m.venue)}</div></div>` : ''}
-    ${(veoOf(m) && !canX) || m.photos ? `<div class="box media"><h3>Watch &amp; photos</h3><div class="ctrl">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ Watch on VEO</a>` : ''}${m.photos ? `<a class="veo photos" href="${esc(m.photos)}" target="_blank" rel="noopener">Match photos</a>` : ''}</div></div>` : ''}
+    ${(veoOf(m) || photosOf(m)) && !canX ? `<div class="box media"><h3>Watch &amp; photos</h3><div class="ctrl">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ Watch on VEO</a>` : ''}${photosOf(m) ? `<a class="veo photos" href="${esc(photosOf(m))}" target="_blank" rel="noopener">Match photos</a>` : ''}</div></div>` : ''}
     ${kicks.length ? `<div class="box"><h3>Goal kicking</h3>${kicks.join('')}</div>` : ''}
     ${evs.some(e => e.k === 'note' && e.p) ? `<div class="box commfeed"><h3><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0" fill="none" stroke="currentColor" stroke-width="2"/></svg>Live commentary</h3>
       ${evs.filter(e => e.k === 'note' && e.p).slice().reverse().slice(0, 12).map((e, i) => `<div class="cf${i === 0 ? ' latest' : ''}"><span class="cf-m">${e.m}′</span><p>${esc(e.p)}</p></div>`).join('')}</div>` : ''}
@@ -202,6 +225,8 @@ function render(){
   $('#view').innerHTML = m ? viewMatch(m) : V.tab === 'fixtures' ? viewFixtures() : V.tab === 'results' ? viewResults() : viewMatches();
   $$('[data-unbin]').forEach(b => b.onclick = ev => { ev.stopPropagation(); const id = b.dataset.unbin; save(d => { const x = d.matches.find(y => y.id === m.id); const e = x && x.events.find(y => y.id === id); if (e) e.ret = Date.now(); }, m.id); });
   $$('[data-team]').forEach(b => b.onclick = () => { V.team = b.dataset.team; render(); });
+  $$('[data-season]').forEach(b => b.onclick = () => { V.season = +b.dataset.season || 0; render(); });
+  $$('[data-prog]').forEach(b => b.onclick = () => { V.prog = b.dataset.prog; render(); });
   $$('[data-more]').forEach(b => b.onclick = () => { V['more' + b.dataset.more] = !V['more' + b.dataset.more]; render(); });
   $$('[data-open]').forEach(b => b.onclick = () => { V.open = b.dataset.open; try { history.replaceState(null, '', '#m.' + V.open); } catch(e){} render(); scrollTo(0, 0); });
   $$('[data-home]').forEach(b => b.onclick = () => { V.open = null; try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} render(); });
@@ -211,7 +236,7 @@ function render(){
   const nf = $('#noteForm'); if (nf) nf.onsubmit = ev => { ev.preventDefault(); const t = $('#noteIn').value.trim(); if (!t) return; save(d => { const x = d.matches.find(y => y.id === m.id); x.events.push({id:uid(), k:'note', s:'', p:t.slice(0, 140), m:minuteNow(m), at:Math.round(elapsed(m)), ts:Date.now()}); }, m.id); };
   const vf = $('#veoForm'); if (vf) vf.onsubmit = async ev => { ev.preventDefault(); const v = $('#veoIn').value.trim(); if (v && !/^https:\/\//i.test(v)){ toast('Paste the full link, starting with https://'); return; }
     try { await FB.setVeo(m.id, v); if (m.veo) await save(d => { delete d.matches.find(y => y.id === m.id).veo; }, m.id); toast(v ? 'VEO link saved. Coaches and players can watch it.' : 'VEO link removed.'); } catch(e){ toast('That didn’t save. Try again.'); } };
-  const pf = $('#photoForm'); if (pf) pf.onsubmit = ev => { ev.preventDefault(); const v = $('#photoIn').value.trim(); if (v && !/^https:\/\//i.test(v)){ toast('Paste the full link, starting with https://'); return; } save(d => { d.matches.find(y => y.id === m.id).photos = v; }, m.id); };
+  const pf = $('#photoForm'); if (pf) pf.onsubmit = ev => { ev.preventDefault(); const v = $('#photoIn').value.trim(); if (v && !/^https:\/\//i.test(v)){ toast('Paste the full link, starting with https://'); return; } FB.setPhotos(m.id, v).then(async () => { if (m.photos) await save(d => { delete d.matches.find(y => y.id === m.id).photos; }, m.id); toast(v ? 'Photos link saved. Coaches and players can open it.' : 'Photos link removed.'); }).catch(() => toast('That didn’t save. Try again.')); };
 }
 $$('#tabs button').forEach(b => b.onclick = () => { V.tab = b.dataset.v; render(); });
 setInterval(() => {
@@ -220,9 +245,10 @@ setInterval(() => {
 }, 1000);
 
 /* ---------- saving: a transaction on the shared scoreboard; every phone gets it within a second ---------- */
-let saving = false, READY = false, HAS_DOC = false, EMAIL = '', ADMIN = false, PLAYER = false, VEO = {}, veoUnsub = null;
+let saving = false, READY = false, HAS_DOC = false, EMAIL = '', ADMIN = false, PLAYER = false, VEO = {}, PHOTOS = {}, veoUnsub = null;
 /* VEO links are kept in a private record only coaches and players can read; older ones may still sit on the match */
 const veoOf = m => (COACH || PLAYER) ? (VEO[m.id] || m.veo || '') : '';
+const photosOf = m => (COACH || PLAYER) ? (PHOTOS[m.id] || m.photos || '') : '';
 async function save(fn, keepOpen){
   if (!COACH || !window.FB || saving) return;
   if (keepOpen !== undefined){ V.open = keepOpen; V.openAt = Date.now(); }
@@ -282,7 +308,7 @@ function openEv(m, k, s, pending){
       };
     who.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); d.querySelector('#evGo').click(); } });
     // the team list is saved with the score, so the next entry has it straight away
-    const commit = list => save(dd => { const x = dd.matches.find(y => y.id === m.id); list.forEach(e => x.events.push(e)); if (ours && players.length && !(x.players || []).length) x.players = players; }, m.id);
+    const commit = list => { list.forEach(e => { if (e.p && e.s === usOf(m)) publishFace(e.p); }); return save(dd => { const x = dd.matches.find(y => y.id === m.id); list.forEach(e => x.events.push(e)); if (ours && players.length && !(x.players || []).length) x.players = players; }, m.id); };
     d.querySelector('#evSkip').onclick = () => { closeDialog(); if (after) commit(pending); };
     const mb = d.querySelector('#evMiss'); if (mb) mb.onclick = () => { const seg = d.querySelector('[data-seg="res"]'); if (seg){ seg.dataset.val = 'miss'; } d.querySelector('#evGo').click(); };
     if (kick) d.querySelector('#evGo').addEventListener('click', ev => { if (!ev.isTrusted) return; const seg = d.querySelector('[data-seg="res"]'); if (seg) seg.dataset.val = 'ok'; }, true);
@@ -525,10 +551,30 @@ Leave out byes, training and anything that is not a match. Reply with only JSON:
 
 /* ---------- score animation for supporters ---------- */
 const fx = $('#fx'), Q = []; let busy = false;
+/* headshots in the score animations: a small public copy of the player's profile photo, made when a coach records the score */
+const FACES = {};
+const faceKey = n => String(n || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/^#?\d{1,2}\s+/, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80);
+function loadFace(k){ if (FACES[k] !== undefined) return Promise.resolve(FACES[k]); if (!k || !window.FB || !FB.face){ FACES[k] = ''; return Promise.resolve(''); }
+  return Promise.race([FB.face(k), new Promise(r => setTimeout(() => r(null), 1500))]).then(d => { if (d !== null) FACES[k] = d || ''; else FACES[k] = ''; return FACES[k]; }); }
+async function publishFace(name){
+  const k = faceKey(name); if (!COACH || !k || FACES[k]) return;
+  try {
+    const T = await loadTeams(); const want = k; const p = ((T && T.roster) || []).find(x => faceKey((x.f || '') + ' ' + (x.l || '')) === want);
+    if (!p || !p.photo || !/^fsimg:/.test(p.photo)) return;
+    const src = await FB.image(p.photo.slice(6)); if (!src) return;
+    const im = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
+    const S2 = 220, c = document.createElement('canvas'); c.width = c.height = S2; const g = c.getContext('2d'), w = im.naturalWidth, h = im.naturalHeight, s0 = Math.min(w, h);
+    g.drawImage(im, (w - s0)/2, h > w ? (h - s0)*0.18 : 0, s0, s0, 0, 0, S2, S2);
+    const d = c.toDataURL('image/jpeg', 0.82); FACES[k] = d; await FB.setFace(k, d);
+  } catch(e){}
+}
 function playFx(){
   const nx = Q.shift(); if (!nx){ busy = false; return; } busy = true;
   const [m, e] = nx, team = e.s === 'H' ? m.home : m.away, [h, a] = score(m);
-  if (e.k === 'ft') return playFullTime(m);
+  if (e.k === 'ft'){ $('#fxFace').hidden = true; return playFullTime(m); }
+  const fk = e.p && e.s === usOf(m) && ptsOf(e) > 0 ? faceKey(e.p) : '';
+  if (fk && FACES[fk] === undefined){ loadFace(fk).then(() => { Q.unshift(nx); playFx(); }); return; }
+  const ff = $('#fxFace'); ff.hidden = !(fk && FACES[fk]); ff.innerHTML = fk && FACES[fk] ? `<img alt="" src="${FACES[fk]}">` : '';
   const isKick = e.k === 'con' || e.k === 'pen' || e.k === 'dg', missed = !!(isKick && e.miss);
   const lab = missed ? (e.k === 'con' ? 'CONVERSION MISSED' : e.k === 'pen' ? 'PENALTY MISSED' : 'DROP GOAL MISSED') : e.k === 'try' ? 'TRY!' : e.k === 'pt' ? 'PENALTY TRY' : e.k === 'con' ? 'CONVERTED' : e.k === 'pen' ? 'PENALTY GOAL' : e.k === 'dg' ? 'DROP GOAL' : e.k === 'yc' ? 'YELLOW CARD' : 'RED CARD';
   fx.className = 'fx k-' + e.k; fx.style.setProperty('--tc', e.k === 'yc' ? '#F3C443' : e.k === 'rc' ? '#E5483B' : ((school(team) || {}).color || '#3A4466'));
@@ -637,8 +683,8 @@ async function coachesDialog(){
 
 /* older VEO links were stored on the public scoreboard; move them to the private record */
 let veoMoved = false;
-async function migrateVeo(){ if (veoMoved) return; veoMoved = true; const old = (RAW.matches || []).filter(m => m.veo); if (!old.length) return;
-  try { for (const m of old) await FB.setVeo(m.id, m.veo); await FB.save(cur => { const n = clone(cur); (n.matches || []).forEach(m => { delete m.veo; }); n.updated = Date.now(); return n; }); } catch(e){ veoMoved = false; } }
+async function migrateVeo(){ if (veoMoved) return; veoMoved = true; const old = (RAW.matches || []).filter(m => m.veo || m.photos); if (!old.length) return;
+  try { for (const m of old){ if (m.veo) await FB.setVeo(m.id, m.veo); if (m.photos) await FB.setPhotos(m.id, m.photos); } await FB.save(cur => { const n = clone(cur); (n.matches || []).forEach(m => { delete m.veo; delete m.photos; }); n.updated = Date.now(); return n; }); } catch(e){ veoMoved = false; } }
 
 /* ---------- start ---------- */
 function stamp(){ $('#updated').textContent = DATA.updated ? 'Last update ' + new Date(DATA.updated).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : ''; }
@@ -656,7 +702,7 @@ function applyState(s){
 // footer: coach sign-in
 const signLink = document.createElement('button'); signLink.type = 'button'; signLink.className = 'linkish'; signLink.textContent = 'Coach & player sign in';
 const outLink = document.createElement('button'); outLink.type = 'button'; outLink.className = 'linkish'; outLink.textContent = 'Sign out'; outLink.hidden = true;
-outLink.onclick = () => FB.signOut().then(() => { PLAYER = false; COACH = false; VEO = {}; render(); });
+outLink.onclick = () => FB.signOut().then(() => { PLAYER = false; COACH = false; VEO = {}; PHOTOS = {}; render(); });
 $('footer').appendChild(signLink); $('footer').appendChild(outLink);
 /* install as an app: the APK on Android, Add to Home Screen instructions on iPhone (hidden once installed) */
 (() => {
@@ -701,8 +747,8 @@ function boot(){
     let ok = ADMIN; if (EMAIL && !ok){ try { ok = await FB.isCoach(EMAIL); } catch(e){ ok = false; } }
     let pl = false; if (EMAIL && !ok){ try { pl = await FB.isPlayer(EMAIL); } catch(e){ pl = false; } }
     COACH = ok; PLAYER = pl; if (COACH) loadTeams(true); signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL || COACH;
-    if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {};
-    if (COACH || PLAYER) veoUnsub = FB.onVeo(v => { VEO = v || {}; if (READY) render(); });
+    if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {}; PHOTOS = {};
+    if (COACH || PLAYER) veoUnsub = FB.onVeo((v, ph) => { VEO = v || {}; PHOTOS = ph || {}; if (READY) render(); });
     if (EMAIL && !ok && !pl) toast(`Signed in as ${EMAIL}, which isn’t on the coaches or players list.`);
     else if (pl) toast('Signed in as a player. Match videos are now available.');
     if (COACH) migrateVeo();

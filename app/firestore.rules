@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    function me() { return request.auth.token.email.lower(); }
+    function isAdmin() { return signedIn() && me() == 'ergsrugby@gmail.com'; }
+    function isCoach() { return isAdmin() || (signedIn() && exists(/databases/$(database)/documents/coaches/$(me()))); }
+    function isPlayer() { return signedIn() && exists(/databases/$(database)/documents/players/$(me())); }
+    function isSquad() { return isCoach() || isPlayer(); }
+
+    // ERGS Live scoreboard: anyone can watch, only coaches can score
+    match /live/{doc} {
+      allow read: if true;
+      allow write: if isCoach() && request.resource.data.json is string && request.resource.data.json.size() < 900000;
+    }
+    // who can sign in
+    match /coaches/{email} {
+      allow read: if isCoach() || (signedIn() && me() == email);
+      allow write: if isAdmin();
+    }
+    match /players/{email} {
+      allow read: if isCoach() || (signedIn() && me() == email);
+      allow write: if isCoach();
+    }
+    // main app: plays, squads and pictures for coaches and players; everything else coaches only
+    match /team/{doc} { allow read: if isSquad(); allow write: if isCoach(); }
+    match /plays/{doc} { allow read: if isSquad(); allow write: if isCoach(); }
+    match /images/{doc} { allow read: if isSquad(); allow write: if isCoach(); }
+    match /totw/{doc} { allow read, write: if isCoach(); }
+    match /sponsors/{doc} { allow read, write: if isCoach(); }
+    match /sheets/{doc} { allow read, write: if isCoach(); }
+    match /members/{uid} {
+      allow read: if isCoach();
+      allow write: if isSquad() && request.auth.uid == uid;
+    }
+  }
+}

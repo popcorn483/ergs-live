@@ -27,7 +27,16 @@ getRedirectResult(auth).catch(() => {});
 /* live/state holds ERGS Live's matches and school crests; the app sees them as "matches" and "schools" collections */
 let liveCache = null; const liveSubs = new Set();
 let liveUnsub = null;
-function liveListen(){ if (liveUnsub) return; liveUnsub = onSnapshot(LIVE, s => { liveCache = decState(s) || {matches:[], schools:{}}; liveSubs.forEach(f => f()); }, e => liveSubs.forEach(f => f(e))); }
+function liveListen(){ if (liveUnsub) return; liveUnsub = onSnapshot(LIVE, s => { liveCache = decState(s) || {matches:[], schools:{}}; liveSubs.forEach(f => f()); }, e => liveSubs.forEach(f => f(e)));
+  // VEO and photo links are private (team/veo): coaches and players see them merged into the matches
+  authReady.then(() => { if (ROLE !== 'coach' && ROLE !== 'player') return; onSnapshot(doc(fs, 'team', 'veo'), s => { const v = dec(s) || {}; MEDIA = {byMatch:v.byMatch || {}, photos:v.photos || {}}; if (liveCache) liveSubs.forEach(f => f()); }, () => {}); }); }
+let MEDIA = {byMatch:{}, photos:{}};
+async function setMedia(id, veo, photos){
+  const r = doc(fs, 'team', 'veo');
+  await runTransaction(fs, async tx => { const s = await tx.get(r); const v = dec(s) || {}; v.byMatch = v.byMatch || {}; v.photos = v.photos || {};
+    if (veo) v.byMatch[id] = veo; else delete v.byMatch[id];
+    if (photos) v.photos[id] = photos; else delete v.photos[id];
+    v.updated = Date.now(); tx.set(r, enc(v)); }); }
 async function liveTx(fn){ try { await runTransaction(fs, async tx => { const s = await tx.get(LIVE); const cur = dec(s) || {matches:[], schools:{}, demo:false}; cur.matches = cur.matches || []; cur.schools = cur.schools || {}; fn(cur); cur.updated = Date.now(); tx.set(LIVE, {json:JSON.stringify(cur), updated:cur.updated}); }); } catch(e){ throw err(e); } }
 const decLive = s => { if (!s.exists()) return null; const v = s.data(); try { return JSON.parse(v.json); } catch(e){ return null; } };
 // live/state uses the field "json" (ERGS Live's format)
@@ -35,7 +44,7 @@ function decState(s){ return decLive(s); }
 
 function virtualDocs(name){
   const st = liveCache || {matches:[], schools:{}};
-  if (name === 'matches') return (st.matches || []).map(m => { const d = Object.assign({}, m); const id = d.id; delete d.id; return {id, d}; });
+  if (name === 'matches') return (st.matches || []).map(m => { const d = Object.assign({}, m); const id = d.id; delete d.id; d.veo = MEDIA.byMatch[id] || d.veo || ''; d.photos = MEDIA.photos[id] || d.photos || ''; return {id, d}; });
   if (name === 'schools') return Object.entries(st.schools || {}).map(([id, v]) => ({id, d:v}));
   return [];
 }
@@ -53,6 +62,8 @@ function makeDoc(path){
     },
     async set(data){
       data = JSON.parse(JSON.stringify(data));
+      if (col === 'matches'){ const veo = data.veo || '', ph = data.photos || ''; delete data.veo; delete data.photos;
+        if (veo !== (MEDIA.byMatch[id] || '') || ph !== (MEDIA.photos[id] || '')){ try { await setMedia(id, veo, ph); } catch(e){ throw err(e); } } }
       if (col === 'matches') return liveTx(st => { const i = st.matches.findIndex(m => m.id === id), m = Object.assign({}, data, {id}); if (i >= 0) st.matches[i] = m; else st.matches.push(m); });
       if (col === 'schools') return liveTx(st => { st.schools[id] = data; });
       if (col === 'members') data = Object.assign({}, data, {name:USER && USER.displayName || '', email:EMAIL, photo:USER && USER.photoURL || ''});
