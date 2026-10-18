@@ -23,6 +23,9 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     // Team of the Week nominations (team/noms): coaches nominate up to 4 players after each match; the main app collates them
     onNoms(cb){ return onSnapshot(doc(db, 'team', 'noms'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(Array.isArray(v.list) ? v.list : []); }, () => cb([])); },
     setNoms(mid, list){ const r = doc(db, 'team', 'noms'); return runTransaction(db, async tx => { const s = await tx.get(r); let v = {list:[]}; if (s.exists()){ try { v = JSON.parse(s.data().j) || v; } catch(e){} } v.list = (Array.isArray(v.list) ? v.list : []).filter(x => x.mid !== mid).concat(list); v.updated = Date.now(); tx.set(r, {j:JSON.stringify(v), u:Date.now()}); }); },
+    // opposition notes: private coach notes against each school (stored with Team of the Week, which only coaches can read)
+    onOppNotes(cb){ return onSnapshot(doc(db, 'totw', 'oppnotes'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(v.bySchool || {}); }, () => cb({})); },
+    setOppNote(key, note){ const r = doc(db, 'totw', 'oppnotes'); return runTransaction(db, async tx => { const s = await tx.get(r); let v = {bySchool:{}}; if (s.exists()){ try { v = JSON.parse(s.data().j) || v; } catch(e){} } v.bySchool = v.bySchool || {}; if (note && note.text) v.bySchool[key] = note; else delete v.bySchool[key]; v.updated = Date.now(); tx.set(r, {j:JSON.stringify(v), u:Date.now()}); }); },
     // headshots shown in the score animations: small public copies, made when a coach records a score
     async face(key){ try { const s = await getDoc(doc(db, 'faces', key)); return s.exists() ? (s.data().d || '') : ''; } catch(e){ return ''; } },
     setFace(key, d){ return setDoc(doc(db, 'faces', key), {d, u:Date.now()}); },

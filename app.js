@@ -97,11 +97,11 @@ function board(m, full){
 }
 function row(m){
   const d = new Date(kot(m)), us = usOf(m), opp = us === 'A' ? m.home : m.away, r = resultOf(m);
-  const right = isLive(m) ? `<span class="pill live" data-clock="${esc(m.id)}">${esc(clockText(m))}</span>` : r ? `${resPill(r)} <b>${r.f}–${r.g}</b>` : '';
+  const right = m.off && m.status === 'pre' ? `<span class="pill off">${m.off === 'cancelled' ? 'Cancelled' : 'Postponed'}</span>` : isLive(m) ? `<span class="pill live" data-clock="${esc(m.id)}">${esc(clockText(m))}</span>` : r ? `${resPill(r)} <b>${r.f}–${r.g}</b>` : '';
   const ha = m.status === 'FT' ? '' : us === 'H' ? ' home' : us === 'A' ? ' away' : '';
-  return `<button type="button" class="row${ha}" data-open="${esc(m.id)}"><span class="cd"><b>${kot(m) ? d.getDate() : '–'}</b><span>${kot(m) ? esc(d.toLocaleDateString('en-GB', {weekday:'short'})) : ''}</span></span>${crest(opp)}
-    <span class="ri"><b>${esc((m.team ? m.team + ' ' : '') + (us === 'A' ? '@ ' : 'v ') + opp)}</b><span>${esc([m.koTbc ? 'Kick-off to be confirmed' : kot(m) ? d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '', us === 'H' ? 'Home' : us === 'A' ? 'Away' : '', m.comp, m.venue].filter(Boolean).join(' · '))}</span></span>
-    <span class="rr">${right || (ha ? `<span class="ha-tag">${us === 'H' ? 'Home' : 'Away'}</span>` : '')}</span></button>`;
+  return `<button type="button" class="row${ha}${m.off && m.status === 'pre' ? ' is-off' : ''}" data-open="${esc(m.id)}"><span class="cd"><b>${kot(m) ? d.getDate() : '–'}</b><span>${kot(m) ? esc(d.toLocaleDateString('en-GB', {weekday:'short'})) : ''}</span></span>${crest(opp)}
+    <span class="ri"><b>${esc((m.team ? m.team + ' ' : '') + (us === 'A' ? '@ ' : 'v ') + opp)}</b><span>${esc([m.off && m.status === 'pre' ? (m.off === 'cancelled' ? 'CANCELLED' : 'POSTPONED') + (m.offWhy ? ': ' + m.offWhy : '') : '', m.koTbc ? 'Kick-off to be confirmed' : kot(m) ? d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '', us === 'H' ? 'Home' : us === 'A' ? 'Away' : '', m.comp, m.venue].filter(Boolean).join(' · '))}</span></span>
+    <span class="rr">${COACH && m.status === 'pre' && oppNote(opp) ? '<span class="note-tag" title="You have notes on this school">Notes</span>' : ''}${right || (ha ? `<span class="ha-tag">${us === 'H' ? 'Home' : 'Away'}</span>` : '')}</span></button>`;
 }
 function viewMatches(){
   const live = DATA.matches.filter(isLive), now = Date.now();
@@ -113,7 +113,9 @@ function viewMatches(){
   const lTeams = TEAM_CODES.filter(c => ftDone.some(m => teamCode(m.team) === c));
   const lFilters = ftDone.length ? `<div class="lr-filters"><div class="team-tabs" role="tablist" aria-label="When">${[['', 'Any time'], ['week', 'Past week'], ['month', 'Past month']].map(([k, t]) => `<button type="button" role="tab" data-lperiod="${k}" aria-pressed="${(V.lPeriod || '') === k}">${t}</button>`).join('')}</div>
       <select class="input lr-team" id="lrTeam" aria-label="Team"><option value="">All teams</option>${lTeams.map(c => `<option value="${c}" ${V.lTeam === c ? 'selected' : ''}>${c} · ${TEAM_NAMES[c]}</option>`).join('')}</select></div>` : '';
-  return `<div class="sec">${live.length ? 'Live now' : 'No match in play'}</div>${live.length ? `<div class="board">${live.map(m => board(m)).join('')}</div>` : `<div class="empty">No ERGS match is in play right now. The score appears here the moment one kicks off.${COACH ? ' Open a fixture below and press Kick off.' : ''}</div>`}
+  const offSoon = DATA.matches.filter(m => m.off && m.status === 'pre' && kot(m) > now - 12*3600e3 && kot(m) < now + 8*864e5).sort((a, b) => kot(a) - kot(b));
+  const offBan = offSoon.length ? `<div class="off-ban" role="alert"><b>${offSoon.length === 1 ? 'Fixture change' : 'Fixture changes'}</b>${offSoon.map(m => { const d = new Date(kot(m)); return `<button type="button" data-open="${esc(m.id)}"><span class="off-tag">${m.off === 'cancelled' ? 'Cancelled' : 'Postponed'}</span>${esc(d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}) + ' · ' + (m.team ? m.team + ' ' : '') + (usOf(m) === 'A' ? '@ ' : 'v ') + (usOf(m) === 'A' ? m.home : m.away))}${m.offWhy ? `<small>${esc(m.offWhy)}</small>` : ''}</button>`; }).join('')}</div>` : '';
+  return offBan + `<div class="sec">${live.length ? 'Live now' : 'No match in play'}</div>${live.length ? `<div class="board">${live.map(m => board(m)).join('')}</div>` : `<div class="empty">No ERGS match is in play right now. The score appears here the moment one kicks off.${COACH ? ' Open a fixture below and press Kick off.' : ''}</div>`}
     <div class="sec">Coming up</div>${next.length + undated.length ? `<div class="list">${next.concat(undated).map(row).join('')}</div>${allNext.length > 4 ? `<button type="button" class="more" data-more="Next">${V.moreNext ? 'Show fewer' : `Show ${allNext.length - 4} more`}</button>` : ''}` : `<div class="empty">No fixtures announced yet.${COACH ? ' Add a match or import the fixtures list.' : ''}</div>`}
     <div class="sec">Latest results</div>${lFilters}${done.length ? `<div class="list">${done.map(row).join('')}</div>${allDone.length > 5 ? `<button type="button" class="more" data-more="Done">${V.moreDone ? 'Show fewer' : `Show ${allDone.length - 5} more`}</button>` : ''}` : `<div class="empty">${ftDone.length ? `No ${V.lTeam ? esc(TEAM_NAMES[V.lTeam]) + ' ' : ''}results${V.lPeriod === 'week' ? ' in the past week' : V.lPeriod === 'month' ? ' in the past month' : ''}.` : 'No results yet.'}</div>`}`;
 }
@@ -149,6 +151,21 @@ const seasonLabel = y => `${y}/${String((y + 1) % 100).padStart(2, '0')}`;
 // a year group moves up one team each season
 // after the Medallion year, pupils go straight into the 1st XV (for the last two years of school)
 const COHORT = ['U12','U13','U14','Meds','1XV','1XV'];
+/* season leaderboards: tries, points and appearances for the results being shown (coaches and players) */
+function leaders(list){
+  const P = new Map(), key = n => String(n || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  const get = n => { const k = key(n); if (!k || /^#?\d+$/.test(k) || /^(opp|player|penalty try)/.test(k)) return null; let o = P.get(k); if (!o){ o = {n:String(n).trim(), t:0, p:0, a:new Set(), team:new Set()}; P.set(k, o); } return o; };
+  list.forEach(m => { const us = usOf(m); if (!us) return; const tc = teamCode(m.team);
+    (Array.isArray(m.players) ? m.players : []).forEach(x => { const o = get(x && x.name); if (o){ o.a.add(m.id); if (tc) o.team.add(tc); } });
+    (m.events || []).forEach(e => { if (e.s !== us || e.k === 'note' || !e.p) return; const o = get(e.p); if (!o) return; o.a.add(m.id); if (tc) o.team.add(tc); if (e.k === 'try' && !e.miss) o.t++; o.p += ptsOf(e); }); });
+  const all = [...P.values()]; if (!all.length) return '';
+  const top = (f, lab) => { const l = all.filter(o => f(o) > 0).sort((a, b) => f(b) - f(a) || a.n.localeCompare(b.n)).slice(0, 8); if (!l.length) return '';
+    let rank = 0, prev = null; return `<div class="lb"><h4>${lab}</h4><ol>${l.map((o, i) => { if (f(o) !== prev){ rank = i + 1; prev = f(o); } return `<li${rank === 1 ? ' class="first"' : ''}><span class="lb-r">${rank}</span><span class="lb-n">${esc(o.n)}${!V.team && o.team.size ? ` <small>${esc([...o.team].join(' · '))}</small>` : ''}</span><b>${f(o)}</b></li>`; }).join('')}</ol></div>`; };
+  const boards = [top(o => o.t, 'Top try scorers'), top(o => o.p, 'Most points'), top(o => o.a.size, 'Most appearances')].filter(Boolean);
+  if (!boards.length) return '';
+  const noLists = !list.some(m => Array.isArray(m.players) && m.players.length);
+  return `<div class="sec">Leaderboards${V.team ? ' · ' + esc(V.team) : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div><div class="lbs">${boards.join('')}</div>${noLists ? '<p class="hint">Appearances count players named in a match’s team list, plus anyone who scored. Paste the squad into each match (Edit details) to count everyone who played.</p>' : ''}`;
+}
 function viewResults(){
   const ftAll = DATA.matches.filter(m => m.status === 'FT').sort((a, b) => kot(b) - kot(a));
   if (!ftAll.some(m => resultOf(m))) return '<div class="empty">No results yet.</div>';
@@ -185,7 +202,7 @@ function viewResults(){
   const by = new Map(); rs.forEach(([m, r]) => { const k = schoolKey(r.opp) || r.opp, o = by.get(k) || {n:r.opp, p:0, w:0, d:0, l:0, f:0, a:0}; o.p++; o[r.r.toLowerCase()]++; o.f += r.f; o.a += r.g; by.set(k, o); });
   return chips + `${V.team || V.season || V.period ? `<div class="team-h">${esc(V.team ? TEAM_NAMES[V.team] || 'Other teams' : 'All teams')}${V.period === 'week' ? ' · past week' : V.period === 'month' ? ' · past month' : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>` : ''}<div class="sum"><div><b>${rs.length}</b><span>Played</span></div><div class="w"><b>${W}</b><span>Won</span></div><div><b>${D}</b><span>Drawn</span></div><div class="l"><b>${L}</b><span>Lost</span></div></div>
     <div class="sec">Results</div><div class="list">${res.map(row).join('')}</div>
-    ${prog}${squad ? `<div class="sec">Record against each school${V.team ? ' · ' + esc(V.team) : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>
+    ${squad ? leaders(res) : ''}${prog}${squad ? `<div class="sec">Record against each school${V.team ? ' · ' + esc(V.team) : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>
     <div class="tbl"><table><thead><tr><th>School</th><th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">For</th><th class="hide-s">Against</th></tr></thead><tbody>
     ${[...by.values()].sort((a, b) => b.p - a.p || a.n.localeCompare(b.n)).map(o => `<tr><td><span class="who">${crest(o.n)}${esc(o.n)}</span></td><td>${o.p}</td><td>${o.w}</td><td>${o.d}</td><td>${o.l}</td><td class="hide-s">${o.f}</td><td class="hide-s">${o.a}</td></tr>`).join('')}</tbody></table></div>` : `<p class="hint squad-note">Coaches and players can sign in to see the record against each school.</p>`}`;
 }
@@ -193,26 +210,30 @@ function coachPanel(m){
   if (!COACH || DATA.demo) return '';
   const b = (act, t, cls) => `<button type="button" class="btn ${cls || ''}" data-act="${act}">${t}</button>`;
   let clock = '';
-  if (m.status === 'pre') clock = b('ko', 'Kick off', 'primary');
+  if (m.status === 'pre') clock = m.off ? b('reinstate', 'Match back on', 'primary') + b('offedit', 'Change reason') : b('ko', 'Kick off', 'primary') + b('postpone', 'Postpone or cancel', 'ghost');
   if (m.status === '1H') clock = b('ht', 'Half time', 'primary');
   if (m.status === 'HT') clock = b('2h', 'Start 2nd half', 'primary');
   if (m.status === '2H') clock = b('ft', 'Full time', 'primary');
   if (m.status === '1H' || m.status === '2H') clock += b('pause', m.clock && m.clock.running ? 'Pause clock' : 'Restart clock') + b('minus', '−1 min', 'ghost') + b('plus', '+1 min', 'ghost');
   if (m.status === 'FT') clock = b('reopen', 'Reopen match');
   const pad = ['H', 'A'].map(s => `<div class="col"><div class="side-h">${crest(s === 'H' ? m.home : m.away)}<span>${esc(s === 'H' ? m.home : m.away)}</span></div>${['try','con','pen','dg','pt','yc','rc'].map(k => `<button type="button" class="btn ${PTS[k] ? 'pts' : 'card'} ${k}" data-ev="${k}" data-side="${s}" ${m.status === 'pre' || m.status === 'FT' ? 'disabled' : ''}><span>${EVK[k][0]}</span><small>${PTS[k] ? '+' + PTS[k] : '■'}</small></button>`).join('')}</div>`).join('');
-  return `<div class="box coach"><h3>Match clock</h3><div class="ctrl">${clock}</div></div>
+  const notes = usOf(m) ? oppNoteBox(m) : '';
+  return `${m.status === 'pre' ? notes : ''}<div class="box coach"><h3>Match clock</h3><div class="ctrl">${clock}</div></div>
     <div class="box coach"><h3>Score</h3><div class="pad">${pad}</div>${m.status === 'pre' ? '<p class="hint">Press Kick off first.</p>' : ''}</div>
     <div class="box coach"><h3>Commentary</h3><form class="inline" id="noteForm"><input class="input" id="noteIn" maxlength="140" placeholder="Big turnover at the breakdown" aria-label="Commentary line"><button class="btn" type="submit">Post</button></form></div>
     <div class="box coach"><h3>Match video</h3><p class="hint" style="margin:0">Only signed-in coaches and players see this link.</p><form class="inline" id="veoForm"><input class="input" id="veoIn" type="url" placeholder="https://app.veo.co/matches/…" aria-label="VEO link" value="${esc(veoOf(m))}"><button class="btn" type="submit">Save</button></form></div>
     <div class="box coach"><h3>Match photos</h3><p class="hint" style="margin:0">Link to an album (Google Drive, Google Photos…). Only signed-in coaches and players see this link.</p><form class="inline" id="photoForm"><input class="input" id="photoIn" type="url" placeholder="https://photos.app.goo.gl/…" aria-label="Photos link" value="${esc(photosOf(m))}"><button class="btn" type="submit">Save</button></form></div>
+    ${m.status === 'FT' && usOf(m) ? `<div class="box coach"><h3>After the match</h3><p class="hint" style="margin:0">Opens the main app with the score and scorers filled in, ready to download, plus a match report draft to edit.</p><div class="ctrl"><a class="btn primary" href="${MAIN_APP}#ft.${esc(m.id)}" target="_blank" rel="noopener">Full-time graphic &amp; match report</a></div></div>` : ''}
     ${m.status === 'FT' && usOf(m) ? nomBox(m) : ''}
+    ${m.status !== 'pre' ? notes : ''}
     <div class="box coach"><h3>Match</h3><div class="ctrl">${b('edit', 'Edit details')}${b('share', 'Copy match link')}${m.status === 'FT' ? b('copyres', 'Copy result') : ''}${b('del', 'Delete match', 'ghost danger')}</div></div>`;
 }
 function viewMatch(m){
   const evs = sorted(m), t = [0, 0], run = new Map(); evs.forEach(e => { const p = ptsOf(e); if (e.s === 'H') t[0] += p; if (e.s === 'A') t[1] += p; run.set(e, t.join('–')); });
   const kicks = []; for (const s of ['H', 'A']){ const by = {}; evs.filter(e => e.s === s && ['con','pen','dg'].includes(e.k)).forEach(e => { const k = e.p || 'Kicker'; const r = by[k] = by[k] || [0, 0]; r[1]++; if (!e.miss) r[0]++; }); Object.entries(by).forEach(([k, r]) => kicks.push(`<div class="kick"><span>${esc(k)} <small>${esc(s === 'H' ? m.home : m.away)}</small></span><b>${r[0]}/${r[1]}</b></div>`)); }
   const canX = COACH && !DATA.demo;
-  return `<button class="back" type="button" data-home>All matches</button>${isLive(m) || m.status === 'FT' ? board(m, true) : `<div class="sb quiet"><div class="sb-meta">${esc(compLine(m))}</div><div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b></div><div class="score" style="font-size:40px;color:var(--dim)">v</div><div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b></div></div><span class="clock" style="border-color:var(--rule)">${esc(when(m, true) || 'Date to be confirmed')}</span></div>`}
+  const offBox = m.off && m.status === 'pre' ? `<div class="off-ban big" role="alert"><b>This match is ${m.off === 'cancelled' ? 'cancelled' : 'postponed'}</b>${m.offWhy ? `<p>${esc(m.offWhy)}</p>` : ''}${m.off === 'postponed' ? '<p>A new date will appear here when it is arranged.</p>' : ''}</div>` : '';
+  return `<button class="back" type="button" data-home>All matches</button>${offBox}${isLive(m) || m.status === 'FT' ? board(m, true) : `<div class="sb quiet"><div class="sb-meta">${esc(compLine(m))}</div><div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b></div><div class="score" style="font-size:40px;color:var(--dim)">v</div><div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b></div></div><span class="clock" style="border-color:var(--rule)">${esc(when(m, true) || 'Date to be confirmed')}</span></div>`}
     ${coachPanel(m)}
     ${m.venue && m.status === 'pre' ? `<div class="box"><h3>Venue</h3><div>${esc(m.venue)}</div></div>` : ''}
     ${(veoOf(m) || photosOf(m)) && !canX ? `<div class="box media"><h3>Watch &amp; photos</h3><div class="ctrl">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ Watch on VEO</a>` : ''}${photosOf(m) ? `<a class="veo photos" href="${esc(photosOf(m))}" target="_blank" rel="noopener">Match photos</a>` : ''}</div></div>` : ''}
@@ -256,6 +277,8 @@ function render(){
   $$('[data-ev]').forEach(b => b.onclick = () => openEv(m, b.dataset.ev, b.dataset.side));
   $$('[data-rm]').forEach(b => b.onclick = () => { const e = m.events.find(x => x.id === b.dataset.rm); ask('Remove this entry?', `${label(e)} at ${e.m}′ will come off the timeline and the score for everyone.`, 'Remove', () => save(d => { const x = d.matches.find(y => y.id === m.id); x.events = x.events.filter(y => y.id !== e.id); }, m.id)); });
   const nf = $('#noteForm'); if (nf) nf.onsubmit = ev => { ev.preventDefault(); const t = $('#noteIn').value.trim(); if (!t) return; save(d => { const x = d.matches.find(y => y.id === m.id); x.events.push({id:uid(), k:'note', s:'', p:t.slice(0, 140), m:minuteNow(m), at:Math.round(elapsed(m)), ts:Date.now()}); }, m.id); };
+  const onf = $('#oppNoteForm'); if (onf) onf.onsubmit = async ev => { ev.preventDefault(); const opp = onf.dataset.opp, k = oppKey(opp), t = $('#oppNoteIn').value.trim();
+    try { await FB.setOppNote(k, t ? {name:opp, text:t.slice(0, 4000), u:Date.now(), by:EMAIL} : null); toast(t ? `Notes on ${opp} saved. Only coaches can see them.` : `Notes on ${opp} removed.`); } catch(e){ toast(/permission/.test(e && e.code || '') ? 'The database refused the save: your account isn’t on the coaches list.' : 'That didn’t save. Try again.'); } };
   const vf = $('#veoForm'); if (vf) vf.onsubmit = async ev => { ev.preventDefault(); const v = $('#veoIn').value.trim(); if (v && !/^https:\/\//i.test(v)){ toast('Paste the full link, starting with https://'); return; }
     try { await FB.setVeo(m.id, v); if (m.veo) await save(d => { delete d.matches.find(y => y.id === m.id).veo; }, m.id); toast(v ? 'VEO link saved. Coaches and players can watch it.' : 'VEO link removed.'); } catch(e){ toast('That didn’t save. Try again.'); } };
   const pf = $('#photoForm'); if (pf) pf.onsubmit = ev => { ev.preventDefault(); const v = $('#photoIn').value.trim(); if (v && !/^https:\/\//i.test(v)){ toast('Paste the full link, starting with https://'); return; } FB.setPhotos(m.id, v).then(async () => { if (m.photos) await save(d => { delete d.matches.find(y => y.id === m.id).photos; }, m.id); toast(v ? 'Photos link saved. Coaches and players can open it.' : 'Photos link removed.'); }).catch(() => toast('That didn’t save. Try again.')); };
@@ -267,7 +290,7 @@ setInterval(() => {
 }, 1000);
 
 /* ---------- saving: a transaction on the shared scoreboard; every phone gets it within a second ---------- */
-let NOMS = [], nomsUnsub = null;
+let NOMS = [], nomsUnsub = null, OPPN = {}, notesUnsub = null;
 let saving = false, READY = false, HAS_DOC = false, EMAIL = '', ADMIN = false, PLAYER = false, VEO = {}, PHOTOS = {}, veoUnsub = null;
 /* VEO links are kept in a private record only coaches and players can read; older ones may still sit on the match */
 const veoOf = m => (COACH || PLAYER) ? (VEO[m.id] || m.veo || '') : '';
@@ -432,7 +455,10 @@ function act(a, m){
     case 'import': return importDialog();
     case 'schools': return schoolsDialog();
     case 'edit': return matchForm(m);
-    case 'ko': return upd(x => { x.status = '1H'; x.clock = {base:0, since:now, running:true}; });
+    case 'postpone': return offDialog(m);
+    case 'offedit': return offDialog(m);
+    case 'reinstate': return ask('Match back on?', 'The postponed or cancelled notice comes off for everyone.', 'Back on', () => upd(x => { delete x.off; delete x.offWhy; delete x.offAt; }));
+    case 'ko': if (m.off){ toast('This match is marked ' + m.off + '. Press Match back on first.'); return; } return upd(x => { x.status = '1H'; x.clock = {base:0, since:now, running:true}; });
     case 'ht': return upd(x => { x.status = 'HT'; x.clock = {base:el(), since:0, running:false}; });
     case '2h': return upd(x => { x.status = '2H'; x.clock = {base:Math.max(el(), (+x.half || 35)*60), since:now, running:true}; });
     case 'ft': return ask('Blow full time?', 'The clock stops and the match moves to Results for everyone.', 'Full time', () => upd(x => { x.status = 'FT'; x.ftAt = Date.now(); x.clock = {base:el(), since:0, running:false}; }).then(() => { let n = 0; const go = () => { const x = DATA.matches.find(y => y.id === m.id); if (x && x.status === 'FT'){ if (usOf(x) && !nomsOf(x).length && $('#modal').hidden) nomsDialog(x); } else if (n++ < 30) setTimeout(go, 100); }; go(); }));
@@ -743,6 +769,18 @@ const signLink = document.createElement('button'); signLink.type = 'button'; sig
 const outLink = document.createElement('button'); outLink.type = 'button'; outLink.className = 'linkish'; outLink.textContent = 'Sign out'; outLink.hidden = true;
 outLink.onclick = () => FB.signOut().then(() => { PLAYER = false; COACH = false; VEO = {}; PHOTOS = {}; render(); });
 $('footer').appendChild(signLink); $('footer').appendChild(outLink);
+/* postpone or cancel a fixture, with a reason parents can see */
+function offDialog(m){
+  const REASONS = ['Waterlogged pitch', 'Frozen pitch', 'Bad weather', 'Opposition unable to field a team', 'School event'];
+  openDialog(`<h2>Postpone or cancel</h2><p>${esc((m.team ? m.team + ' ' : '') + m.home + ' v ' + m.away)}. Everyone following ERGS Live sees a notice straight away.</p>
+    <div class="field"><span class="label">This match is</span>${seg('off', [['postponed','Postponed'],['cancelled','Cancelled']], m.off || 'postponed')}</div>
+    <div class="field"><label class="label" for="offWhy">Reason (shown to everyone)</label><input class="input" id="offWhy" maxlength="80" value="${esc(m.offWhy || '')}" placeholder="Waterlogged pitch"><div class="chips-row">${REASONS.map(r => `<button type="button" class="chip-btn" data-r="${esc(r)}">${esc(r)}</button>`).join('')}</div></div>
+    <div class="dlg-a"><button type="button" class="btn ghost" data-close>Cancel</button><button type="button" class="btn danger" id="offGo">Save notice</button></div>`, d => {
+    wireSegs(d); d.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { d.querySelector('#offWhy').value = b.dataset.r; });
+    d.querySelector('#offGo').onclick = () => { const off = d.querySelector('[data-seg="off"]').dataset.val || 'postponed', why = d.querySelector('#offWhy').value.trim().slice(0, 80);
+      closeDialog(); save(dd => { const x = dd.matches.find(y => y.id === m.id); if (x){ x.off = off; x.offWhy = why; x.offAt = Date.now(); } }, m.id).then(() => toast(`Marked ${off}. Everyone can see the notice.`)); };
+  });
+}
 /* install as an app: the APK on Android, Add to Home Screen instructions on iPhone (hidden once installed) */
 (() => {
   const slot = $('#installSlot'); if (!slot) return;
@@ -790,7 +828,8 @@ function boot(){
     if (COACH || PLAYER) veoUnsub = FB.onVeo((v, ph) => { VEO = v || {}; PHOTOS = ph || {}; if (READY) render(); });
     if (EMAIL && !ok && !pl) toast(`Signed in as ${EMAIL}, which isn’t on the coaches or players list.`);
     else if (pl) toast('Signed in as a player. Match videos and photos are unlocked.');
-    if (nomsUnsub){ nomsUnsub(); nomsUnsub = null; } NOMS = [];
+    if (nomsUnsub){ nomsUnsub(); nomsUnsub = null; } NOMS = []; if (notesUnsub){ notesUnsub(); notesUnsub = null; } OPPN = {};
+    if (COACH && FB.onOppNotes) notesUnsub = FB.onOppNotes(v => { OPPN = v || {}; if (READY && !$('#oppNoteIn:focus')) render(); });
     if (COACH && FB.onNoms) nomsUnsub = FB.onNoms(l => { NOMS = l; if (READY && V.open) render(); });
     if (COACH) migrateVeo();
     if (READY) render();
@@ -860,4 +899,15 @@ async function nomsDialog(m){
   });
 }
 
+
+/* ---------- opposition notes: private coach notes against each school, shown before the next fixture with them ---------- */
+const oppKey = n => schoolKey(canonSchool(n || '')) || String(n || '').toLowerCase().trim();
+const oppNote = n => OPPN[oppKey(n)] || null;
+function oppNoteBox(m){
+  const opp = usOf(m) === 'A' ? m.home : m.away, n = oppNote(opp), pre = m.status === 'pre';
+  const when = n && n.u ? new Date(n.u).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '';
+  return `<div class="box coach opp-notes${pre && n ? ' has' : ''}"><h3>Notes on ${esc(opp)}</h3><p class="hint" style="margin:0">${pre && n ? 'From your last meeting with them. ' : ''}Only coaches can see these. They come up again before every fixture against ${esc(opp)}.</p>
+    <form id="oppNoteForm" data-opp="${esc(opp)}"><textarea class="input" id="oppNoteIn" rows="${n ? 5 : 3}" maxlength="4000" placeholder="Their 10 kicks a lot; quick lineout ball; strong scrum; play wide early…" aria-label="Notes on ${esc(opp)}">${esc(n ? n.text : '')}</textarea>
+    <div class="ctrl" style="margin-top:8px"><button class="btn" type="submit">Save notes</button>${when ? `<span class="hint">Last saved ${when}${n.by ? ' by ' + esc(n.by) : ''}</span>` : ''}</div></form></div>`;
+}
 })();
