@@ -20,6 +20,9 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     setVeo(id, url){ return this.setMedia('byMatch', id, url); },
     setPhotos(id, url){ return this.setMedia('photos', id, url); },
     setMedia(kind, id, url){ const r = doc(db, 'team', 'veo'); return runTransaction(db, async tx => { const s = await tx.get(r); let v = {byMatch:{}}; if (s.exists()){ try { v = JSON.parse(s.data().j) || v; } catch(e){} } v[kind] = v[kind] || {}; if (url) v[kind][id] = url; else delete v[kind][id]; v.updated = Date.now(); tx.set(r, {j:JSON.stringify(v), u:Date.now()}); }); },
+    // Team of the Week nominations (team/noms): coaches nominate up to 4 players after each match; the main app collates them
+    onNoms(cb){ return onSnapshot(doc(db, 'team', 'noms'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(Array.isArray(v.list) ? v.list : []); }, () => cb([])); },
+    setNoms(mid, list){ const r = doc(db, 'team', 'noms'); return runTransaction(db, async tx => { const s = await tx.get(r); let v = {list:[]}; if (s.exists()){ try { v = JSON.parse(s.data().j) || v; } catch(e){} } v.list = (Array.isArray(v.list) ? v.list : []).filter(x => x.mid !== mid).concat(list); v.updated = Date.now(); tx.set(r, {j:JSON.stringify(v), u:Date.now()}); }); },
     // headshots shown in the score animations: small public copies, made when a coach records a score
     async face(key){ try { const s = await getDoc(doc(db, 'faces', key)); return s.exists() ? (s.data().d || '') : ''; } catch(e){ return ''; } },
     setFace(key, d){ return setDoc(doc(db, 'faces', key), {d, u:Date.now()}); },

@@ -205,6 +205,7 @@ function coachPanel(m){
     <div class="box coach"><h3>Commentary</h3><form class="inline" id="noteForm"><input class="input" id="noteIn" maxlength="140" placeholder="Big turnover at the breakdown" aria-label="Commentary line"><button class="btn" type="submit">Post</button></form></div>
     <div class="box coach"><h3>Match video</h3><p class="hint" style="margin:0">Only signed-in coaches and players see this link.</p><form class="inline" id="veoForm"><input class="input" id="veoIn" type="url" placeholder="https://app.veo.co/matches/…" aria-label="VEO link" value="${esc(veoOf(m))}"><button class="btn" type="submit">Save</button></form></div>
     <div class="box coach"><h3>Match photos</h3><p class="hint" style="margin:0">Link to an album (Google Drive, Google Photos…). Only signed-in coaches and players see this link.</p><form class="inline" id="photoForm"><input class="input" id="photoIn" type="url" placeholder="https://photos.app.goo.gl/…" aria-label="Photos link" value="${esc(photosOf(m))}"><button class="btn" type="submit">Save</button></form></div>
+    ${m.status === 'FT' && usOf(m) ? nomBox(m) : ''}
     <div class="box coach"><h3>Match</h3><div class="ctrl">${b('edit', 'Edit details')}${b('share', 'Copy match link')}${m.status === 'FT' ? b('copyres', 'Copy result') : ''}${b('del', 'Delete match', 'ghost danger')}</div></div>`;
 }
 function viewMatch(m){
@@ -266,6 +267,7 @@ setInterval(() => {
 }, 1000);
 
 /* ---------- saving: a transaction on the shared scoreboard; every phone gets it within a second ---------- */
+let NOMS = [], nomsUnsub = null;
 let saving = false, READY = false, HAS_DOC = false, EMAIL = '', ADMIN = false, PLAYER = false, VEO = {}, PHOTOS = {}, veoUnsub = null;
 /* VEO links are kept in a private record only coaches and players can read; older ones may still sit on the match */
 const veoOf = m => (COACH || PLAYER) ? (VEO[m.id] || m.veo || '') : '';
@@ -433,7 +435,8 @@ function act(a, m){
     case 'ko': return upd(x => { x.status = '1H'; x.clock = {base:0, since:now, running:true}; });
     case 'ht': return upd(x => { x.status = 'HT'; x.clock = {base:el(), since:0, running:false}; });
     case '2h': return upd(x => { x.status = '2H'; x.clock = {base:Math.max(el(), (+x.half || 35)*60), since:now, running:true}; });
-    case 'ft': return ask('Blow full time?', 'The clock stops and the match moves to Results for everyone.', 'Full time', () => upd(x => { x.status = 'FT'; x.ftAt = Date.now(); x.clock = {base:el(), since:0, running:false}; }));
+    case 'ft': return ask('Blow full time?', 'The clock stops and the match moves to Results for everyone.', 'Full time', () => upd(x => { x.status = 'FT'; x.ftAt = Date.now(); x.clock = {base:el(), since:0, running:false}; }).then(() => { let n = 0; const go = () => { const x = DATA.matches.find(y => y.id === m.id); if (x && x.status === 'FT'){ if (usOf(x) && !nomsOf(x).length && $('#modal').hidden) nomsDialog(x); } else if (n++ < 30) setTimeout(go, 100); }; go(); }));
+    case 'noms': return nomsDialog(m);
     case 'pause': return upd(x => { const r = x.clock && x.clock.running; x.clock = r ? {base:el(), since:0, running:false} : {base:el(), since:now, running:true}; });
     case 'minus': return upd(x => { x.clock = {base:Math.max(0, el() - 60), since:now, running:!!(x.clock && x.clock.running)}; });
     case 'plus': return upd(x => { x.clock = {base:el() + 60, since:now, running:!!(x.clock && x.clock.running)}; });
@@ -787,6 +790,8 @@ function boot(){
     if (COACH || PLAYER) veoUnsub = FB.onVeo((v, ph) => { VEO = v || {}; PHOTOS = ph || {}; if (READY) render(); });
     if (EMAIL && !ok && !pl) toast(`Signed in as ${EMAIL}, which isn’t on the coaches or players list.`);
     else if (pl) toast('Signed in as a player. Match videos and photos are unlocked.');
+    if (nomsUnsub){ nomsUnsub(); nomsUnsub = null; } NOMS = [];
+    if (COACH && FB.onNoms) nomsUnsub = FB.onNoms(l => { NOMS = l; if (READY && V.open) render(); });
     if (COACH) migrateVeo();
     if (READY) render();
   });
@@ -817,4 +822,42 @@ document.addEventListener('visibilitychange', () => {
 setTimeout(checkVersion, 4000);
 setTimeout(() => { if (!window.FB) boot(); }, 8000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && READY) render(); });
+/* ---------- Team of the Week nominations: after the final whistle, coaches pick up to 4 players; the main app collates them ---------- */
+const NOM_MAX = 4;
+function nomsOf(m){ return NOMS.filter(x => x.mid === m.id); }
+function nomBox(m){
+  const l = nomsOf(m);
+  return `<div class="box coach nom-box"><h3>Team of the Week</h3><p class="hint" style="margin:0">${l.length ? 'Nominated from this match:' : `Nominate up to ${NOM_MAX} players from this match. They appear on the Team of the Week screen in the main app.`}</p>
+    ${l.length ? `<div class="nom-chips">${l.map(x => `<span class="nom-chip">${x.n ? `<i>${esc(x.n)}</i>` : ''}<b>${esc(x.name)}</b><small>${esc(x.team || '')}</small></span>`).join('')}</div>` : ''}
+    <div class="ctrl"><button type="button" class="btn ${l.length ? '' : 'primary'}" data-act="noms">${l.length ? 'Change nominations' : 'Nominate players'}</button></div></div>`;
+}
+async function nomsDialog(m){
+  if (!window.FB || !FB.setNoms){ toast('Nominations need the latest version. Refresh the page.'); return; }
+  let players = Array.isArray(m.players) && m.players.length ? m.players.slice() : [];
+  if (!players.length){ await loadTeams(); const x = TEAMS_CACHE && ((m.sheetId && TEAMS_CACHE.sheets.find(y => y.id === m.sheetId)) || sheetFor(m)); if (x) players = sheetPlayers(x); }
+  const us = usOf(m), scorers = [...new Set(sorted(m).filter(e => e.s === us && e.p && e.k !== 'note').map(e => e.p))];
+  scorers.forEach(n => { if (!players.some(p => p.name === n)) players.push({n:'', name:n}); });
+  const cur = nomsOf(m), opp = us === 'A' ? m.home : m.away;
+  const byNum = v => { const k = (String(v).trim().match(/^#?(\d{1,2})$/) || [])[1]; return k ? players.find(p => +p.n === +k) : null; };
+  openDialog(`<h2>Team of the Week nominations</h2><p>${esc(m.team ? m.team + ' ' : '')}v ${esc(opp)}. Pick up to ${NOM_MAX} players${players.length ? ' (name or shirt number)' : ''}.</p>
+    <div class="nom-rows">${[0,1,2,3].map(i => `<div class="field"><label class="label" for="nom${i}">Player ${i + 1}</label><input class="input" id="nom${i}" maxlength="40" list="nomNames" autocomplete="off" value="${esc(cur[i] ? cur[i].name : '')}"><span class="hint" id="nomH${i}" aria-live="polite"></span></div>`).join('')}</div>
+    <datalist id="nomNames">${players.map(p => `<option value="${esc(p.name)}"${p.n ? ` label="#${esc(p.n)}"` : ''}>`).join('')}</datalist>
+    <div class="field" style="max-width:220px"><label class="label" for="nomTeam">Team shown on the graphic</label><input class="input" id="nomTeam" maxlength="12" list="nomTeams" value="${esc((cur[0] && cur[0].team) || m.team || '')}"><datalist id="nomTeams">${TEAMS.map(t => `<option value="${esc(t)}">`).join('')}</datalist></div>
+    <div class="dlg-a"><button type="button" class="btn ghost" data-close>${cur.length ? 'Cancel' : 'Later'}</button><button type="button" class="btn primary" id="nomGo">Save nominations</button></div>`, d => {
+    for (let i = 0; i < NOM_MAX; i++){ const inp = d.querySelector('#nom' + i), h = d.querySelector('#nomH' + i);
+      inp.oninput = () => { const p = byNum(inp.value); h.textContent = p ? `#${p.n} ${p.name}` : ''; }; }
+    d.querySelector('#nomGo').onclick = async () => {
+      const team = d.querySelector('#nomTeam').value.trim(), seen = new Set(), list = [];
+      for (let i = 0; i < NOM_MAX; i++){ const v = d.querySelector('#nom' + i).value.trim(); if (!v) continue; const hit = byNum(v) || players.find(p => p.name.toLowerCase() === v.toLowerCase()); const name = (hit ? hit.name : v).slice(0, 40);
+        if (seen.has(name.toLowerCase())) continue; seen.add(name.toLowerCase());
+        const old = cur.find(x => x.name === name);
+        list.push({id:old ? old.id : uid(), mid:m.id, name, n:hit && hit.n ? +hit.n : '', team, opp, date:(m.ko || '').slice(0, 10), by:EMAIL, at:old ? old.at : Date.now()}); }
+      const btn = d.querySelector('#nomGo'); btn.disabled = true;
+      try { await FB.setNoms(m.id, list); closeDialog(); toast(list.length ? `${list.length} ${list.length === 1 ? 'player' : 'players'} nominated for Team of the Week.` : 'Nominations removed for this match.'); }
+      catch(e){ btn.disabled = false; toast(/permission/.test(e && e.code || '') ? 'The database refused the save: your account isn’t on the coaches list.' : 'That didn’t save. Try again.'); }
+    };
+    setTimeout(() => { const f = d.querySelector('#nom' + Math.min(cur.length, NOM_MAX - 1)); if (f) f.focus(); }, 30);
+  });
+}
+
 })();
