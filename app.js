@@ -141,7 +141,8 @@ function teamCode(t){
 const seasonOf = m => { const t = kot(m); if (!t) return 0; const d = new Date(t); return d.getMonth() >= 7 ? d.getFullYear() : d.getFullYear() - 1; };
 const seasonLabel = y => `${y}/${String((y + 1) % 100).padStart(2, '0')}`;
 // a year group moves up one team each season
-const COHORT = ['U12','U13','U14','Meds','U16'];
+// after the Medallion year, pupils go straight into the 1st XV (for the last two years of school)
+const COHORT = ['U12','U13','U14','Meds','1XV','1XV'];
 function viewResults(){
   const ftAll = DATA.matches.filter(m => m.status === 'FT').sort((a, b) => kot(b) - kot(a));
   if (!ftAll.some(m => resultOf(m))) return '<div class="empty">No results yet.</div>';
@@ -158,14 +159,14 @@ function viewResults(){
   // season by season for one team: the same team each year, or one year group as it moves up
   let prog = '';
   if (V.team && V.team !== 'Other'){
-    const ci = COHORT.indexOf(V.team), cohort = ci >= 0 && V.prog === 'cohort', base = V.season || seasons[0];
+    const ci = COHORT.indexOf(V.team) < 4 ? COHORT.indexOf(V.team) : -1, cohort = ci >= 0 && V.prog === 'cohort', base = V.season || seasons[0];
     const rowsP = seasons.slice().sort((a, b) => a - b).map(y => { const code = cohort ? COHORT[ci + (y - base)] : V.team; if (!code) return null;
       const list = ftAll.filter(m => seasonOf(m) === y && teamCode(m.team) === code).map(resultOf).filter(Boolean); if (!list.length) return null;
       const w = list.filter(r => r.r === 'W').length, l = list.filter(r => r.r === 'L').length, f = list.reduce((a, r) => a + r.f, 0), g = list.reduce((a, r) => a + r.g, 0);
       return `<tr${y === V.season ? ' class="on"' : ''}><td><button type="button" class="lnk" data-season="${y}">${seasonLabel(y)}</button></td>${cohort ? `<td>${esc(code)}</td>` : ''}<td>${list.length}</td><td>${w}</td><td>${list.length - w - l}</td><td>${l}</td><td class="hide-s">${f}</td><td class="hide-s">${g}</td><td>${Math.round(w/list.length*100)}%</td></tr>`; }).filter(Boolean);
     if (rowsP.length){
       prog = `<div class="sec">Season by season${cohort ? ' · this year group' : ' · ' + esc(V.team)}</div>
-      ${ci >= 0 ? `<div class="seg prog-seg" role="group" aria-label="Follow"><button type="button" data-prog="team" aria-pressed="${!cohort}">Same team each year</button><button type="button" data-prog="cohort" aria-pressed="${cohort}">Follow this year group</button></div>${cohort ? `<p class="hint">The ${esc(TEAM_NAMES[V.team])} of ${seasonLabel(base)}, followed as they move up a team each season (${COHORT.join(' → ')}).</p>` : ''}` : ''}
+      ${ci >= 0 ? `<div class="seg prog-seg" role="group" aria-label="Follow"><button type="button" data-prog="team" aria-pressed="${!cohort}">Same team each year</button><button type="button" data-prog="cohort" aria-pressed="${cohort}">Follow this year group</button></div>${cohort ? `<p class="hint">The ${esc(TEAM_NAMES[V.team])} of ${seasonLabel(base)}, followed as they move up a team each season (U12 → U13 → U14 → Meds → 1st XV).</p>` : ''}` : ''}
       <div class="tbl"><table><thead><tr><th>Season</th>${cohort ? '<th>Team</th>' : ''}<th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">For</th><th class="hide-s">Against</th><th>Won</th></tr></thead><tbody>${rowsP.join('')}</tbody></table></div>`;
     }
   }
