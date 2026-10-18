@@ -335,7 +335,9 @@ function openEv(m, k, s, pending){
 const COMPS = ['Ulster Schools’ Cup','Ulster Schools’ Bowl','Ulster Schools’ Shield','Ulster Schools’ Plate','Medallion Shield','Medallion Plate','Medallion Bowl','Subsidiary Cup','Ulster Schools’ Girls’ Cup','Friendly'];
 const TEAMS = ['1XV','2XV','3XV','U16','Meds','U14','U13','U12','SG','JG'];
 function matchForm(m, past){
-  const isNew = !m; m = m || {home:'ERGS', away:'', us:'H', team:'1st XV', comp:'', round:'', venue:'', ko:'', code:'union', half:35, veo:'', players:[]};
+  const isNew = !m; let lastPast = null; if (!m && past){ try { lastPast = JSON.parse(localStorage.getItem('ergs.lastPast') || 'null'); } catch(e){} }
+  // adding past results one after another: start from the last one entered (team, date, opponent, home/away, competition, venue)
+  m = m || (lastPast ? Object.assign({home:'ERGS', away:'', us:'H', team:'1st XV', comp:'', round:'', venue:'', ko:'', code:'union', half:35}, lastPast, {veo:'', players:[], final:['', '']}) : {home:'ERGS', away:'', us:'H', team:'1st XV', comp:'', round:'', venue:'', ko:'', code:'union', half:35, veo:'', players:[]});
   let ko = m.ko && !m.koTbc ? m.ko.slice(0, 16) : m.ko ? m.ko.slice(0, 10) + 'T12:00' : ''; if (!ko){ const d = new Date(); d.setMinutes(d.getMinutes() < 30 ? 30 : 60, 0, 0); ko = new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0, 16); }
   const noPts = !(m.events || []).some(e => ptsOf(e)), showFinal = past || (m.status === 'FT' && noPts), fin = Array.isArray(m.final) ? m.final : ['', ''];
   const opps = [...new Set(Object.values(DATA.schools || {}).map(s => s.name).filter(Boolean).concat(ULSTER))].sort();
@@ -397,6 +399,7 @@ function matchForm(m, past){
       if (d.querySelector('#fHs')){ if (g('#fHs') === '' || g('#fAs') === ''){ toast('Enter both scores.'); return; } f.final = [+g('#fHs'), +g('#fAs')]; }
       closeDialog();
       const keepVeo = id => { if (veo !== (VEO[id] || '')) FB.setVeo(id, veo).catch(() => toast('The VEO link didn’t save. Try again from the match.')); };
+      if (isNew && past){ try { localStorage.setItem('ergs.lastPast', JSON.stringify({home:f.home, away:f.away, us:f.us, team:f.team, comp:f.comp, round:f.round, venue:f.venue, ko:f.ko, koTbc:f.koTbc, code:f.code, half:f.half})); } catch(e){} }
       if (isNew){ const id = uid(); save(dd => dd.matches.push(Object.assign({id, status:past ? 'FT' : 'pre', clock:{base:0, since:0, running:false}, events:[], created:Date.now()}, f)), past ? null : id).then(() => keepVeo(id)); }
       else save(dd => { const x = dd.matches.find(y => y.id === m.id); Object.assign(x, f); delete x.veo; }, m.id).then(() => keepVeo(m.id));
     };
@@ -440,9 +443,21 @@ function schoolsDialog(){
   const names = new Set(); DATA.matches.forEach(m => [m.home, m.away].forEach(n => { if (n && !OUR_RX.test(n)) names.add(canonSchool(n)); }));
   Object.values(DATA.schools || {}).forEach(s => s.name && names.add(canonSchool(s.name)));
   const list = [...names].sort();
+  const opps = [...new Set(Object.values(DATA.schools || {}).map(s => s.name).filter(Boolean).concat(ULSTER))].sort();
   openDialog(`<h2>School crests</h2><p>Add each school’s crest once and it shows on every match against them. Small images keep the page quick for supporters.</p>
-    ${list.length ? `<div class="schs">${list.map(n => { const s = school(n) || {}; return `<div class="sch">${crest(n)}<span>${esc(n)}</span><label class="btn ghost small">Crest<input type="file" accept="image/*" hidden data-crest="${esc(n)}"></label>${s.crest || s.color ? `<button type="button" class="btn ghost small danger sch-del" data-delcrest="${esc(n)}" aria-label="Delete ${esc(n)} crest">Delete</button>` : '<span></span>'}<input type="color" value="${esc(s.color || '#3A4466')}" data-col="${esc(n)}" aria-label="Colour for ${esc(n)}"></div>`; }).join('')}</div>` : '<div class="empty">Add a match first; its opponent appears here.</div>'}
+    <form class="sch-add" id="schAdd"><div class="field"><label class="label" for="schName">Add a school</label><input class="input" id="schName" list="schAddNames" maxlength="50" placeholder="School name" autocomplete="off"><datalist id="schAddNames">${opps.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
+      <label class="btn" id="schPick">Choose crest<input type="file" accept="image/*" hidden id="schFile"></label><button type="submit" class="btn primary">Add</button></form>
+    ${list.length ? `<div class="schs">${list.map(n => { const s = school(n) || {}; return `<div class="sch">${crest(n)}<span>${esc(n)}</span><label class="btn ghost small">Crest<input type="file" accept="image/*" hidden data-crest="${esc(n)}"></label>${s.crest || s.color ? `<button type="button" class="btn ghost small danger sch-del" data-delcrest="${esc(n)}" aria-label="Delete ${esc(n)} crest">Delete</button>` : '<span></span>'}<input type="color" value="${esc(s.color || '#3A4466')}" data-col="${esc(n)}" aria-label="Colour for ${esc(n)}"></div>`; }).join('')}</div>` : '<div class="empty">No schools yet. Add one above, or add a match and its opponent appears here.</div>'}
     <div class="dlg-a"><button type="button" class="btn primary" data-close>Done</button></div>`, d => {
+    let addFile = null; const fileIn = d.querySelector('#schFile'), pick = d.querySelector('#schPick');
+    fileIn.onchange = () => { addFile = fileIn.files[0] || null; pick.firstChild.textContent = addFile ? 'Crest chosen ✓' : 'Choose crest'; };
+    d.querySelector('#schAdd').onsubmit = async ev => { ev.preventDefault(); const raw = d.querySelector('#schName').value.trim(); if (!raw){ toast('Type the school’s name.'); return; }
+      const n = canonSchool(raw); let crestUrl = '', col = '';
+      if (addFile){ try { const im = await fileToImage(addFile), c = shrink(im, 96); crestUrl = c.toDataURL('image/webp', 0.85); col = mainColour(c); } catch(e){ toast('That image could not be opened.'); return; } }
+      await save(dd => { dd.schools = dd.schools || {}; const k = schoolKey(n); dd.schools[k] = Object.assign({name:n}, dd.schools[k], crestUrl ? {crest:crestUrl, color:(dd.schools[k] || {}).color || col} : {}); });
+      toast(crestUrl ? `${n} added with its crest.` : `${n} added. Press Crest beside it to upload one.`);
+      for (let i = 0; i < 20 && !Object.values(DATA.schools || {}).some(x => x && canonSchool(x.name || '') === n); i++) await new Promise(r => setTimeout(r, 100));
+      schoolsDialog(); };
     d.querySelectorAll('[data-crest]').forEach(inp => inp.onchange = async () => { const f = inp.files[0]; if (!f) return; const n = inp.dataset.crest;
       try { const im = await fileToImage(f), c = shrink(im, 96), url = c.toDataURL('image/webp', 0.85), col = mainColour(c); closeDialog(); save(dd => { dd.schools = dd.schools || {}; const k = schoolKey(n); dd.schools[k] = Object.assign({}, dd.schools[k], {name:n, crest:url, color:(dd.schools[k] || {}).color || col}); }); }
       catch(e){ toast('That image could not be opened.'); } });
