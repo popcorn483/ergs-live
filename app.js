@@ -150,13 +150,17 @@ function viewResults(){
   const seasons = [...new Set(ftAll.filter(m => resultOf(m)).map(seasonOf).filter(Boolean))].sort((a, b) => b - a);
   if (V.season && !seasons.includes(V.season)) V.season = 0;
   const sChips = seasons.length > 1 || V.season ? `<div class="team-tabs season-tabs" role="tablist" aria-label="Season"><span class="tt-l">Season</span>${[0].concat(seasons).map(y => `<button type="button" role="tab" data-season="${y}" aria-pressed="${(V.season || 0) === y}">${y ? seasonLabel(y) : 'All seasons'}</button>`).join('')}</div>` : '';
-  const allRes = V.season ? ftAll.filter(m => seasonOf(m) === V.season) : ftAll;
+  // quick time filters: the past 7 or 30 days (they work together with the season and team)
+  const PERIODS = [['', 'Any time'], ['week', 'Past week'], ['month', 'Past month']], since = V.period === 'week' ? Date.now() - 7*864e5 : V.period === 'month' ? Date.now() - 31*864e5 : 0;
+  const pChips = `<div class="team-tabs period-tabs" role="tablist" aria-label="When"><span class="tt-l">When</span>${PERIODS.map(([k, t]) => `<button type="button" role="tab" data-period="${k}" aria-pressed="${(V.period || '') === k}">${t}</button>`).join('')}</div>`;
+  const allRes = (V.season ? ftAll.filter(m => seasonOf(m) === V.season) : ftAll).filter(m => !since || kot(m) >= since);
   const counts = {}; allRes.forEach(m => { if (resultOf(m)){ const c = teamCode(m.team) || 'Other'; counts[c] = (counts[c] || 0) + 1; } });
   const codes = TEAM_CODES.concat(counts.Other ? ['Other'] : []);
   if (V.team && !codes.includes(V.team)) V.team = '';
-  const chips = sChips + `<div class="team-tabs" role="tablist" aria-label="Team">${sChips ? '<span class="tt-l">Team</span>' : ''}${[''].concat(codes).map(c => `<button type="button" role="tab" data-team="${esc(c)}" aria-pressed="${(V.team || '') === c}" ${c && !counts[c] ? 'class="none"' : ''} title="${esc(c ? TEAM_NAMES[c] || 'Other teams' : 'All teams')}">${esc(c || 'All')}${c && counts[c] ? ` <small>${counts[c]}</small>` : ''}</button>`).join('')}</div>`;
+  const chips = pChips + sChips + `<div class="team-tabs" role="tablist" aria-label="Team"><span class="tt-l">Team</span>${[''].concat(codes).map(c => `<button type="button" role="tab" data-team="${esc(c)}" aria-pressed="${(V.team || '') === c}" ${c && !counts[c] ? 'class="none"' : ''} title="${esc(c ? TEAM_NAMES[c] || 'Other teams' : 'All teams')}">${esc(c || 'All')}${c && counts[c] ? ` <small>${counts[c]}</small>` : ''}</button>`).join('')}</div>`;
   const res = V.team ? allRes.filter(m => (teamCode(m.team) || 'Other') === V.team) : allRes, rs = res.map(m => [m, resultOf(m)]).filter(x => x[1]);
-  if (!rs.length) return chips + `<div class="empty">No ${esc(TEAM_NAMES[V.team] || V.team)} results${V.season ? ' in ' + seasonLabel(V.season) : ''} yet.</div>`;
+  const whenTxt = V.period === 'week' ? ' in the past week' : V.period === 'month' ? ' in the past month' : V.season ? ' in ' + seasonLabel(V.season) : '';
+  if (!rs.length) return chips + `<div class="empty">No ${V.team ? esc(TEAM_NAMES[V.team] || V.team) + ' ' : ''}results${whenTxt} yet.</div>`;
   // season by season for one team: the same team each year, or one year group as it moves up
   let prog = '';
   const squad = COACH || PLAYER;   // the school-by-school record and season history are for coaches and players only
@@ -174,7 +178,7 @@ function viewResults(){
   }
   const W = rs.filter(x => x[1].r === 'W').length, L = rs.filter(x => x[1].r === 'L').length, D = rs.length - W - L;
   const by = new Map(); rs.forEach(([m, r]) => { const k = schoolKey(r.opp) || r.opp, o = by.get(k) || {n:r.opp, p:0, w:0, d:0, l:0, f:0, a:0}; o.p++; o[r.r.toLowerCase()]++; o.f += r.f; o.a += r.g; by.set(k, o); });
-  return chips + `${V.team || V.season ? `<div class="team-h">${esc(V.team ? TEAM_NAMES[V.team] || 'Other teams' : 'All teams')}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>` : ''}<div class="sum"><div><b>${rs.length}</b><span>Played</span></div><div class="w"><b>${W}</b><span>Won</span></div><div><b>${D}</b><span>Drawn</span></div><div class="l"><b>${L}</b><span>Lost</span></div></div>
+  return chips + `${V.team || V.season || V.period ? `<div class="team-h">${esc(V.team ? TEAM_NAMES[V.team] || 'Other teams' : 'All teams')}${V.period === 'week' ? ' · past week' : V.period === 'month' ? ' · past month' : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>` : ''}<div class="sum"><div><b>${rs.length}</b><span>Played</span></div><div class="w"><b>${W}</b><span>Won</span></div><div><b>${D}</b><span>Drawn</span></div><div class="l"><b>${L}</b><span>Lost</span></div></div>
     <div class="sec">Results</div><div class="list">${res.map(row).join('')}</div>
     ${prog}${squad ? `<div class="sec">Record against each school${V.team ? ' · ' + esc(V.team) : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>
     <div class="tbl"><table><thead><tr><th>School</th><th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">For</th><th class="hide-s">Against</th></tr></thead><tbody>
@@ -235,6 +239,7 @@ function render(){
   $$('[data-unbin]').forEach(b => b.onclick = ev => { ev.stopPropagation(); const id = b.dataset.unbin; save(d => { const x = d.matches.find(y => y.id === m.id); const e = x && x.events.find(y => y.id === id); if (e) e.ret = Date.now(); }, m.id); });
   $$('[data-team]').forEach(b => b.onclick = () => { V.team = b.dataset.team; render(); });
   $$('[data-season]').forEach(b => b.onclick = () => { V.season = +b.dataset.season || 0; render(); });
+  $$('[data-period]').forEach(b => b.onclick = () => { V.period = b.dataset.period; render(); });
   $$('[data-prog]').forEach(b => b.onclick = () => { V.prog = b.dataset.prog; render(); });
   $$('[data-more]').forEach(b => b.onclick = () => { V['more' + b.dataset.more] = !V['more' + b.dataset.more]; render(); });
   $$('[data-open]').forEach(b => b.onclick = () => { V.open = b.dataset.open; try { history.replaceState(null, '', '#m.' + V.open); } catch(e){} render(); scrollTo(0, 0); });
