@@ -27,7 +27,7 @@ service cloud.firestore {
     match /plays/{doc} { allow read: if isSquad(); allow write: if isCoach(); }
     match /images/{doc} { allow read: if isSquad(); allow write: if isCoach(); }
     match /totw/{doc} { allow read, write: if isCoach(); }
-    match /drills/{doc} { allow read, write: if isCoach(); }
+    match /drills/{doc} { allow read: if isSquad(); allow write: if isCoach(); }
     // small headshots for the score animations on ERGS Live: anyone can see them, only coaches add them
     match /faces/{doc} {
       allow read: if true;
