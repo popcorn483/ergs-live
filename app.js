@@ -668,14 +668,14 @@ function newSinceLastLook(){
   let seen = null; try { seen = JSON.parse(localStorage.getItem('ergsLive.seen') || 'null'); } catch(e){}
   const now = {};
   for (const m of DATA.matches.filter(isLive)){ now[m.id] = (m.events || []).map(e => e.id);
-    if (!COACH && seen && seen[m.id]) for (const e of sorted(m)) if (!seen[m.id].includes(e.id) && e.k === 'note' && e.p && Date.now() - (e.ts || 0) < 10*60e3) CQ.push([m, e]);
-    if (!COACH && seen && seen[m.id]) for (const e of sorted(m)) if (!seen[m.id].includes(e.id) && e.k !== 'note' && (!e.miss || ['con','pen','dg'].includes(e.k)) && Date.now() - (e.ts || 0) < 15*60e3) Q.push([m, e]); }
+    if (seen && seen[m.id]) for (const e of sorted(m)) if (!seen[m.id].includes(e.id) && e.k === 'note' && e.p && Date.now() - (e.ts || 0) < 10*60e3) CQ.push([m, e]);
+    if (seen && seen[m.id]) for (const e of sorted(m)) if (!seen[m.id].includes(e.id) && e.k !== 'note' && (!e.miss || ['con','pen','dg'].includes(e.k)) && Date.now() - (e.ts || 0) < 15*60e3) Q.push([m, e]); }
   try { localStorage.setItem('ergsLive.seen', JSON.stringify(now)); } catch(e){}
   // full time: once per match, for matches that finished in the last 15 minutes while someone was following
   let ftSeen = []; try { ftSeen = JSON.parse(localStorage.getItem('ergsLive.ft') || '[]'); } catch(e){}
   // keyed by when the whistle went, so a reopened match that finishes again celebrates again
   for (const m of DATA.matches) if (m.status === 'FT' && m.ftAt && Date.now() - m.ftAt < 15*60e3 && !ftSeen.includes(m.id + ':' + m.ftAt)){
-    ftSeen.push(m.id + ':' + m.ftAt); if (!COACH && seen && seen[m.id] && usOf(m)) Q.push([m, {id:'ft-' + m.id, k:'ft', s:usOf(m), ts:m.ftAt}]); }
+    ftSeen.push(m.id + ':' + m.ftAt); if (seen && seen[m.id] && usOf(m)) Q.push([m, {id:'ft-' + m.id, k:'ft', s:usOf(m), ts:m.ftAt}]); }
   try { localStorage.setItem('ergsLive.ft', JSON.stringify(ftSeen.slice(-40))); } catch(e){}
   if (Q.length && !busy){ busy = true; setTimeout(playFx, 500); }
   if (CQ.length && !cbusy) setTimeout(playComm, Q.length ? 4200 : 600);
