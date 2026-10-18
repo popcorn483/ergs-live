@@ -37,7 +37,7 @@ async function setMedia(id, veo, photos){
     if (veo) v.byMatch[id] = veo; else delete v.byMatch[id];
     if (photos) v.photos[id] = photos; else delete v.photos[id];
     v.updated = Date.now(); tx.set(r, enc(v)); }); }
-async function liveTx(fn){ try { await runTransaction(fs, async tx => { const s = await tx.get(LIVE); const cur = dec(s) || {matches:[], schools:{}, demo:false}; cur.matches = cur.matches || []; cur.schools = cur.schools || {}; fn(cur); cur.updated = Date.now(); tx.set(LIVE, {json:JSON.stringify(cur), updated:cur.updated}); }); } catch(e){ throw err(e); } }
+async function liveTx(fn){ try { await runTransaction(fs, async tx => { const s = await tx.get(LIVE); const cur = decLive(s) || {matches:[], schools:{}, demo:false}; cur.matches = cur.matches || []; cur.schools = cur.schools || {}; fn(cur); cur.updated = Date.now(); tx.set(LIVE, {json:JSON.stringify(cur), updated:cur.updated}); }); } catch(e){ throw err(e); } }
 const decLive = s => { if (!s.exists()) return null; const v = s.data(); try { return JSON.parse(v.json); } catch(e){ return null; } };
 // live/state uses the field "json" (ERGS Live's format)
 function decState(s){ return decLive(s); }
