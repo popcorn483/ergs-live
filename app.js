@@ -159,7 +159,8 @@ function viewResults(){
   if (!rs.length) return chips + `<div class="empty">No ${esc(TEAM_NAMES[V.team] || V.team)} results${V.season ? ' in ' + seasonLabel(V.season) : ''} yet.</div>`;
   // season by season for one team: the same team each year, or one year group as it moves up
   let prog = '';
-  if (V.team && V.team !== 'Other'){
+  const squad = COACH || PLAYER;   // the school-by-school record and season history are for coaches and players only
+  if (squad && V.team && V.team !== 'Other'){
     const ci = COHORT.indexOf(V.team) < 4 ? COHORT.indexOf(V.team) : -1, cohort = ci >= 0 && V.prog === 'cohort', base = V.season || seasons[0];
     const rowsP = seasons.slice().sort((a, b) => a - b).map(y => { const code = cohort ? COHORT[ci + (y - base)] : V.team; if (!code) return null;
       const list = ftAll.filter(m => seasonOf(m) === y && teamCode(m.team) === code).map(resultOf).filter(Boolean); if (!list.length) return null;
@@ -175,9 +176,9 @@ function viewResults(){
   const by = new Map(); rs.forEach(([m, r]) => { const k = schoolKey(r.opp) || r.opp, o = by.get(k) || {n:r.opp, p:0, w:0, d:0, l:0, f:0, a:0}; o.p++; o[r.r.toLowerCase()]++; o.f += r.f; o.a += r.g; by.set(k, o); });
   return chips + `${V.team || V.season ? `<div class="team-h">${esc(V.team ? TEAM_NAMES[V.team] || 'Other teams' : 'All teams')}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>` : ''}<div class="sum"><div><b>${rs.length}</b><span>Played</span></div><div class="w"><b>${W}</b><span>Won</span></div><div><b>${D}</b><span>Drawn</span></div><div class="l"><b>${L}</b><span>Lost</span></div></div>
     <div class="sec">Results</div><div class="list">${res.map(row).join('')}</div>
-    ${prog}<div class="sec">Record against each school${V.team ? ' · ' + esc(V.team) : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>
+    ${prog}${squad ? `<div class="sec">Record against each school${V.team ? ' · ' + esc(V.team) : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>
     <div class="tbl"><table><thead><tr><th>School</th><th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">For</th><th class="hide-s">Against</th></tr></thead><tbody>
-    ${[...by.values()].sort((a, b) => b.p - a.p || a.n.localeCompare(b.n)).map(o => `<tr><td><span class="who">${crest(o.n)}${esc(o.n)}</span></td><td>${o.p}</td><td>${o.w}</td><td>${o.d}</td><td>${o.l}</td><td class="hide-s">${o.f}</td><td class="hide-s">${o.a}</td></tr>`).join('')}</tbody></table></div>`;
+    ${[...by.values()].sort((a, b) => b.p - a.p || a.n.localeCompare(b.n)).map(o => `<tr><td><span class="who">${crest(o.n)}${esc(o.n)}</span></td><td>${o.p}</td><td>${o.w}</td><td>${o.d}</td><td>${o.l}</td><td class="hide-s">${o.f}</td><td class="hide-s">${o.a}</td></tr>`).join('')}</tbody></table></div>` : `<p class="hint squad-note">Coaches and players can sign in to see the record against each school.</p>`}`;
 }
 function coachPanel(m){
   if (!COACH || DATA.demo) return '';
