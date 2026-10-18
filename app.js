@@ -107,10 +107,15 @@ function viewMatches(){
   const live = DATA.matches.filter(isLive), now = Date.now();
   const allNext = DATA.matches.filter(m => m.status === 'pre' && kot(m) > now - 6*3600e3).sort((a, b) => kot(a) - kot(b)), next = V.moreNext ? allNext : allNext.slice(0, 4);
   const undated = COACH ? DATA.matches.filter(m => m.status === 'pre' && !kot(m)) : [];
-  const allDone = DATA.matches.filter(m => m.status === 'FT').sort((a, b) => kot(b) - kot(a)), done = V.moreDone ? allDone : allDone.slice(0, 5);
+  // latest results can be narrowed by time (past week / month) and by team
+  const ftDone = DATA.matches.filter(m => m.status === 'FT'), lSince = V.lPeriod === 'week' ? now - 7*864e5 : V.lPeriod === 'month' ? now - 31*864e5 : 0;
+  const allDone = ftDone.filter(m => (!lSince || kot(m) >= lSince) && (!V.lTeam || (teamCode(m.team) || 'Other') === V.lTeam)).sort((a, b) => kot(b) - kot(a)), done = V.moreDone ? allDone : allDone.slice(0, 5);
+  const lTeams = TEAM_CODES.filter(c => ftDone.some(m => teamCode(m.team) === c));
+  const lFilters = ftDone.length ? `<div class="lr-filters"><div class="team-tabs" role="tablist" aria-label="When">${[['', 'Any time'], ['week', 'Past week'], ['month', 'Past month']].map(([k, t]) => `<button type="button" role="tab" data-lperiod="${k}" aria-pressed="${(V.lPeriod || '') === k}">${t}</button>`).join('')}</div>
+      <select class="input lr-team" id="lrTeam" aria-label="Team"><option value="">All teams</option>${lTeams.map(c => `<option value="${c}" ${V.lTeam === c ? 'selected' : ''}>${c} · ${TEAM_NAMES[c]}</option>`).join('')}</select></div>` : '';
   return `<div class="sec">${live.length ? 'Live now' : 'No match in play'}</div>${live.length ? `<div class="board">${live.map(m => board(m)).join('')}</div>` : `<div class="empty">No ERGS match is in play right now. The score appears here the moment one kicks off.${COACH ? ' Open a fixture below and press Kick off.' : ''}</div>`}
     <div class="sec">Coming up</div>${next.length + undated.length ? `<div class="list">${next.concat(undated).map(row).join('')}</div>${allNext.length > 4 ? `<button type="button" class="more" data-more="Next">${V.moreNext ? 'Show fewer' : `Show ${allNext.length - 4} more`}</button>` : ''}` : `<div class="empty">No fixtures announced yet.${COACH ? ' Add a match or import the fixtures list.' : ''}</div>`}
-    <div class="sec">Latest results</div>${done.length ? `<div class="list">${done.map(row).join('')}</div>${allDone.length > 5 ? `<button type="button" class="more" data-more="Done">${V.moreDone ? 'Show fewer' : `Show ${allDone.length - 5} more`}</button>` : ''}` : '<div class="empty">No results yet.</div>'}`;
+    <div class="sec">Latest results</div>${lFilters}${done.length ? `<div class="list">${done.map(row).join('')}</div>${allDone.length > 5 ? `<button type="button" class="more" data-more="Done">${V.moreDone ? 'Show fewer' : `Show ${allDone.length - 5} more`}</button>` : ''}` : `<div class="empty">${ftDone.length ? `No ${V.lTeam ? esc(TEAM_NAMES[V.lTeam]) + ' ' : ''}results${V.lPeriod === 'week' ? ' in the past week' : V.lPeriod === 'month' ? ' in the past month' : ''}.` : 'No results yet.'}</div>`}`;
 }
 function viewFixtures(){
   const now = Date.now(), up = DATA.matches.filter(m => m.status !== 'FT' && kot(m) > now - 6*3600e3).sort((a, b) => kot(a) - kot(b));
@@ -240,6 +245,8 @@ function render(){
   $$('[data-team]').forEach(b => b.onclick = () => { V.team = b.dataset.team; render(); });
   $$('[data-season]').forEach(b => b.onclick = () => { V.season = +b.dataset.season || 0; render(); });
   $$('[data-period]').forEach(b => b.onclick = () => { V.period = b.dataset.period; render(); });
+  $$('[data-lperiod]').forEach(b => b.onclick = () => { V.lPeriod = b.dataset.lperiod; render(); });
+  const lt = $('#lrTeam'); if (lt) lt.onchange = () => { V.lTeam = lt.value; render(); };
   $$('[data-prog]').forEach(b => b.onclick = () => { V.prog = b.dataset.prog; render(); });
   $$('[data-more]').forEach(b => b.onclick = () => { V['more' + b.dataset.more] = !V['more' + b.dataset.more]; render(); });
   $$('[data-open]').forEach(b => b.onclick = () => { V.open = b.dataset.open; try { history.replaceState(null, '', '#m.' + V.open); } catch(e){} render(); scrollTo(0, 0); });
