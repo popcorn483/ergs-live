@@ -34,6 +34,7 @@ document.body.insertAdjacentHTML('beforeend', `
 <div class="wrap">
   <header><img id="crestImg" alt="Enniskillen Royal Grammar School crest"><h1>ERGS <span>Live</span></h1><span class="sp"></span><div class="hd-r"><span class="pill live">Live scores</span><span id="installSlot"></span></div></header>
   <div class="coachbar" id="coachBar" hidden></div>
+  <div class="playerbar" id="playerBar" hidden></div>
   <div class="demo" id="demoBar" hidden><span><b>Preview with example matches.</b> Real scores replace these once coaches start scoring here.</span><button type="button" id="demoTry">Show a try landing</button></div>
   <nav class="tabs" id="tabs" aria-label="Sections"><button type="button" data-v="matches">Matches</button><button type="button" data-v="fixtures">Fixtures</button><button type="button" data-v="results">Results</button></nav>
   <main id="view" aria-live="polite"></main>
@@ -209,7 +210,13 @@ function viewMatch(m){
       ${evs.filter(e => e.k === 'note' && e.p).slice().reverse().slice(0, 12).map((e, i) => `<div class="cf${i === 0 ? ' latest' : ''}"><span class="cf-m">${e.m}′</span><p>${esc(e.p)}</p></div>`).join('')}</div>` : ''}
     <div class="box"><h3>Match timeline</h3>${evs.length ? `<ul class="tl">${evs.slice().reverse().map(e => `<li class="${e.miss ? 'miss' : ''}${canX ? ' x' : ''}"><span class="mn">${e.m}′</span><span class="ic ${e.k}">${e.k === 'note' ? '…' : EVK[e.k][1]}</span><span class="tx"><b>${esc(label(e))}</b> <span>${e.k === 'note' ? '' : esc(e.s === 'H' ? m.home : m.away)}</span></span><span class="run">${ptsOf(e) ? run.get(e) : ''}</span>${canX ? `<button type="button" class="rm" data-rm="${esc(e.id)}" aria-label="Remove this entry">×</button>` : ''}</li>`).join('')}</ul>` : `<p style="margin:0;color:var(--mute)">${m.status === 'pre' ? 'The timeline fills in once the match kicks off.' : 'Final score only.'}</p>`}</div>`;
 }
+function playerBar(){
+  const pb = $('#playerBar'), on = PLAYER && !COACH; pb.hidden = !on; if (!on) return;
+  pb.innerHTML = `<div class="pb-who"><span class="pb-badge">Player</span><span><b>You’re signed in.</b> Match videos and photos are unlocked.<small>${esc(EMAIL)}</small></span></div>
+    <div class="ctrl"><a class="btn primary" href="${MAIN_APP}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Open the ERGS Rugby app</a><button type="button" class="btn ghost" data-act="signout">Sign out</button></div>`;
+}
 function coachBar(){
+  playerBar();
   const bar = $('#coachBar'); bar.hidden = !COACH; if (!COACH) return;
   bar.innerHTML = DATA.demo
     ? `<span><b>Coach view.</b> The matches below are examples. Clear them to start real scoring; supporters will see your matches straight away.</span><button type="button" class="btn primary" data-act="cleardemo">Clear the examples</button>`
@@ -400,7 +407,7 @@ function act(a, m){
   switch (a){
     case 'cleardemo': return ask('Start real scoring?', 'This removes all the example matches for everyone. You can then add your fixtures.', 'Clear the examples', () => save(d => { d.demo = false; d.matches = []; d.schools = {}; }, null));
     case 'new': return matchForm(null);
-    case 'signout': return FB.signOut().then(() => { COACH = false; ADMIN = false; render(); toast('Signed out.'); });
+    case 'signout': return FB.signOut().then(() => { COACH = false; ADMIN = false; PLAYER = false; VEO = {}; PHOTOS = {}; render(); toast('Signed out.'); });
     case 'coaches': return coachesDialog();
     case 'seed': return fetch('seed.json', {cache:'no-store'}).then(r => r.ok ? r.json() : {matches:[], schools:{}}).catch(() => ({matches:[], schools:{}})).then(seed => save(d => { d.matches = seed.matches || []; d.schools = seed.schools || {}; d.demo = false; }, null));
     case 'past': return matchForm(null, true);
@@ -701,7 +708,7 @@ function applyState(s){
   if (!$('#modal').hidden) pendingRender = true; else render();
 }
 // footer: coach sign-in
-const signLink = document.createElement('button'); signLink.type = 'button'; signLink.className = 'linkish'; signLink.textContent = 'Coach & player sign in';
+const signLink = document.createElement('button'); signLink.type = 'button'; signLink.className = 'signin-btn'; signLink.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Coach &amp; player sign in';
 const outLink = document.createElement('button'); outLink.type = 'button'; outLink.className = 'linkish'; outLink.textContent = 'Sign out'; outLink.hidden = true;
 outLink.onclick = () => FB.signOut().then(() => { PLAYER = false; COACH = false; VEO = {}; PHOTOS = {}; render(); });
 $('footer').appendChild(signLink); $('footer').appendChild(outLink);
@@ -751,7 +758,7 @@ function boot(){
     if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {}; PHOTOS = {};
     if (COACH || PLAYER) veoUnsub = FB.onVeo((v, ph) => { VEO = v || {}; PHOTOS = ph || {}; if (READY) render(); });
     if (EMAIL && !ok && !pl) toast(`Signed in as ${EMAIL}, which isn’t on the coaches or players list.`);
-    else if (pl) toast('Signed in as a player. Match videos are now available.');
+    else if (pl) toast('Signed in as a player. Match videos and photos are unlocked.');
     if (COACH) migrateVeo();
     if (READY) render();
   });
