@@ -1292,7 +1292,7 @@ window.ERGSShare = (function(){
       ov.innerHTML = `<div class="es-card"><div class="es-h"><h2>${esc(o.title || 'Share')}</h2><button type="button" class="es-x" aria-label="Close">✕</button></div>
         ${items.length > 1 ? `<div class="es-tabs">${items.map((x, i) => `<button type="button" data-i="${i}" aria-pressed="${i === cur}">${esc(x.label)}</button>`).join('')}</div>` : ''}
         <p class="es-desc">${esc(it.desc || '')}</p><div class="es-qr" aria-label="QR code for ${esc(it.label)}"></div>
-        <div class="es-link"><input readonly value="${esc(it.url)}" aria-label="Link"></div>
+        <div class="es-link"><input readonly value="${esc(it.url.replace(/^https?:\/\//, '').replace(/\/$/, ''))}" aria-label="Link"></div>
         <div class="es-btns"><button type="button" class="p" data-a="copy">Copy link</button>${navigator.share ? '<button type="button" data-a="share">Share</button>' : ''}<button type="button" data-a="dl">Save QR code</button></div>
         <p class="es-note">Point a phone camera at the code to open ${esc(it.label)}. Print the QR code for posters and programmes.</p></div>`;
       const cv = draw(it.url, o.crest); ov.querySelector('.es-qr').appendChild(cv);
@@ -2094,11 +2094,11 @@ const outLink = document.createElement('button'); outLink.type = 'button'; outLi
 outLink.onclick = () => FB.signOut().then(() => { PLAYER = false; COACH = false; VEO = {}; PHOTOS = {}; render(); });
 $('footer').appendChild(signLink); $('footer').appendChild(outLink);
 // share the apps: link and QR code
-const LIVE_URL = 'https://popcorn483.github.io/ergs-live/';
+const LIVE_URL = 'https://popcorn483.github.io/ergs-live/', SHORT_LIVE = 'https://popcorn483.github.io/ergs', SHORT_APP = 'https://popcorn483.github.io/ergsapp';   // short links for sharing (redirect pages on popcorn483.github.io)
 const shareBtn = document.createElement('button'); shareBtn.type = 'button'; shareBtn.className = 'share-btn';
 shareBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Share ERGS Live';
-shareBtn.onclick = () => { const items = [{label:'ERGS Live', url:LIVE_URL, file:'ergs-live-qr', desc:'Live scores, fixtures and results for ERGS rugby. Anyone can open it, no account needed.', shareText:'Follow ERGS rugby live: scores, fixtures and results'}];
-  if ((COACH || PLAYER) && !SANDBOX) items.push({label:'ERGS Rugby app', url:/^https?:/.test(MAIN_APP) ? MAIN_APP : LIVE_URL + 'app/', file:'ergs-rugby-app-qr', desc:'The team app for coaches and players: plays, drills, photos and team news. Sign in with a school Google account that a coach has added.'});
+shareBtn.onclick = () => { const items = [{label:'ERGS Live', url:SHORT_LIVE, file:'ergs-live-qr', desc:'Live scores, fixtures and results for ERGS rugby. Anyone can open it, no account needed.', shareText:'Follow ERGS rugby live: scores, fixtures and results'}];
+  if ((COACH || PLAYER) && !SANDBOX) items.push({label:'ERGS Rugby app', url:SHORT_APP, file:'ergs-rugby-app-qr', desc:'The team app for coaches and players: plays, drills, photos and team news. Sign in with a school Google account that a coach has added.'});
   window.ERGSShare.open({title:'Share', crest:DATA.crest, items}); };
 $('footer').prepend(shareBtn);
 /* postpone or cancel a fixture, with a reason parents can see */
