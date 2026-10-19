@@ -489,6 +489,7 @@ function mainColour(c){ const x = c.getContext('2d').getImageData(0, 0, c.width,
 function schoolsDialog(){
   const names = new Set(); DATA.matches.forEach(m => [m.home, m.away].forEach(n => { if (n && !OUR_RX.test(n)) names.add(canonSchool(n)); }));
   Object.values(DATA.schools || {}).forEach(s => s.name && names.add(canonSchool(s.name)));
+  ULSTER.forEach(n => names.add(canonSchool(n)));   // every Ulster school, so missing crests are easy to spot
   const list = [...names].sort();
   const opps = [...new Set(Object.values(DATA.schools || {}).map(s => s.name).filter(Boolean).concat(ULSTER))].sort();
   openDialog(`<h2>School crests</h2><p>Add each school’s crest once and it shows on every match against them. Small images keep the page quick for supporters.</p>
@@ -1009,16 +1010,20 @@ const sameSchool = (a, b) => !!a && !!b && canonSchool(a) === canonSchool(b);
 const schMatches = n => DATA.matches.filter(m => sameSchool(usOf(m) === 'A' ? m.home : m.away, n) || sameSchool(m.home, n) || sameSchool(m.away, n));
 function schListHTML(list){
   if (!list.length) return '<div class="empty">No schools yet. Add one above, or add a match and its opponent appears here.</div>';
-  const rows = list.map(n => { const s0 = school(n) || {}; return {n, s:s0, crest:!!s0.crest, c:schMatches(n).length}; }), miss = rows.filter(r => !r.crest).length;
-  const f = V.schFilter === 'missing' && miss ? 'missing' : 'all', show = f === 'missing' ? rows.filter(r => !r.crest) : rows;
-  return `<div class="sch-tools"><span class="hint"><b>${rows.length}</b> schools · ${miss ? `<b class="miss">${miss} without a crest</b>` : 'every school has a crest'}</span>
-      <div class="seg"><button type="button" data-schf="all" aria-pressed="${f === 'all'}">All</button><button type="button" data-schf="missing" aria-pressed="${f === 'missing'}" ${miss ? '' : 'disabled'}>No crest (${miss})</button></div></div>
-    <div class="schs">${show.map(({n, s, crest:has, c}) => `<div class="sch${has ? '' : ' no-crest'}">${crest(n)}<span class="sch-n"><b>${esc(n)}</b><small>${c ? `${c} match${c === 1 ? '' : 'es'}` : 'No matches'}${has ? '' : ' · <em>No crest</em>'}${Array.isArray(s.aliases) && s.aliases.length ? ' · also “' + esc(s.aliases.slice(0, 2).join('”, “')) + '”' : ''}</small></span>
+  const rec = n => Object.values(DATA.schools || {}).some(v => v && v.name && sameSchool(v.name, n));
+  const rows = list.map(n => { const s0 = school(n) || {}, c = schMatches(n).length; return {n, s:s0, crest:!!s0.crest, c, mine:c > 0 || rec(n)}; }), miss = rows.filter(r => !r.crest).length;
+  const played = rows.filter(r => r.c), pMiss = played.filter(r => !r.crest).length;
+  const f = ['missing', 'played', 'all'].includes(V.schFilter) ? V.schFilter : 'all';
+  const show = f === 'missing' ? rows.filter(r => !r.crest) : f === 'played' ? played : rows;
+  return `<div class="sch-tools"><span class="hint"><b>${rows.length}</b> schools · <b class="${miss ? 'miss' : ''}">${miss} without a crest</b>${played.length ? ` · ${pMiss ? `<b class="miss">${pMiss}</b>` : 'none'} of the ${played.length} you’ve played` : ''}</span>
+      <div class="seg"><button type="button" data-schf="all" aria-pressed="${f === 'all'}">All (${rows.length})</button><button type="button" data-schf="missing" aria-pressed="${f === 'missing'}">No crest (${miss})</button><button type="button" data-schf="played" aria-pressed="${f === 'played'}">Played (${played.length})</button></div></div>
+    ${show.length ? '' : '<div class="empty">Nothing to show here.</div>'}
+    <div class="schs">${show.map(({n, s, crest:has, c, mine}) => `<div class="sch${has ? '' : ' no-crest'}">${crest(n)}<span class="sch-n"><b>${esc(n)}</b><small>${c ? `${c} match${c === 1 ? '' : 'es'}` : 'Not played yet'}${has ? '' : ' · <em>No crest</em>'}${Array.isArray(s.aliases) && s.aliases.length ? ' · also “' + esc(s.aliases.slice(0, 2).join('”, “')) + '”' : ''}</small></span>
       <label class="btn ${has ? 'ghost' : ''} small">${has ? 'Change' : 'Add crest'}<input type="file" accept="image/*" hidden data-crest="${esc(n)}"></label>
       <input type="color" value="${esc(s.color || '#3A4466')}" data-col="${esc(n)}" aria-label="Colour for ${esc(n)}">
-      <button type="button" class="btn ghost small" data-merge="${esc(n)}">Merge</button>
+      ${mine ? `<button type="button" class="btn ghost small" data-merge="${esc(n)}">Merge</button>` : ''}
       ${has ? `<button type="button" class="btn ghost small" data-delcrest="${esc(n)}" aria-label="Remove ${esc(n)} crest">Remove crest</button>` : ''}
-      <button type="button" class="btn ghost small danger" data-delsch="${esc(n)}">Delete</button></div>`).join('')}</div>`;
+      ${mine && !ULSTER.some(u => sameSchool(u, n)) ? `<button type="button" class="btn ghost small danger" data-delsch="${esc(n)}">Delete</button>` : ''}</div>`).join('')}</div>`;
 }
 async function schReopen(done){ for (let i = 0; i < 25 && !done(); i++) await new Promise(r => setTimeout(r, 100)); schoolsDialog(); }
 function schMergeDialog(from, list){
