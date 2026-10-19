@@ -542,14 +542,59 @@ body.dr-lock{overflow:hidden}
 .share-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .out-btn{border-color:var(--rule);color:var(--chalk)}
 .out-btn:hover{background:transparent;border-color:var(--loss);color:var(--loss)}
+/* Schools' Cup groups */
+.cup-head{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start;justify-content:space-between;margin:4px 0 14px}
+.cup-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,420px),1fr));gap:12px;margin-top:12px}
+.cup-g{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:12px;min-width:0}
+.cup-g.ours{border-color:rgba(220,192,138,.6);box-shadow:0 0 0 1px rgba(220,192,138,.25)}
+.cup-gh{display:flex;align-items:center;gap:10px;margin:0 0 8px;font-family:var(--f-cond);font-size:17px;letter-spacing:.08em;text-transform:uppercase}
+.cup-gh .cup-ed{margin-left:auto;font-size:13px}
+.cup-t{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.cup-t th,.cup-t td{padding:7px 6px;text-align:center;border-bottom:1px solid var(--rule)}
+.cup-t th{font-family:var(--f-cond);font-weight:700;font-size:12px;letter-spacing:.08em;color:var(--mute)}
+.cup-t .l{text-align:left}
+.cup-t td.pos{color:var(--mute);width:22px}
+.cup-t td.pts{font-family:var(--f-display);font-weight:900;font-size:18px}
+.cup-t tr.q td.pos{color:var(--win);font-weight:800}
+.cup-t tr.q td:first-child{box-shadow:inset 3px 0 0 var(--win)}
+.cup-t tr.q2 td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
+.cup-t tr.us td{background:rgba(220,192,138,.1)}
+.cup-t tr.us td.l{font-weight:800;color:var(--gold)}
+.cup-t .who{display:flex;align-items:center;gap:8px;min-width:0}.cup-t .who .crest{flex:0 0 auto}
+.cup-t .who .dot{width:8px;height:8px;border-radius:50%;background:var(--live,#E3262A);animation:pulse 1.4s infinite}
+.cup-res{margin-top:8px;font-size:14px}.cup-res summary{cursor:pointer;color:var(--mute);font-size:13px}
+.cup-r{display:grid;grid-template-columns:1fr auto 1fr auto;gap:8px;align-items:center;padding:4px 0}
+.cup-r span:first-child{text-align:right}.cup-r b{font-variant-numeric:tabular-nums}
+.cup-need h3 .pill{margin-left:6px;font-size:11px}
+.cup-now{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:6px 0 10px}
+.cup-now div{background:var(--deck);border:1px solid var(--rule);border-radius:10px;padding:8px 10px;display:grid}
+.cup-now b{font-family:var(--f-display);font-weight:900;font-size:24px}
+.cup-now span{font-family:var(--f-cond);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.cup-now .v-yes b{color:var(--win)} .cup-now .v-no b{color:var(--loss)} .cup-now .v-maybe b{color:var(--gold)}
+.cup-v{font-weight:700;margin:0 0 10px}.cup-v.v-yes{color:var(--win)}.cup-v.v-no{color:var(--loss)}.cup-v.v-maybe{color:var(--gold)}
+.cup-sc{display:grid;gap:6px;margin-bottom:8px}
+.sc{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;padding:8px 10px;border-radius:10px;background:var(--deck);border-left:4px solid var(--rule)}
+.sc.v-yes{border-left-color:var(--win)}.sc.v-maybe{border-left-color:var(--gold)}.sc.v-no{border-left-color:var(--loss)}
+.sc-if{font-weight:700}.sc-then{color:var(--mute)}.sc-then b{color:var(--chalk)}
+.cup-ru ol{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:4px}
+.cup-ru li{display:grid;grid-template-columns:1fr auto 44px;gap:10px;align-items:center;padding:6px 10px;border-radius:8px;background:var(--deck)}
+.cup-ru li.in{box-shadow:inset 3px 0 0 var(--gold)}.cup-ru li.us{color:var(--gold);font-weight:800}
+.cup-ru li small{color:var(--mute);font-weight:500}.cup-ru h3 small{font-weight:500;color:var(--mute);text-transform:none;letter-spacing:0}
+.cup-in{display:grid;gap:8px;margin:8px 0}
+.cup-ir{display:grid;grid-template-columns:1fr 64px 64px 1fr;gap:8px;align-items:center}
+.cup-ir span:first-child{text-align:right;font-weight:700}.cup-ir span:nth-of-type(2){font-weight:700}
+.cup-ir small{grid-column:1 / -1;display:flex;gap:6px;align-items:center;justify-content:center;color:var(--mute)}
+.cup-ir .input.tr{width:58px;min-height:32px;padding:4px 6px}
+.cup-ir.auto{grid-template-columns:1fr auto 1fr}.cup-ir.auto b{font-variant-numeric:tabular-nums}
+@media (max-width:520px){ .cup-now{grid-template-columns:repeat(2,minmax(0,1fr))} .tabs button{font-size:13px;letter-spacing:.03em} }
 
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = '58c98fcb8b';</script>
-<script src="config.js?v=58c98fcb8b"></script>
-<script src="crest.js?v=58c98fcb8b"></script>
-<script src="app.js?v=58c98fcb8b"></script>
-<script type="module" src="fb.js?v=58c98fcb8b"></script>
+<script>window.ERGS_VER = '321da03e34';</script>
+<script src="config.js?v=321da03e34"></script>
+<script src="crest.js?v=321da03e34"></script>
+<script src="app.js?v=321da03e34"></script>
+<script type="module" src="fb.js?v=321da03e34"></script>
 </body>
 </html>

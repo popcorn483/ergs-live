@@ -1586,7 +1586,7 @@ function render(){
   coachBar();
   $('#tabs').hidden = !!m;
   $$('#tabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === V.tab));
-  $('#view').innerHTML = m ? viewMatch(m) : V.tab === 'fixtures' ? viewFixtures() : V.tab === 'results' ? viewResults() : viewMatches();
+  $('#view').innerHTML = m ? viewMatch(m) : V.tab === 'fixtures' ? viewFixtures() : V.tab === 'results' ? viewResults() : V.tab === 'cup' ? viewCup() : viewMatches();
   $$('[data-unbin]').forEach(b => b.onclick = ev => { ev.stopPropagation(); const id = b.dataset.unbin; save(d => { const x = d.matches.find(y => y.id === m.id); const e = x && x.events.find(y => y.id === id); if (e) e.ret = Date.now(); }, m.id); });
   $$('[data-team]').forEach(b => b.onclick = () => { V.team = b.dataset.team; render(); });
   $$('[data-season]').forEach(b => b.onclick = () => { V.season = +b.dataset.season || 0; render(); });
@@ -2502,4 +2502,152 @@ function menuClose(){ const dr = $('#drawer'); if (!dr) return; dr.classList.rem
   document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || !standalone() || e.defaultPrevented || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
     let u; try { u = new URL(a.href, location.href); } catch(x){ return; } if (u.origin !== location.origin || !/^\/ergs/.test(u.pathname)) return;
     e.preventDefault(); location.href = u.href; }, true); })();
+/* ---------- Danske Bank Ulster Schools' Cup: group tables, live, with what ERGS need (coaches and players) ---------- */
+// Kept in the scoreboard record (DATA.cup) so supporters see the live tables. Coaches set the groups once (paste them from the Ulster Rugby site)
+// and add other schools' results; ERGS's own group games fill in from the matches scored here, live.
+const CUP_RULES = {win:4, draw:2, tb:4, lb:7, winners:6, runners:4};
+const cupOf = () => DATA.cup && Array.isArray(DATA.cup.groups) ? DATA.cup : null;
+const cupR = () => Object.assign({}, CUP_RULES, (cupOf() || {}).rules || {});
+// one key per school however it's written: "Larne GS", "Larne Grammar School", "RS Dungannon", "Royal School Dungannon"
+const cupKey = n => { let x = ' ' + String(canonSchool(n) || n || '').toLowerCase().replace(/[’'`.]/g, '').replace(/[^a-z0-9]+/g, ' ') + ' ';
+  x = x.replace(/ gs /g, ' grammar school ').replace(/ hs /g, ' high school ').replace(/ rs /g, ' royal school ').replace(/ es /g, ' ').replace(/ coll /g, ' college ').replace(/ acad /g, ' academy ');
+  const w = x.split(' ').filter(t => t && !/^(the|of|and|school|grammar|high|college|academy|integrated|secondary|boys|girls)$/.test(t)); return w.join(' ') || x.trim(); };
+const cupOurs = n => OUR_RX.test(n || '');
+const cupSeasonY = () => { const c = cupOf(); const y = c && +(String(c.season || '').match(/20\d\d/) || [0])[0]; return y || (new Date().getMonth() >= 7 ? new Date().getFullYear() : new Date().getFullYear() - 1); };
+const cupShort = n => String(n || '').replace(/\b(Grammar School|High School|College|Academy|School)\b/g, m => ({'Grammar School':'GS', 'High School':'HS', 'College':'Coll', 'Academy':'Acad', 'School':'Sch'})[m]).replace(/\s+/g, ' ').trim();
+const triesOf = (m, s) => (m.events || []).filter(e => e.s === s && (e.k === 'try' || e.k === 'pt') && !e.miss).length;
+/* our group games, straight from the scoreboard (1st XV, a "Cup" competition, this season) */
+function cupOurGames(g){
+  const mates = g.teams.filter(t => !cupOurs(t)); if (mates.length === g.teams.length) return [];
+  const out = [];
+  DATA.matches.filter(m => usOf(m) && (m.status === 'FT' || isLive(m)) && /cup/i.test(m.comp || '') && !/medallion|girls|bowl|shield|plate|trophy/i.test(m.comp || '') && teamCode(m.team) === '1XV' && seasonOf(m) === cupSeasonY()).forEach(m => {
+    const us = usOf(m), opp = us === 'A' ? m.home : m.away, mate = mates.find(t => cupKey(t) === cupKey(opp)); if (!mate) return;
+    const [h, a] = score(m), ours = g.teams.find(cupOurs);
+    out.push({id:'m:' + m.id, h:us === 'H' ? ours : mate, a:us === 'H' ? mate : ours, hs:h, as:a, ht:triesOf(m, 'H'), at:triesOf(m, 'A'), live:isLive(m), auto:true, mid:m.id}); });
+  return out;
+}
+function cupGames(g){
+  const ours = cupOurGames(g), key = (x, y) => [cupKey(x), cupKey(y)].sort().join('|'), have = new Set(ours.map(x => key(x.h, x.a)));
+  return ours.concat(((cupOf() || {}).games || []).filter(x => x.g === g.n && x.hs !== '' && x.hs != null && x.as !== '' && x.as != null && !have.has(key(x.h, x.a))).map(x => Object.assign({}, x, {hs:+x.hs, as:+x.as})));
+}
+function cupTable(g, games){
+  const R = cupR(), T = new Map(g.teams.map(t => [cupKey(t), {n:t, P:0, W:0, D:0, L:0, F:0, A:0, TB:0, LB:0, Pts:0, live:false}]));
+  (games || cupGames(g)).forEach(x => { const H = T.get(cupKey(x.h)), A = T.get(cupKey(x.a)); if (!H || !A) return;
+    [[H, x.hs, x.as, x.ht], [A, x.as, x.hs, x.at]].forEach(([o, f, a, tr]) => { o.P++; o.F += f; o.A += a; if (f > a){ o.W++; o.Pts += R.win; } else if (f === a){ o.D++; o.Pts += R.draw; } else { o.L++; if (a - f <= R.lb){ o.LB++; o.Pts++; } }
+      if (tr != null && tr !== '' && +tr >= R.tb){ o.TB++; o.Pts++; } if (x.live) o.live = true; }); });
+  return [...T.values()].sort((a, b) => b.Pts - a.Pts || (b.F - b.A) - (a.F - a.A) || b.F - a.F || a.n.localeCompare(b.n));
+}
+/* the group games still to play: everyone plays everyone once */
+function cupLeft(g, games){ const k = (x, y) => [cupKey(x), cupKey(y)].sort().join('|'), done = new Set(games.filter(x => !x.live).map(x => k(x.h, x.a))), out = [];
+  for (let i = 0; i < g.teams.length; i++) for (let j = i + 1; j < g.teams.length; j++) if (!done.has(k(g.teams[i], g.teams[j]))) out.push([g.teams[i], g.teams[j]]); return out; }
+/* every way the remaining games could go: where could ERGS finish? */
+function cupScenarios(g){
+  const R = cupR(), games = cupGames(g).filter(x => !x.live), left = cupLeft(g, games), ours = g.teams.find(cupOurs); if (!ours || !left.length || left.length > 6) return null;
+  const bonus = left.length <= 3;
+  // outcome kinds for one game: [home pts, away pts, label]
+  const kinds = []; const W = R.win, D = R.draw;
+  if (bonus){ for (const wb of [0, 1]) for (const lb of [0, 1]) for (const lt of [0, 1]) { kinds.push({r:'H', h:W + wb, a:lb + lt}); kinds.push({r:'A', h:lb + lt, a:W + wb}); } for (const b1 of [0, 1]) for (const b2 of [0, 1]) kinds.push({r:'D', h:D + b1, a:D + b2}); }
+  else kinds.push({r:'H', h:W, a:0}, {r:'A', h:0, a:W}, {r:'D', h:D, a:D});
+  const base = new Map(cupTable(g, games).map(o => [cupKey(o.n), o.Pts])), ok = cupKey(ours);
+  const byCombo = new Map(); let best = 9, worst = 0, maxPts = base.get(ok);
+  const rec = (i, pts, mine) => {
+    if (i === left.length){ const me = pts.get(ok); let above = 0, tie = 0; pts.forEach((v, k) => { if (k === ok) return; if (v > me) above++; else if (v === me) tie++; });
+      const b = above + 1, w = above + tie + 1, key = mine.join('|'); const c = byCombo.get(key) || {best:9, worst:0, ptsMin:99, ptsMax:0}; c.best = Math.min(c.best, b); c.worst = Math.max(c.worst, w); c.ptsMin = Math.min(c.ptsMin, me); c.ptsMax = Math.max(c.ptsMax, me); byCombo.set(key, c);
+      best = Math.min(best, b); worst = Math.max(worst, w); maxPts = Math.max(maxPts, me); return; }
+    const [h, a] = left[i], kh = cupKey(h), ka = cupKey(a), us = kh === ok ? 'H' : ka === ok ? 'A' : '';
+    const seen = new Set();
+    for (const k of kinds){ const next = new Map(pts); next.set(kh, next.get(kh) + k.h); next.set(ka, next.get(ka) + k.a);
+      const res = us ? (k.r === 'D' ? 'D' : k.r === us ? 'W' : 'L') : ''; const tag = us ? (us === 'H' ? a : h) + ':' + res : '';
+      if (!us){ const sig = k.r + k.h + ',' + k.a; if (seen.has(sig)) continue; seen.add(sig); }
+      rec(i + 1, next, us ? mine.concat([tag]) : mine); } };
+  rec(0, base, []);
+  return {left, bonus, best, worst, maxPts, now:base.get(ok), combos:[...byCombo.entries()].map(([k, v]) => Object.assign({k:k ? k.split('|').map(x => { const i = x.lastIndexOf(':'); return {opp:x.slice(0, i), r:x.slice(i + 1)}; }) : []}, v)).sort((a, b) => a.best - b.best || a.worst - b.worst)};
+}
+const ordinal = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
+function viewCup(){
+  const c = cupOf(), squad = COACH || PLAYER, R = cupR();
+  if (!c || !c.groups.length) return `<div class="empty">The Schools’ Cup group tables appear here once the groups are set.${COACH ? '<div class="ctrl" style="justify-content:center;margin-top:10px"><button type="button" class="btn primary" data-cup="setup">Set up the groups</button></div>' : ''}</div>`;
+  const tables = c.groups.map(g => { const games = cupGames(g); return {g, games, t:cupTable(g, games)}; });
+  const ourG = tables.find(x => x.g.teams.some(cupOurs));
+  // the race for the best runners-up
+  const ru = tables.map(x => x.t[1] && Object.assign({grp:x.g.n}, x.t[1])).filter(Boolean).sort((a, b) => b.Pts - a.Pts || (b.F - b.A) - (a.F - a.A) || b.F - a.F);
+  const anyLive = tables.some(x => x.games.some(y => y.live));
+  const tbl = x => `<div class="cup-g${x.g.teams.some(cupOurs) ? ' ours' : ''}"><div class="cup-gh"><b>Group ${esc(x.g.n)}</b>${x.games.some(y => y.live) ? '<span class="pill live">Live</span>' : ''}${COACH ? `<button type="button" class="lnk cup-ed" data-cupres="${esc(x.g.n)}">Results</button>` : ''}</div>
+    <div class="tbl"><table class="cup-t"><thead><tr><th></th><th class="l">School</th><th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">PD</th><th class="hide-s" title="Try bonus">TB</th><th class="hide-s" title="Losing bonus">LB</th><th>Pts</th></tr></thead><tbody>
+    ${x.t.map((o, i) => { const ri = ru.findIndex(r => r.grp === x.g.n), q = i === 0 ? 'q' : i === 1 && ri >= 0 && ri < R.runners ? 'q2' : ''; return `<tr class="${cupOurs(o.n) ? 'us ' : ''}${q}"><td class="pos">${i + 1}</td><td class="l"><span class="who">${crest(o.n)}<span>${esc(cupShort(o.n))}</span>${o.live ? '<span class="dot"></span>' : ''}</span></td><td>${o.P}</td><td>${o.W}</td><td>${o.D}</td><td>${o.L}</td><td class="hide-s">${o.F - o.A > 0 ? '+' : ''}${o.F - o.A}</td><td class="hide-s">${o.TB}</td><td class="hide-s">${o.LB}</td><td class="pts">${o.Pts}</td></tr>`; }).join('')}</tbody></table></div>
+    ${x.games.length ? `<details class="cup-res"><summary>${x.games.length} result${x.games.length === 1 ? '' : 's'}</summary>${x.games.map(y => `<div class="cup-r${y.live ? ' live' : ''}"><span>${esc(cupShort(y.h))}</span><b>${y.hs}–${y.as}</b><span>${esc(cupShort(y.a))}</span>${y.live ? '<span class="pill live">Live</span>' : ''}</div>`).join('')}</details>` : ''}</div>`;
+  let need = '';
+  if (squad && ourG){ const sc = cupScenarios(ourG.g), pos = ourG.t.findIndex(o => cupOurs(o.n)) + 1, me = ourG.t[pos - 1];
+    const res = r => r === 'W' ? 'Beat' : r === 'D' ? 'Draw with' : 'Lose to';
+    const fin = (b, w) => b === w ? ordinal(b) : `${ordinal(b)}–${ordinal(w)}`;
+    const verdict = (b, w) => w === 1 ? ['yes', 'Group winners: through to the Last 16'] : b === 1 && w === 2 ? ['maybe', 'Top two: winners or a runner-up place'] : b === 1 ? ['maybe', 'Could still win the group, depends on other results'] : b === 2 ? ['maybe', 'Best case runners-up: needs to be one of the best ' + R.runners] : ['no', 'Can’t finish in the top two'];
+    if (!sc) need = `<div class="box cup-need"><h3>What ERGS need <span class="pill">Coaches &amp; players</span></h3><p>${cupLeft(ourG.g, ourG.games).length ? 'Too many games left to work out every result yet.' : `Group finished: ERGS are <b>${ordinal(pos)}</b> in Group ${esc(ourG.g.n)} on ${me.Pts} points. ${pos === 1 ? 'Through as group winners.' : pos === 2 ? (ru.findIndex(r => r.grp === ourG.g.n) < R.runners ? `Currently one of the best ${R.runners} runners-up.` : `Outside the best ${R.runners} runners-up for now.`) : 'Not through to the Last 16.'}`}</p></div>`;
+    else { const [vk, vt] = verdict(sc.best, sc.worst);
+      need = `<div class="box cup-need"><h3>What ERGS need <span class="pill">Coaches &amp; players</span></h3>
+        <div class="cup-now"><div><b>${ordinal(pos)}</b><span>Now</span></div><div><b>${sc.now}</b><span>Points</span></div><div><b>${sc.maxPts}</b><span>Most possible</span></div><div class="v-${vk}"><b>${fin(sc.best, sc.worst)}</b><span>Can finish</span></div></div>
+        <p class="cup-v v-${vk}">${esc(vt)}</p>
+        ${sc.combos.length > 1 || (sc.combos[0] && sc.combos[0].k.length) ? `<div class="cup-sc">${sc.combos.map(o => { const [k2, t2] = verdict(o.best, o.worst); return `<div class="sc v-${k2}"><span class="sc-if">${o.k.map(x => `${res(x.r)} ${esc(cupShort(x.opp))}`).join(', ')}</span><span class="sc-then"><b>${fin(o.best, o.worst)}</b> · ${o.ptsMin === o.ptsMax ? o.ptsMin : o.ptsMin + '–' + o.ptsMax} pts · ${esc(t2.split(':')[0])}</span></div>`; }).join('')}</div>` : ''}
+        <p class="hint">Win ${R.win} pts, draw ${R.draw}, +1 for ${R.tb} or more tries, +1 for losing by ${R.lb} or less. ${sc.bonus ? 'Every bonus point combination is counted.' : 'With this many games left, bonus points aren’t counted yet.'} Level on points counts as a range, because ties are decided by the competition rules. The ${R.winners} group winners and the ${R.runners} best runners-up go through to the Last 16.</p></div>`; } }
+  const ruBox = ru.length > 1 ? `<div class="box cup-ru"><h3>Best runners-up <small>top ${R.runners} go through</small></h3><ol>${ru.map((o, i) => `<li class="${i < R.runners ? 'in' : ''}${cupOurs(o.n) ? ' us' : ''}"><span>${esc(cupShort(o.n))} <small>Group ${esc(o.grp)}</small></span><b>${o.Pts}</b><small>${o.F - o.A > 0 ? '+' : ''}${o.F - o.A}</small></li>`).join('')}</ol></div>` : '';
+  return `<div class="cup-head"><div><div class="sec" style="margin:0 0 4px">${esc(c.name || 'Danske Bank Ulster Schools’ Cup')}${c.season ? ' · ' + esc(c.season) : ''}</div><p class="hint" style="margin:0">Group stage tables${anyLive ? ', updating live' : ''}. ${R.winners} winners and the ${R.runners} best runners-up reach the Last 16.</p></div>${COACH ? '<button type="button" class="btn ghost" data-cup="setup">Edit groups</button>' : ''}</div>
+    ${need}${ourG ? tbl(ourG) : ''}<div class="cup-grid">${tables.filter(x => x !== ourG).map(tbl).join('')}</div>${ruBox}
+    ${c.exempt && c.exempt.length ? `<p class="hint">Straight into the Last 16: ${esc(c.exempt.join(', '))}.</p>` : ''}${c.source ? `<p class="hint">Groups from <a href="${esc(c.source)}" target="_blank" rel="noopener">Ulster Rugby</a>.</p>` : ''}`;
+}
+/* coaches: paste the groups (as they appear on the Ulster Rugby site) */
+function cupSetup(){
+  const c = cupOf() || {}, R = cupR();
+  const txt = (c.groups || []).map(g => `Group ${g.n}: ${g.teams.join(', ')}`).join('\n');
+  openDialog(`<h2>Schools’ Cup groups</h2><p class="hint">Paste the group draw from the Ulster Rugby website, one group per line, e.g. <i>Group F: Enniskillen Royal GS, Portadown College, RS Dungannon, Larne GS</i>. A list with a “Group A” heading and one school per line works too.</p>
+    <div class="row2"><div class="field"><label class="label" for="cuName">Competition</label><input class="input" id="cuName" value="${esc(c.name || 'Danske Bank Ulster Schools’ Cup')}"></div><div class="field"><label class="label" for="cuSeason">Season</label><input class="input" id="cuSeason" value="${esc(c.season || seasonLabel(cupSeasonY()))}" placeholder="2026/27"></div></div>
+    <div class="field"><label class="label" for="cuGroups">Groups</label><textarea class="input" id="cuGroups" rows="8" placeholder="Group A: …">${esc(txt)}</textarea></div>
+    <div class="field"><label class="label" for="cuExempt">Straight into the Last 16 (optional)</label><input class="input" id="cuExempt" value="${esc((c.exempt || []).join(', '))}" placeholder="Ballymena Academy, Campbell College, …"></div>
+    <details class="links-x"><summary>Points and qualifying</summary><div class="row2"><div class="field"><label class="label" for="cuW">Win</label><input class="input" id="cuW" type="number" min="0" value="${R.win}"></div><div class="field"><label class="label" for="cuD">Draw</label><input class="input" id="cuD" type="number" min="0" value="${R.draw}"></div></div>
+      <div class="row2"><div class="field"><label class="label" for="cuTb">Try bonus: tries needed</label><input class="input" id="cuTb" type="number" min="1" value="${R.tb}"></div><div class="field"><label class="label" for="cuLb">Losing bonus: within</label><input class="input" id="cuLb" type="number" min="0" value="${R.lb}"></div></div>
+      <div class="row2"><div class="field"><label class="label" for="cuWin">Group winners through</label><input class="input" id="cuWin" type="number" min="0" value="${R.winners}"></div><div class="field"><label class="label" for="cuRu">Best runners-up through</label><input class="input" id="cuRu" type="number" min="0" value="${R.runners}"></div></div></details>
+    <div class="field"><label class="label" for="cuSrc">Link to the Ulster Rugby page (optional)</label><input class="input" id="cuSrc" type="url" value="${esc(c.source || '')}" placeholder="https://ulster.rugby/…"></div>
+    <p class="hint" id="cuMsg"></p>
+    <div class="dlg-a">${c.groups && c.groups.length ? '<button type="button" class="btn ghost danger" id="cuDel">Remove the tables</button><span style="flex:1"></span>' : ''}<button type="button" class="btn ghost" data-close>Cancel</button><button type="button" class="btn primary" id="cuGo">Save</button></div>`, d => {
+    const parse = () => { const out = []; let cur = null;
+      d.querySelector('#cuGroups').value.split(/\r?\n/).map(l => l.trim()).filter(Boolean).forEach(l => {
+        const m = l.match(/^(?:group|pool)\s*([A-Z0-9]{1,2})\b\s*[:\-–.]?\s*(.*)$/i);
+        if (m){ cur = {n:m[1].toUpperCase(), teams:[]}; out.push(cur); if (m[2]) m[2].split(/\s*[,;]\s*|\s+v\s+|\t/).map(s => s.trim()).filter(Boolean).forEach(t => cur.teams.push(t)); return; }
+        if (cur) l.split(/\s*[,;]\s*|\t/).map(s => s.replace(/^\d+[.)]?\s*/, '').replace(/\s+\d+(\s+\d+)*$/, '').trim()).filter(Boolean).forEach(t => cur.teams.push(t)); });
+      out.forEach(g => { g.teams = g.teams.map(t => cupOurs(t) ? 'ERGS' : canonSchool(t)); }); return out.filter(g => g.teams.length >= 2); };
+    const show = () => { const g = parse(); d.querySelector('#cuMsg').textContent = g.length ? `${g.length} group${g.length === 1 ? '' : 's'}: ${g.map(x => x.n + ' (' + x.teams.length + ')').join(', ')}${g.some(x => x.teams.some(cupOurs)) ? '. ERGS found in Group ' + g.find(x => x.teams.some(cupOurs)).n + '.' : '. ERGS isn’t in any group yet.'}` : ''; };
+    d.querySelector('#cuGroups').addEventListener('input', show); show();
+    const del = d.querySelector('#cuDel'); if (del) del.onclick = () => { closeDialog(); ask('Remove the Schools’ Cup tables?', 'The groups and results come off ERGS Live for everyone.', 'Remove', () => save(dd => { delete dd.cup; }, null)); };
+    d.querySelector('#cuGo').onclick = () => { const groups = parse(); if (!groups.length){ toast('Paste at least one group.'); return; }
+      const n = id => Math.max(0, +d.querySelector(id).value || 0);
+      const cup = {name:d.querySelector('#cuName').value.trim(), season:d.querySelector('#cuSeason').value.trim(), groups, exempt:d.querySelector('#cuExempt').value.split(/\s*,\s*/).map(s => s.trim()).filter(Boolean).map(canonSchool),
+        rules:{win:n('#cuW'), draw:n('#cuD'), tb:Math.max(1, n('#cuTb')), lb:n('#cuLb'), winners:n('#cuWin'), runners:n('#cuRu')}, source:/^https:\/\//.test(d.querySelector('#cuSrc').value.trim()) ? d.querySelector('#cuSrc').value.trim() : '', games:(c.games || []), updated:Date.now()};
+      closeDialog(); V.tab = 'cup'; save(dd => { dd.cup = cup; }, null).then(() => toast('Schools’ Cup groups saved. Everyone can see the tables.')); };
+  });
+}
+/* coaches: results for one group (ERGS's own games fill in from the scoreboard) */
+function cupResults(gn){
+  const c = cupOf(); if (!c) return; const g = c.groups.find(x => x.n === gn); if (!g) return;
+  const ours = cupOurGames(g), k = (x, y) => [cupKey(x), cupKey(y)].sort().join('|'), auto = new Map(ours.map(x => [k(x.h, x.a), x]));
+  const pairs = []; for (let i = 0; i < g.teams.length; i++) for (let j = i + 1; j < g.teams.length; j++) pairs.push([g.teams[i], g.teams[j]]);
+  const cur = (h, a) => (c.games || []).find(x => x.g === gn && k(x.h, x.a) === k(h, a));
+  openDialog(`<h2>Group ${esc(gn)} results</h2><p class="hint">Score and tries for each game. Tries decide the try bonus (${cupR().tb}+). ERGS games come from the scoreboard automatically.</p>
+    <div class="cup-in">${pairs.map(([h, a], i) => { const au = auto.get(k(h, a)); if (au) return `<div class="cup-ir auto"><span>${esc(cupShort(au.h))}</span><b>${au.hs}–${au.as}</b><span>${esc(cupShort(au.a))}</span><small>${au.live ? 'Live on ERGS Live' : 'From ERGS Live'} · tries ${au.ht}–${au.at}</small></div>`;
+      const x = cur(h, a) || {}, sw = x.h && cupKey(x.h) !== cupKey(h), H = sw ? a : h, A = sw ? h : a;
+      return `<div class="cup-ir" data-i="${i}" data-h="${esc(H)}" data-a="${esc(A)}"><span>${esc(cupShort(H))}</span><input class="input" type="number" min="0" aria-label="${esc(H)} score" data-f="hs" value="${esc(x.hs != null ? x.hs : '')}"><input class="input" type="number" min="0" aria-label="${esc(A)} score" data-f="as" value="${esc(x.as != null ? x.as : '')}"><span>${esc(cupShort(A))}</span>
+        <small>Tries <input class="input tr" type="number" min="0" aria-label="${esc(H)} tries" data-f="ht" value="${esc(x.ht != null ? x.ht : '')}"> – <input class="input tr" type="number" min="0" aria-label="${esc(A)} tries" data-f="at" value="${esc(x.at != null ? x.at : '')}"></small></div>`; }).join('')}</div>
+    <div class="dlg-a"><button type="button" class="btn ghost" data-close>Cancel</button><button type="button" class="btn primary" id="crGo">Save results</button></div>`, d => {
+    d.querySelector('#crGo').onclick = () => { const list = (c.games || []).filter(x => x.g !== gn);
+      d.querySelectorAll('.cup-ir[data-i]').forEach(r => { const v = f => { const s = r.querySelector(`[data-f="${f}"]`).value.trim(); return s === '' ? '' : Math.max(0, +s); };
+        const o = {id:uid(), g:gn, h:r.dataset.h, a:r.dataset.a, hs:v('hs'), as:v('as'), ht:v('ht'), at:v('at')}; if (o.hs !== '' && o.as !== '') list.push(o); });
+      closeDialog(); save(dd => { if (dd.cup){ dd.cup.games = list; dd.cup.updated = Date.now(); } }, null).then(() => toast(`Group ${gn} updated for everyone.`)); };
+  });
+}
+/* the Schools' Cup tab: shown to everyone once the groups are set (coaches always) */
+(() => {
+  const tabs = $('#tabs'); if (!tabs) return;
+  const b = document.createElement('button'); b.type = 'button'; b.dataset.v = 'cup'; b.textContent = 'Schools’ Cup'; b.hidden = true; tabs.appendChild(b);
+  b.onclick = () => { V.tab = 'cup'; render(); };
+  setInterval(() => { b.hidden = !(cupOf() && cupOf().groups.length) && !COACH; if (b.hidden && V.tab === 'cup'){ V.tab = 'matches'; render(); } }, 700);
+  document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-cup], [data-cupres]'); if (!t) return; if (t.dataset.cup === 'setup') cupSetup(); else if (t.dataset.cupres) cupResults(t.dataset.cupres); });
+})();
+
 })();
