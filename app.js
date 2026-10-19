@@ -2514,7 +2514,7 @@ const cupKey = n => { let x = ' ' + String(canonSchool(n) || n || '').toLowerCas
   const w = x.split(' ').filter(t => t && !/^(the|of|and|school|grammar|high|college|academy|integrated|secondary|boys|girls)$/.test(t)); return w.join(' ') || x.trim(); };
 const cupOurs = n => OUR_RX.test(n || '');
 const cupSeasonY = () => { const c = cupOf(); const y = c && +(String(c.season || '').match(/20\d\d/) || [0])[0]; return y || (new Date().getMonth() >= 7 ? new Date().getFullYear() : new Date().getFullYear() - 1); };
-const cupShort = n => String(n || '').replace(/\b(Grammar School|High School|College|Academy|School)\b/g, m => ({'Grammar School':'GS', 'High School':'HS', 'College':'Coll', 'Academy':'Acad', 'School':'Sch'})[m]).replace(/\s+/g, ' ').trim();
+const cupShort = n => String(n || '').replace(/\bGS\b/g, 'Grammar School').replace(/\bHS\b/g, 'High School').replace(/\bES\b/g, 'Endowed School').replace(/^RS\b/, 'Royal School').replace(/\bColl\b/g, 'College').replace(/\bAcad\b/g, 'Academy').replace(/\s+/g, ' ').trim();   // full school names, never cut short
 const triesOf = (m, s) => (m.events || []).filter(e => e.s === s && (e.k === 'try' || e.k === 'pt') && !e.miss).length;
 /* our group games, straight from the scoreboard (1st XV, a "Cup" competition, this season) */
 function cupOurGames(g){
