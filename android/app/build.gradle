@@ -8,12 +8,12 @@ def run = (System.getenv('GITHUB_RUN_NUMBER') ?: '1') as int
 
 android {
     namespace 'uk.org.ergs.live'
-    compileSdk 34
+    compileSdk 36
 
     defaultConfig {
         applicationId 'uk.org.ergs.live'
         minSdk 21
-        targetSdk 34
+        targetSdk 36
         versionCode run
         versionName "1.0.${run}"
     }
@@ -41,5 +41,5 @@ android {
 }
 
 dependencies {
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.6.2'
 }

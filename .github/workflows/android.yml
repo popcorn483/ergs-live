@@ -1,6 +1,7 @@
 name: Android app
 
-# Builds ERGS Live for Android and publishes ERGS-Live.apk to the "android" release.
+# Builds ERGS Live for Android: ERGS-Live.apk (install directly) and ERGS-Live.aab (upload to Google Play),
+# both published to the "android" release.
 on:
   push:
     branches: [main]
@@ -21,16 +22,18 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.7'
-      - name: Build the APK
-        run: gradle -p android assembleRelease --no-daemon --stacktrace
-      - name: Name it
-        run: cp android/app/build/outputs/apk/release/app-release.apk ERGS-Live.apk
+          gradle-version: '8.11.1'
+      - name: Build the APK and the Play app bundle
+        run: gradle -p android assembleRelease bundleRelease --no-daemon --stacktrace
+      - name: Name them
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk ERGS-Live.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab ERGS-Live.aab
       - name: Publish to Releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete android --yes --cleanup-tag || true
-          gh release create android ERGS-Live.apk --latest \
+          gh release create android ERGS-Live.apk ERGS-Live.aab --latest \
             --title "ERGS Live for Android" \
-            --notes "Download ERGS-Live.apk on an Android phone, open it and allow installing from this source. Live scores, fixtures and results for Enniskillen Royal Grammar School rugby. Build ${{ github.run_number }}."
+            --notes "Download ERGS-Live.apk on an Android phone, open it and allow installing from this source. ERGS-Live.aab is the file to upload to Google Play. Live scores, fixtures and results for Enniskillen Royal Grammar School rugby. Build ${{ github.run_number }}."
