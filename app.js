@@ -2575,7 +2575,7 @@ function viewCup(){
   const tbl = x => `<div class="cup-g${x.g.teams.some(cupOurs) ? ' ours' : ''}"><div class="cup-gh"><b>Group ${esc(x.g.n)}</b>${x.games.some(y => y.live) ? '<span class="pill live">Live</span>' : ''}${COACH ? `<button type="button" class="lnk cup-ed" data-cupres="${esc(x.g.n)}">Results</button>` : ''}</div>
     <div class="tbl"><table class="cup-t"><thead><tr><th></th><th class="l">School</th><th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">PD</th><th class="hide-s" title="Try bonus">TB</th><th class="hide-s" title="Losing bonus">LB</th><th>Pts</th></tr></thead><tbody>
     ${x.t.map((o, i) => { const ri = ru.findIndex(r => r.grp === x.g.n), q = i === 0 ? 'q' : i === 1 && ri >= 0 && ri < R.runners ? 'q2' : ''; return `<tr class="${cupOurs(o.n) ? 'us ' : ''}${q}"><td class="pos">${i + 1}</td><td class="l"><span class="who">${crest(o.n)}<span>${esc(cupShort(o.n))}</span>${o.live ? '<span class="dot"></span>' : ''}</span></td><td>${o.P}</td><td>${o.W}</td><td>${o.D}</td><td>${o.L}</td><td class="hide-s">${o.F - o.A > 0 ? '+' : ''}${o.F - o.A}</td><td class="hide-s">${o.TB}</td><td class="hide-s">${o.LB}</td><td class="pts">${o.Pts}</td></tr>`; }).join('')}</tbody></table></div>
-    ${x.games.length ? `<details class="cup-res"><summary>${x.games.length} result${x.games.length === 1 ? '' : 's'}</summary>${x.games.map(y => `<div class="cup-r${y.live ? ' live' : ''}"><span>${esc(cupShort(y.h))}</span><b>${y.hs}–${y.as}</b><span>${esc(cupShort(y.a))}</span>${y.live ? '<span class="pill live">Live</span>' : ''}</div>`).join('')}</details>` : ''}</div>`;
+    ${COACH && V.cupEdit ? cupEditList(x.g) : x.games.length ? `<details class="cup-res"><summary>${x.games.length} result${x.games.length === 1 ? '' : 's'}</summary>${x.games.map(y => `<div class="cup-r${y.live ? ' live' : ''}"><span>${esc(cupShort(y.h))}</span><b>${y.hs}–${y.as}</b><span>${esc(cupShort(y.a))}</span>${y.live ? '<span class="pill live">Live</span>' : ''}</div>`).join('')}</details>` : ''}</div>`;
   let need = '';
   if (squad && ourG){ const sc = cupScenarios(ourG.g), pos = ourG.t.findIndex(o => cupOurs(o.n)) + 1, me = ourG.t[pos - 1];
     const res = r => r === 'W' ? 'Beat' : r === 'D' ? 'Draw with' : 'Lose to';
@@ -2586,10 +2586,10 @@ function viewCup(){
       need = `<div class="box cup-need"><h3>What ERGS need <span class="pill">Coaches &amp; players</span></h3>
         <div class="cup-now"><div><b>${ordinal(pos)}</b><span>Now</span></div><div><b>${sc.now}</b><span>Points</span></div><div><b>${sc.maxPts}</b><span>Most possible</span></div><div class="v-${vk}"><b>${fin(sc.best, sc.worst)}</b><span>Can finish</span></div></div>
         <p class="cup-v v-${vk}">${esc(vt)}</p>
-        ${sc.combos.length > 1 || (sc.combos[0] && sc.combos[0].k.length) ? `<div class="cup-sc">${sc.combos.map(o => { const [k2, t2] = verdict(o.best, o.worst); return `<div class="sc v-${k2}"><span class="sc-if">${o.k.map(x => `${res(x.r)} ${esc(cupShort(x.opp))}`).join(', ')}</span><span class="sc-then"><b>${fin(o.best, o.worst)}</b> · ${o.ptsMin === o.ptsMax ? o.ptsMin : o.ptsMin + '–' + o.ptsMax} pts · ${esc(t2.split(':')[0])}</span></div>`; }).join('')}</div>` : ''}
+        ${sc.combos.length > 1 || (sc.combos[0] && sc.combos[0].k.length) ? `${sc.combos.length > 6 ? `<details class="cup-more"><summary>Every result for ERGS (${sc.combos.length})</summary>` : ''}<div class="cup-sc">${sc.combos.map(o => { const [k2, t2] = verdict(o.best, o.worst); return `<div class="sc v-${k2}"><span class="sc-if">${o.k.map(x => `${res(x.r)} ${esc(cupShort(x.opp))}`).join(', ')}</span><span class="sc-then"><b>${fin(o.best, o.worst)}</b> · ${o.ptsMin === o.ptsMax ? o.ptsMin : o.ptsMin + '–' + o.ptsMax} pts · ${esc(t2.split(':')[0])}</span></div>`; }).join('')}</div>${sc.combos.length > 6 ? '</details>' : ''}` : ''}
         <p class="hint">Win ${R.win} pts, draw ${R.draw}, +1 for ${R.tb} or more tries, +1 for losing by ${R.lb} or less. ${sc.bonus ? 'Every bonus point combination is counted.' : 'With this many games left, bonus points aren’t counted yet.'} Level on points counts as a range, because ties are decided by the competition rules. The ${R.winners} group winners and the ${R.runners} best runners-up go through to the Last 16.</p></div>`; } }
   const ruBox = ru.length > 1 ? `<div class="box cup-ru"><h3>Best runners-up <small>top ${R.runners} go through</small></h3><ol>${ru.map((o, i) => `<li class="${i < R.runners ? 'in' : ''}${cupOurs(o.n) ? ' us' : ''}"><span>${esc(cupShort(o.n))} <small>Group ${esc(o.grp)}</small></span><b>${o.Pts}</b><small>${o.F - o.A > 0 ? '+' : ''}${o.F - o.A}</small></li>`).join('')}</ol></div>` : '';
-  return `<div class="cup-head"><div><div class="sec" style="margin:0 0 4px">${esc(c.name || 'Danske Bank Ulster Schools’ Cup')}${c.season ? ' · ' + esc(c.season) : ''}</div><p class="hint" style="margin:0">Group stage tables${anyLive ? ', updating live' : ''}. ${R.winners} winners and the ${R.runners} best runners-up reach the Last 16.</p></div>${COACH ? '<button type="button" class="btn ghost" data-cup="setup">Edit groups</button>' : ''}</div>
+  return `<div class="cup-head"><div><div class="sec" style="margin:0 0 4px">${esc(c.name || 'Danske Bank Ulster Schools’ Cup')}${c.season ? ' · ' + esc(c.season) : ''}</div><p class="hint" style="margin:0">Group stage tables${anyLive ? ', updating live' : ''}. ${R.winners} winners and the ${R.runners} best runners-up reach the Last 16.</p></div>${COACH ? `<div class="ctrl"><button type="button" class="btn ${V.cupEdit ? 'primary' : ''}" data-cup="edit" aria-pressed="${!!V.cupEdit}">${V.cupEdit ? 'Done editing' : 'Edit results'}</button><button type="button" class="btn ghost" data-cup="setup">Edit groups</button></div>` : ''}</div>${COACH && V.cupEdit ? '<p class="cup-edhint">Type each score and the tries straight into the tables below. Each result saves for everyone as soon as you leave the box. ERGS games fill in from the scoreboard.</p>' : ''}
     ${need}${ourG ? tbl(ourG) : ''}<div class="cup-grid">${tables.filter(x => x !== ourG).map(tbl).join('')}</div>${ruBox}
     ${c.exempt && c.exempt.length ? `<p class="hint">Straight into the Last 16: ${esc(c.exempt.join(', '))}.</p>` : ''}${c.source ? `<p class="hint">Groups from <a href="${esc(c.source)}" target="_blank" rel="noopener">Ulster Rugby</a>.</p>` : ''}`;
 }
@@ -2647,7 +2647,42 @@ function cupResults(gn){
   const b = document.createElement('button'); b.type = 'button'; b.dataset.v = 'cup'; b.textContent = 'Schools’ Cup'; b.hidden = true; tabs.appendChild(b);
   b.onclick = () => { V.tab = 'cup'; render(); };
   setInterval(() => { b.hidden = !(cupOf() && cupOf().groups.length) && !COACH; if (b.hidden && V.tab === 'cup'){ V.tab = 'matches'; render(); } }, 700);
-  document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-cup], [data-cupres]'); if (!t) return; if (t.dataset.cup === 'setup') cupSetup(); else if (t.dataset.cupres) cupResults(t.dataset.cupres); });
+  document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-cup], [data-cupres]'); if (!t) return; if (t.dataset.cup === 'setup') cupSetup(); else if (t.dataset.cup === 'edit'){ V.cupEdit = !V.cupEdit; render(); } else if (t.dataset.cupres) cupResults(t.dataset.cupres); });
+})();
+
+/* inline results for coaches: every fixture in the group, score and tries, saved on leaving the box */
+const cupPair = (x, y) => [cupKey(x), cupKey(y)].sort().join('|');
+function cupEditList(g){
+  const auto = new Map(cupOurGames(g).map(x => [cupPair(x.h, x.a), x])), games = ((cupOf() || {}).games || []).filter(x => x.g === g.n), rows = [];
+  for (let i = 0; i < g.teams.length; i++) for (let j = i + 1; j < g.teams.length; j++){
+    const h0 = g.teams[i], a0 = g.teams[j], au = auto.get(cupPair(h0, a0));
+    if (au){ rows.push(`<div class="cup-er auto"><span class="h">${esc(cupShort(au.h))}</span><b>${au.hs}</b><b>${au.as}</b><span class="a">${esc(cupShort(au.a))}</span><span class="t">${au.live ? '<span class="pill live">Live</span>' : 'From ERGS Live'} · <button type="button" class="lnk" data-open="${esc(au.mid)}">Open match</button></span></div>`); continue; }
+    const x = games.find(y => cupPair(y.h, y.a) === cupPair(h0, a0)) || {}, sw = x.h && cupKey(x.h) !== cupKey(h0), H = sw ? a0 : h0, A = sw ? h0 : a0, v = k => x[k] == null ? '' : x[k], done = v('hs') !== '' && v('as') !== '';
+    rows.push(`<div class="cup-er${done ? ' done' : ''}" data-g="${esc(g.n)}" data-h="${esc(H)}" data-a="${esc(A)}"><span class="h">${esc(cupShort(H))}</span>
+      <input class="input sc" inputmode="numeric" data-f="hs" aria-label="${esc(H)} score" placeholder="–" value="${esc(v('hs'))}"><input class="input sc" inputmode="numeric" data-f="as" aria-label="${esc(A)} score" placeholder="–" value="${esc(v('as'))}"><span class="a">${esc(cupShort(A))}</span>
+      <span class="t">Tries <input class="input tr" inputmode="numeric" data-f="ht" aria-label="${esc(H)} tries" placeholder="0" value="${esc(v('ht'))}"> – <input class="input tr" inputmode="numeric" data-f="at" aria-label="${esc(A)} tries" placeholder="0" value="${esc(v('at'))}">
+      <button type="button" class="lnk cup-sw" data-cupsw title="Swap home and away">⇄</button>${done ? '<button type="button" class="lnk cup-x" data-cupx title="Clear this result">Clear</button>' : ''}</span></div>`); }
+  return `<div class="cup-ed-list">${rows.join('')}</div>`;
+}
+function cupSaveRow(r, opts){
+  const val = f => { const s = r.querySelector(`[data-f="${f}"]`).value.trim(); return s === '' || isNaN(+s) ? '' : Math.max(0, Math.round(+s)); };
+  let h = r.dataset.h, a = r.dataset.a, o = {hs:val('hs'), as:val('as'), ht:val('ht'), at:val('at')};
+  if (opts && opts.swap){ [h, a] = [a, h]; o = {hs:o.as, as:o.hs, ht:o.at, at:o.ht}; }
+  if (opts && opts.clear) o = {hs:'', as:'', ht:'', at:''};
+  const gn = r.dataset.g, key = cupPair(h, a);
+  return save(dd => { if (!dd.cup) return; const list = (dd.cup.games || []).filter(x => !(x.g === gn && cupPair(x.h, x.a) === key));
+    if (o.hs !== '' || o.as !== '' || (opts && opts.swap)) list.push(Object.assign({id:uid(), g:gn, h, a}, o));
+    dd.cup.games = list; dd.cup.updated = Date.now(); }, null).then(() => { r.classList.add('saved'); if (o.hs !== '' && o.as !== '') toast(`${cupShort(h)} ${o.hs}–${o.as} ${cupShort(a)} saved.`); }).catch(() => toast('That didn’t save. Try again.'));
+}
+(() => {
+  // save when a box is left (or Enter); hold back redraws while a coach is typing so nothing is lost
+  document.addEventListener('change', e => { const r = e.target.closest && e.target.closest('.cup-er[data-g]'); if (!r) return; cupSaveRow(r); });
+  document.addEventListener('keydown', e => { if (e.key !== 'Enter') return; const r = e.target.closest && e.target.closest('.cup-er[data-g]'); if (!r) return; e.preventDefault();
+    const ins = [...document.querySelectorAll('.cup-er[data-g] input')], i = ins.indexOf(e.target); (ins[i + 1] || e.target).focus(); if (ins[i + 1]) ins[i + 1].select(); });
+  document.addEventListener('click', e => { const sw = e.target.closest && e.target.closest('[data-cupsw], [data-cupx]'); if (!sw) return; const r = sw.closest('.cup-er[data-g]'); if (!r) return;
+    if (sw.hasAttribute('data-cupx')) ask('Clear this result?', `${cupShort(r.dataset.h)} v ${cupShort(r.dataset.a)} comes off the table for everyone.`, 'Clear', () => cupSaveRow(r, {clear:true})); else cupSaveRow(r, {swap:true}); });
+  document.addEventListener('focusout', () => setTimeout(() => { if (V.cupWait && !(document.activeElement && document.activeElement.closest && document.activeElement.closest('.cup-er'))){ V.cupWait = false; render(); } }, 150));
+  const r0 = render; render = function(){ const a = document.activeElement; if (V.tab === 'cup' && a && a.closest && a.closest('.cup-er[data-g]')){ V.cupWait = true; return; } return r0.apply(this, arguments); };
 })();
 
 })();
