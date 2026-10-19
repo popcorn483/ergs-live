@@ -1799,9 +1799,10 @@ function mainColour(c){ const x = c.getContext('2d').getImageData(0, 0, c.width,
 function schoolsDialog(){
   const names = new Set(); DATA.matches.forEach(m => [m.home, m.away].forEach(n => { if (n && !OUR_RX.test(n)) names.add(canonSchool(n)); }));
   Object.values(DATA.schools || {}).forEach(s => s.name && names.add(canonSchool(s.name)));
-  ULSTER.forEach(n => names.add(canonSchool(n)));   // every Ulster school, so missing crests are easy to spot
+  const gone = new Set((DATA.removedSchools || []).map(canonSchool));
+  ULSTER.forEach(n => { const c = canonSchool(n); if (!gone.has(c)) names.add(c); });   // every Ulster school (except ones you removed), so missing crests are easy to spot
   const list = [...names].sort();
-  const opps = [...new Set(Object.values(DATA.schools || {}).map(s => s.name).filter(Boolean).concat(ULSTER))].sort();
+  const opps = [...new Set(Object.values(DATA.schools || {}).map(s => s.name).filter(Boolean).concat(ULSTER))].filter(n => !gone.has(canonSchool(n))).sort();
   openDialog(`<h2>School crests</h2><p>Add each school’s crest once and it shows on every match against them. Small images keep the page quick for supporters.</p>
     <form class="sch-add" id="schAdd"><div class="field"><label class="label" for="schName">Add a school</label><input class="input" id="schName" list="schAddNames" maxlength="50" placeholder="School name" autocomplete="off"><datalist id="schAddNames">${opps.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
       <label class="btn" id="schPick">Choose crest<input type="file" accept="image/*" hidden id="schFile"></label><button type="submit" class="btn primary">Add</button></form>
@@ -1812,7 +1813,7 @@ function schoolsDialog(){
     d.querySelector('#schAdd').onsubmit = async ev => { ev.preventDefault(); const raw = d.querySelector('#schName').value.trim(); if (!raw){ toast('Type the school’s name.'); return; }
       const n = canonSchool(raw); let crestUrl = '', col = '';
       if (addFile){ try { const im = await fileToImage(addFile), c = shrink(im, 96); crestUrl = c.toDataURL('image/webp', 0.85); col = mainColour(c); } catch(e){ toast('That image could not be opened.'); return; } }
-      await save(dd => { dd.schools = dd.schools || {}; const k = schoolKey(n); dd.schools[k] = Object.assign({name:n}, dd.schools[k], crestUrl ? {crest:crestUrl, color:(dd.schools[k] || {}).color || col} : {}); });
+      await save(dd => { dd.schools = dd.schools || {}; const k = schoolKey(n); dd.schools[k] = Object.assign({name:n}, dd.schools[k], crestUrl ? {crest:crestUrl, color:(dd.schools[k] || {}).color || col} : {}); if (dd.removedSchools) dd.removedSchools = dd.removedSchools.filter(x => !sameSchool(x, n)); });
       toast(crestUrl ? `${n} added with its crest.` : `${n} added. Press Crest beside it to upload one.`);
       for (let i = 0; i < 20 && !Object.values(DATA.schools || {}).some(x => x && canonSchool(x.name || '') === n); i++) await new Promise(r => setTimeout(r, 100));
       schoolsDialog(); };
@@ -1826,6 +1827,7 @@ function schoolsDialog(){
     d.querySelectorAll('[data-schf]').forEach(b => b.onclick = () => { V.schFilter = b.dataset.schf; schoolsDialog(); });
     d.querySelectorAll('[data-merge]').forEach(b => b.onclick = () => schMergeDialog(b.dataset.merge, list));
     d.querySelectorAll('[data-delsch]').forEach(b => b.onclick = () => schDeleteDialog(b.dataset.delsch));
+    d.querySelectorAll('[data-restore]').forEach(b => b.onclick = async () => { const n = b.dataset.restore; await save(dd => { dd.removedSchools = (dd.removedSchools || []).filter(x => x !== n); }); toast(`${n} restored.`); schReopen(() => !(DATA.removedSchools || []).includes(n)); });
   });
 }
 
@@ -2335,13 +2337,13 @@ function schListHTML(list){
   const show = f === 'missing' ? rows.filter(r => !r.crest) : f === 'played' ? played : rows;
   return `<div class="sch-tools"><span class="hint"><b>${rows.length}</b> schools · <b class="${miss ? 'miss' : ''}">${miss} without a crest</b>${played.length ? ` · ${pMiss ? `<b class="miss">${pMiss}</b>` : 'none'} of the ${played.length} you’ve played` : ''}</span>
       <div class="seg"><button type="button" data-schf="all" aria-pressed="${f === 'all'}">All (${rows.length})</button><button type="button" data-schf="missing" aria-pressed="${f === 'missing'}">No crest (${miss})</button><button type="button" data-schf="played" aria-pressed="${f === 'played'}">Played (${played.length})</button></div></div>
-    ${show.length ? '' : '<div class="empty">Nothing to show here.</div>'}
+    ${show.length ? '' : '<div class="empty">Nothing to show here.</div>'}${(DATA.removedSchools || []).length ? `<p class="hint sch-gone">Removed: ${DATA.removedSchools.map(n => `<button type="button" class="lnk" data-restore="${esc(n)}">${esc(n)} (restore)</button>`).join(' · ')}</p>` : ''}
     <div class="schs">${show.map(({n, s, crest:has, c, mine}) => `<div class="sch${has ? '' : ' no-crest'}">${crest(n)}<span class="sch-n"><b>${esc(n)}</b><small>${c ? `${c} match${c === 1 ? '' : 'es'}` : 'Not played yet'}${has ? '' : ' · <em>No crest</em>'}${Array.isArray(s.aliases) && s.aliases.length ? ' · also “' + esc(s.aliases.slice(0, 2).join('”, “')) + '”' : ''}</small></span>
       <label class="btn ${has ? 'ghost' : ''} small">${has ? 'Change' : 'Add crest'}<input type="file" accept="image/*" hidden data-crest="${esc(n)}"></label>
       <input type="color" value="${esc(s.color || '#3A4466')}" data-col="${esc(n)}" aria-label="Colour for ${esc(n)}">
       ${mine ? `<button type="button" class="btn ghost small" data-merge="${esc(n)}">Merge</button>` : ''}
       ${has ? `<button type="button" class="btn ghost small" data-delcrest="${esc(n)}" aria-label="Remove ${esc(n)} crest">Remove crest</button>` : ''}
-      ${mine && !ULSTER.some(u => sameSchool(u, n)) ? `<button type="button" class="btn ghost small danger" data-delsch="${esc(n)}">Delete</button>` : ''}</div>`).join('')}</div>`;
+      <button type="button" class="btn ghost small danger" data-delsch="${esc(n)}">Delete</button></div>`).join('')}</div>`;
 }
 async function schReopen(done){ for (let i = 0; i < 25 && !done(); i++) await new Promise(r => setTimeout(r, 100)); schoolsDialog(); }
 function schMergeDialog(from, list){
@@ -2361,13 +2363,13 @@ function schMergeDialog(from, list){
 }
 function schDeleteDialog(n){
   const ms = schMatches(n), c = ms.length;
-  openDialog(`<h2>Delete ${esc(n)}?</h2>${c ? `<p><b>${esc(n)} has ${c} match${c === 1 ? '' : 'es'}</b> (${esc(ms.slice(0, 3).map(m => (m.team ? m.team + ' ' : '') + new Date(kot(m) || Date.now()).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'})).join(', '))}${c > 3 ? '…' : ''}). If it’s the same school under another name, use Merge instead so those results are kept.</p>` : `<p>${esc(n)} has no matches. Its crest and colour are removed.</p>`}
+  openDialog(`<h2>Delete ${esc(n)}?</h2>${c ? `<p><b>${esc(n)} has ${c} match${c === 1 ? '' : 'es'}</b> (${esc(ms.slice(0, 3).map(m => (m.team ? m.team + ' ' : '') + new Date(kot(m) || Date.now()).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'})).join(', '))}${c > 3 ? '…' : ''}). If it’s the same school under another name, use Merge instead so those results are kept.</p>` : `<p>${esc(n)} has no matches. It comes off the list${ULSTER.some(u => sameSchool(u, n)) ? ' and the Add a school suggestions (you can restore it at the bottom of the list)' : ''}, along with its crest and colour.</p>`}
     <div class="dlg-a"><button type="button" class="btn ghost" id="dsBack">Back</button>${c ? `<button type="button" class="btn" id="dsMerge">Merge instead</button>` : ''}<button type="button" class="btn danger" id="dsGo">${c ? `Delete school and ${c} match${c === 1 ? '' : 'es'}` : 'Delete school'}</button></div>`, d => {
     d.querySelector('#dsBack').onclick = schoolsDialog;
     const mg = d.querySelector('#dsMerge'); if (mg) mg.onclick = () => { const names = new Set(); DATA.matches.forEach(m => [m.home, m.away].forEach(x => { if (x && !OUR_RX.test(x)) names.add(canonSchool(x)); })); Object.values(DATA.schools || {}).forEach(v => v && v.name && names.add(canonSchool(v.name))); schMergeDialog(n, [...names].sort()); };
     d.querySelector('#dsGo').onclick = async () => { const ids = new Set(ms.map(m => m.id)); closeDialog();
-      await save(dd => { Object.keys(dd.schools || {}).forEach(k => { const v = dd.schools[k]; if (k === schoolKey(n) || (v && v.name && sameSchool(v.name, n))) delete dd.schools[k]; }); dd.matches = dd.matches.filter(m => !ids.has(m.id)); });
-      toast(c ? `${n} and ${c} match${c === 1 ? '' : 'es'} deleted.` : `${n} deleted.`); schReopen(() => !schMatches(n).length && !Object.values(DATA.schools || {}).some(v => v && v.name && sameSchool(v.name, n))); };
+      await save(dd => { Object.keys(dd.schools || {}).forEach(k => { const v = dd.schools[k]; if (k === schoolKey(n) || (v && v.name && sameSchool(v.name, n))) delete dd.schools[k]; }); dd.matches = dd.matches.filter(m => !ids.has(m.id)); if (ULSTER.some(u => sameSchool(u, n))) dd.removedSchools = [...new Set((dd.removedSchools || []).concat(canonSchool(n)))]; });
+      toast(c ? `${n} and ${c} match${c === 1 ? '' : 'es'} deleted.` : `${n} deleted.`); schReopen(() => !schMatches(n).length && !Object.values(DATA.schools || {}).some(v => v && v.name && sameSchool(v.name, n)) && (!ULSTER.some(u => sameSchool(u, n)) || (DATA.removedSchools || []).some(x => sameSchool(x, n)))); };
   });
 }
 })();
