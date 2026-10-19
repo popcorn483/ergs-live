@@ -2,8 +2,15 @@
  "name": "ERGS Rugby Live",
  "short_name": "ERGS Live",
  "description": "Live scores, fixtures and results for Enniskillen Royal Grammar School rugby.",
+ "id": "./",
  "start_url": "./",
  "scope": "./",
+ "launch_handler": {
+  "client_mode": [
+   "navigate-existing",
+   "auto"
+  ]
+ },
  "display": "standalone",
  "background_color": "#0F1530",
  "theme_color": "#0F1530",

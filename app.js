@@ -1418,26 +1418,31 @@ function row(m){
 }
 function viewMatches(){
   const live = DATA.matches.filter(isLive), now = Date.now();
-  const allNext = DATA.matches.filter(m => m.status === 'pre' && kot(m) > now - 6*3600e3).sort((a, b) => kot(a) - kot(b)), next = V.moreNext ? allNext : allNext.slice(0, 4);
-  const undated = COACH ? DATA.matches.filter(m => m.status === 'pre' && !kot(m)) : [];
+  const allUp = DATA.matches.filter(m => m.status === 'pre' && kot(m) > now - 6*3600e3).sort((a, b) => kot(a) - kot(b));
+  // only this week's fixtures here (or the very next one if nothing is on this week); the full list is under Fixtures
+  const wk = allUp.filter(m => kot(m) < now + 7*864e5), next = wk.length ? wk : allUp.slice(0, 1), later = allUp.length - next.length;
+  const undated = [];
   // latest results can be narrowed by time (past week / month) and by team
   const ftDone = DATA.matches.filter(m => m.status === 'FT'), lSince = V.lPeriod === 'week' ? now - 7*864e5 : V.lPeriod === 'month' ? now - 31*864e5 : 0;
   const allDone = ftDone.filter(m => (!lSince || kot(m) >= lSince) && (!V.lTeam || (teamCode(m.team) || 'Other') === V.lTeam)).sort((a, b) => kot(b) - kot(a)), done = V.moreDone ? allDone : allDone.slice(0, 5);
   const lTeams = TEAM_CODES.filter(c => ftDone.some(m => teamCode(m.team) === c));
   const lFilters = ftDone.length ? `<div class="lr-filters"><div class="team-tabs" role="tablist" aria-label="When">${[['', 'Any time'], ['week', 'Past week'], ['month', 'Past month']].map(([k, t]) => `<button type="button" role="tab" data-lperiod="${k}" aria-pressed="${(V.lPeriod || '') === k}">${t}</button>`).join('')}</div>
-      <select class="input lr-team" id="lrTeam" aria-label="Team"><option value="">All teams</option>${lTeams.map(c => `<option value="${c}" ${V.lTeam === c ? 'selected' : ''}>${c} · ${TEAM_NAMES[c]}</option>`).join('')}</select></div>` : '';
+      <select class="input lr-team" id="lrTeam" aria-label="Team"><option value="">All teams</option>${lTeams.map(c => `<option value="${c}" ${V.lTeam === c ? 'selected' : ''}>${c} · ${TEAM_NAMES[c]}</option>`).join('')}</select>${V.lPeriod || V.lTeam ? '<button type="button" class="clr-f" data-clear="latest">✕ Clear filters</button>' : ''}</div>` : '';
   const offSoon = DATA.matches.filter(m => ((m.off && kot(m) < now + 8*864e5) || movedRecent(m) || (m.moved && m.status === 'pre' && m.moved.from && Date.parse(m.moved.from) < now + 8*864e5 && Date.parse(m.moved.from) > now - 12*3600e3)) && m.status === 'pre' && kot(m) > now - 12*3600e3).sort((a, b) => kot(a) - kot(b));
   const offBan = offSoon.length ? `<div class="off-ban" role="alert"><b>${offSoon.length === 1 ? 'Fixture change' : 'Fixture changes'}</b>${offSoon.map(m => { const d = new Date(kot(m)); return `<button type="button" data-open="${esc(m.id)}"><span class="off-tag${m.off ? '' : ' moved'}">${m.off === 'cancelled' ? 'Cancelled' : m.off ? 'Postponed' : 'New date'}</span>${esc(d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}) + (m.off ? '' : m.koTbc ? ', time TBC' : ', ' + d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})) + ' · ' + (m.team ? m.team + ' ' : '') + (usOf(m) === 'A' ? '@ ' : 'v ') + (usOf(m) === 'A' ? m.home : m.away))}${m.off ? (m.offWhy ? `<small>${esc(m.offWhy)}</small>` : '') : `<small>${esc(['Was ' + wasText(m), m.moved.why].filter(Boolean).join(' · '))}</small>`}</button>`; }).join('')}</div>` : '';
   return offBan + `<div class="sec">${live.length ? 'Live now' : 'No match in play'}</div>${live.length ? `<div class="board">${live.map(m => board(m)).join('')}</div>` : `<div class="empty">No ERGS match is in play right now. The score appears here the moment one kicks off.${COACH ? ' Open a fixture below and press Kick off.' : ''}</div>`}
-    <div class="sec">Coming up</div>${next.length + undated.length ? `<div class="list">${next.concat(undated).map(row).join('')}</div>${allNext.length > 4 ? `<button type="button" class="more" data-more="Next">${V.moreNext ? 'Show fewer' : `Show ${allNext.length - 4} more`}</button>` : ''}` : `<div class="empty">No fixtures announced yet.${COACH ? ' Add a match or import the fixtures list.' : ''}</div>`}
+    <div class="sec">${wk.length ? 'Coming up this week' : 'Next fixture'}</div>${next.length ? `<div class="list">${next.map(row).join('')}</div>${later ? `<button type="button" class="more" data-tabgo="fixtures">See all fixtures <small>${later} more</small> →</button>` : ''}` : `<div class="empty">No fixtures announced yet.${COACH ? ' Add a match or import the fixtures list.' : ''}</div>`}
     <div class="sec">Latest results</div>${lFilters}${done.length ? `<div class="list">${done.map(row).join('')}</div>${allDone.length > 5 ? `<button type="button" class="more" data-more="Done">${V.moreDone ? 'Show fewer' : `Show ${allDone.length - 5} more`}</button>` : ''}` : `<div class="empty">${ftDone.length ? `No ${V.lTeam ? esc(TEAM_NAMES[V.lTeam]) + ' ' : ''}results${V.lPeriod === 'week' ? ' in the past week' : V.lPeriod === 'month' ? ' in the past month' : ''}.` : 'No results yet.'}</div>`}`;
 }
 function viewFixtures(){
   const now = Date.now(), up = DATA.matches.filter(m => m.status !== 'FT' && kot(m) > now - 6*3600e3).sort((a, b) => kot(a) - kot(b));
-  if (!up.length) return '<div class="empty">No upcoming fixtures yet.</div>';
+  const undated = COACH ? DATA.matches.filter(m => m.status === 'pre' && !kot(m)) : [];
+  if (!up.length && !undated.length) return '<div class="empty">No upcoming fixtures yet.</div>';
   let out = '<div class="ha-key"><span><i class="k-h"></i>Home, at Eisenhower Playing Fields</span><span><i class="k-a"></i>Away</span></div>', cur = '';
   for (const m of up){ const k = new Date(kot(m)).toLocaleDateString('en-GB', {month:'long', year:'numeric'}); if (k !== cur){ if (cur) out += '</div>'; out += `<div class="month">${esc(k)}</div><div class="list">`; cur = k; } out += row(m); }
-  return out + '</div>';
+  if (cur) out += '</div>';
+  if (undated.length) out += `<div class="month">Date to be confirmed</div><div class="list">${undated.map(row).join('')}</div>`;
+  return out;
 }
 const TEAM_CODES = ['1XV','2XV','3XV','U16','Meds','U14','U13','U12','SG','JG'];
 /* "Our team" dropdown: every team, with an older free-typed name kept if it doesn't match one */
@@ -1493,9 +1498,11 @@ function viewResults(){
   const codes = TEAM_CODES.concat(counts.Other ? ['Other'] : []);
   if (V.team && !codes.includes(V.team)) V.team = '';
   const chips = pChips + sChips + `<div class="team-tabs" role="tablist" aria-label="Team"><span class="tt-l">Team</span>${[''].concat(codes).map(c => `<button type="button" role="tab" data-team="${esc(c)}" aria-pressed="${(V.team || '') === c}" ${c && !counts[c] ? 'class="none"' : ''} title="${esc(c ? TEAM_NAMES[c] || 'Other teams' : 'All teams')}">${esc(c || 'All')}${c && counts[c] ? ` <small>${counts[c]}</small>` : ''}</button>`).join('')}</div>`;
-  const res = V.team ? allRes.filter(m => (teamCode(m.team) || 'Other') === V.team) : allRes, rs = res.map(m => [m, resultOf(m)]).filter(x => x[1]);
+  const anyF = V.team || V.season || V.period || V.res, clearB = anyF ? '<button type="button" class="clr-f" data-clear="results">✕ Clear filters</button>' : '';
+  const resT = V.team ? allRes.filter(m => (teamCode(m.team) || 'Other') === V.team) : allRes, rsT = resT.map(m => [m, resultOf(m)]).filter(x => x[1]);
+  const rs = V.res ? rsT.filter(x => x[1].r === V.res) : rsT, res = rs.map(x => x[0]);
   const whenTxt = V.period === 'week' ? ' in the past week' : V.period === 'month' ? ' in the past month' : V.season ? ' in ' + seasonLabel(V.season) : '';
-  if (!rs.length) return chips + `<div class="empty">No ${V.team ? esc(TEAM_NAMES[V.team] || V.team) + ' ' : ''}results${whenTxt} yet.</div>`;
+  if (!rsT.length) return chips + clearB + `<div class="empty">No ${V.team ? esc(TEAM_NAMES[V.team] || V.team) + ' ' : ''}results${whenTxt} yet.</div>`;
   // season by season for one team: the same team each year, or one year group as it moves up
   let prog = '';
   const squad = COACH || PLAYER;   // the school-by-school record and season history are for coaches and players only
@@ -1511,11 +1518,13 @@ function viewResults(){
       <div class="tbl"><table><thead><tr><th>Season</th>${cohort ? '<th>Team</th>' : ''}<th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">For</th><th class="hide-s">Against</th><th>Won</th></tr></thead><tbody>${rowsP.join('')}</tbody></table></div>`;
     }
   }
-  const W = rs.filter(x => x[1].r === 'W').length, L = rs.filter(x => x[1].r === 'L').length, D = rs.length - W - L;
-  const by = new Map(); rs.forEach(([m, r]) => { const k = schoolKey(r.opp) || r.opp, o = by.get(k) || {n:r.opp, p:0, w:0, d:0, l:0, f:0, a:0}; o.p++; o[r.r.toLowerCase()]++; o.f += r.f; o.a += r.g; by.set(k, o); });
-  return chips + `${V.team || V.season || V.period ? `<div class="team-h">${esc(V.team ? TEAM_NAMES[V.team] || 'Other teams' : 'All teams')}${V.period === 'week' ? ' · past week' : V.period === 'month' ? ' · past month' : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>` : ''}<div class="sum"><div><b>${rs.length}</b><span>Played</span></div><div class="w"><b>${W}</b><span>Won</span></div><div><b>${D}</b><span>Drawn</span></div><div class="l"><b>${L}</b><span>Lost</span></div></div>
-    <div class="sec">Results</div><div class="list">${res.map(row).join('')}</div>
-    ${squad ? leaders(res) : ''}${prog}${squad ? `<div class="sec">Record against each school${V.team ? ' · ' + esc(V.team) : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>
+  const W = rsT.filter(x => x[1].r === 'W').length, L = rsT.filter(x => x[1].r === 'L').length, D = rsT.length - W - L;
+  const sumB = (k, n, t, cls) => `<button type="button" class="${cls}${V.res === k ? ' on' : ''}" data-res="${k}" aria-pressed="${V.res === k}" title="${k ? (V.res === k ? 'Show all results' : 'Show only matches ' + t.toLowerCase()) : 'Show all results'}"><b>${n}</b><span>${t}</span></button>`;
+  const RES_T = {W:'won', D:'drawn', L:'lost'};
+  const by = new Map(); rsT.forEach(([m, r]) => { const k = schoolKey(r.opp) || r.opp, o = by.get(k) || {n:r.opp, p:0, w:0, d:0, l:0, f:0, a:0}; o.p++; o[r.r.toLowerCase()]++; o.f += r.f; o.a += r.g; by.set(k, o); });
+  return chips + `${V.team || V.season || V.period ? `<div class="team-h">${esc(V.team ? TEAM_NAMES[V.team] || 'Other teams' : 'All teams')}${V.period === 'week' ? ' · past week' : V.period === 'month' ? ' · past month' : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>` : ''}${clearB}<div class="sum sum-f">${sumB('', rsT.length, 'Played', '')}${sumB('W', W, 'Won', 'w')}${sumB('D', D, 'Drawn', '')}${sumB('L', L, 'Lost', 'l')}</div>
+    <div class="sec">${V.res ? 'Matches ' + RES_T[V.res] : 'Results'}<span class="sec-hint">${V.res ? '' : 'Tap Won, Drawn or Lost to filter'}</span></div>${res.length ? `<div class="list">${res.map(row).join('')}</div>` : `<div class="empty">No matches ${RES_T[V.res]}.</div>`}
+    ${squad ? leaders(resT) : ''}${prog}${squad ? `<div class="sec">Record against each school${V.team ? ' · ' + esc(V.team) : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>
     <div class="tbl"><table><thead><tr><th>School</th><th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">For</th><th class="hide-s">Against</th></tr></thead><tbody>
     ${[...by.values()].sort((a, b) => b.p - a.p || a.n.localeCompare(b.n)).map(o => `<tr><td><span class="who">${crest(o.n)}${esc(o.n)}</span></td><td>${o.p}</td><td>${o.w}</td><td>${o.d}</td><td>${o.l}</td><td class="hide-s">${o.f}</td><td class="hide-s">${o.a}</td></tr>`).join('')}</tbody></table></div>` : `<p class="hint squad-note">Coaches and players can sign in to see the record against each school.</p>`}`;
 }
@@ -1534,12 +1543,10 @@ function coachPanel(m){
   return `${m.status === 'pre' ? notes : ''}<div class="box coach"><h3>Match clock</h3><div class="ctrl">${clock}</div></div>
     <div class="box coach"><h3>Score</h3><div class="pad">${pad}</div>${m.status === 'pre' ? '<p class="hint">Press Kick off first.</p>' : ''}</div>
     <div class="box coach"><h3>Commentary</h3><form class="inline" id="noteForm"><input class="input" id="noteIn" maxlength="140" placeholder="Big turnover at the breakdown" aria-label="Commentary line"><button class="btn" type="submit">Post</button></form></div>
-    <div class="box coach"><h3>Match video</h3><p class="hint" style="margin:0">Only signed-in coaches and players see this link.</p><form class="inline" id="veoForm"><input class="input" id="veoIn" type="url" placeholder="https://app.veo.co/matches/…" aria-label="VEO link" value="${esc(veoOf(m))}"><button class="btn" type="submit">Save</button></form></div>
-    <div class="box coach"><h3>Match photos</h3><p class="hint" style="margin:0">Link to an album (Google Drive, Google Photos…). Only signed-in coaches and players see this link.</p><form class="inline" id="photoForm"><input class="input" id="photoIn" type="url" placeholder="https://photos.app.goo.gl/…" aria-label="Photos link" value="${esc(photosOf(m))}"><button class="btn" type="submit">Save</button></form></div>
     ${m.status === 'FT' && usOf(m) ? `<div class="box coach"><h3>After the match</h3><p class="hint" style="margin:0">Opens the main app with the score and scorers filled in, ready to download, plus a match report draft to edit.</p><div class="ctrl"><a class="btn primary" href="${MAIN_APP}#ft.${esc(m.id)}" target="_blank" rel="noopener">Full-time graphic &amp; match report</a></div></div>` : ''}
     ${m.status === 'FT' && usOf(m) ? nomBox(m) : ''}
     ${m.status !== 'pre' ? notes : ''}
-    <div class="box coach"><h3>Match</h3><div class="ctrl">${b('edit', 'Edit details')}${b('share', 'Copy match link')}${m.status === 'FT' ? b('copyres', 'Copy result') : ''}${b('del', 'Delete match', 'ghost danger')}</div></div>`;
+    <div class="box coach"><h3>Match</h3>${veoOf(m) || photosOf(m) ? '' : '<p class="hint" style="margin:0 0 8px">Add the VEO video and photo album links in Edit details.</p>'}<div class="ctrl">${b('edit', 'Edit details')}${b('share', 'Copy match link')}${m.status === 'FT' ? b('copyres', 'Copy result') : ''}${b('del', 'Delete match', 'ghost danger')}</div></div>`;
 }
 function viewMatch(m){
   const evs = sorted(m), t = [0, 0], run = new Map(); evs.forEach(e => { const p = ptsOf(e); if (e.s === 'H') t[0] += p; if (e.s === 'A') t[1] += p; run.set(e, t.join('–')); });
@@ -1547,10 +1554,12 @@ function viewMatch(m){
   const canX = COACH && !DATA.demo;
   const offBox = !m.off && movedRecent(m) ? `<div class="off-ban big moved" role="status"><b>New date: ${esc(new Date(kot(m)).toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'}))}${m.koTbc ? ', kick-off TBC' : ', ' + esc(new Date(kot(m)).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}))}</b><p>${esc(['Was ' + wasText(m), m.moved.why].filter(Boolean).join(' · '))}</p></div>`
     : m.off && m.status === 'pre' ? `<div class="off-ban big" role="alert"><b>This match is ${m.off === 'cancelled' ? 'cancelled' : 'postponed'}</b>${m.offWhy ? `<p>${esc(m.offWhy)}</p>` : ''}${m.off === 'postponed' ? '<p>A new date will appear here when it is arranged.</p>' : ''}</div>` : '';
-  return `<button class="back" type="button" data-home>All matches</button>${offBox}${isLive(m) || m.status === 'FT' ? board(m, true) : `<div class="sb quiet"><div class="sb-meta">${esc(compLine(m))}</div><div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b></div><div class="score" style="font-size:40px;color:var(--dim)">v</div><div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b></div></div><span class="clock" style="border-color:var(--rule)">${esc(when(m, true) || 'Date to be confirmed')}</span></div>`}
+  const tc = teamCode(m.team), teamBig = m.team ? `<div class="mv-team"><span class="mv-code">${esc(TEAM_CODES.includes(tc) ? tc : m.team)}</span>${TEAM_CODES.includes(tc) ? `<span class="mv-name">${esc(TEAM_NAMES[tc])}</span>` : ''}${m.comp ? `<span class="mv-comp">${esc([m.comp, m.round].filter(Boolean).join(' · '))}</span>` : ''}</div>` : '';
+  const media = veoOf(m) || photosOf(m) ? `<div class="mv-media">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ View on VEO</a>` : ''}${photosOf(m) ? `<a class="veo photos" href="${esc(photosOf(m))}" target="_blank" rel="noopener">${ic('photo')}Match photos</a>${COACH && !DATA.demo ? `<button type="button" class="ph-x" data-phx="${esc(m.id)}" title="Not the photos from this match? Remove the link">✕ Not this match</button>` : ''}` : ''}</div>` : '';
+  const banner = (isLive(m) || m.status === 'FT' ? board(m, true) : `<div class="sb quiet"><div class="sb-meta">${esc(compLine(m))}</div><div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b></div><div class="score" style="font-size:40px;color:var(--dim)">v</div><div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b></div></div><span class="clock" style="border-color:var(--rule)">${esc(when(m, true) || 'Date to be confirmed')}</span></div>`).replace(/<div class="sb-meta">[^<]*<\/div>/, s0 => { if (!teamBig) return s0; const t = [m.status === '1H' ? '1st half' : m.status === '2H' ? '2nd half' : '', isLive(m) || m.status === 'FT' ? m.venue : ''].filter(Boolean).join(' · '); return teamBig + (t ? `<div class="sb-meta">${esc(t)}</div>` : ''); }).replace(/<\/div>\s*$/, media + '</div>');
+  return `<button class="back" type="button" data-home>All matches</button>${offBox}${banner}
     ${coachPanel(m)}
     ${m.venue && m.status === 'pre' ? `<div class="box"><h3>Venue</h3><div>${esc(m.venue)}</div></div>` : ''}
-    ${(veoOf(m) || photosOf(m)) && !canX ? `<div class="box media"><h3>Watch &amp; photos</h3><div class="ctrl">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ Watch on VEO</a>` : ''}${photosOf(m) ? `<a class="veo photos" href="${esc(photosOf(m))}" target="_blank" rel="noopener">Match photos</a>` : ''}</div></div>` : ''}
     ${kicks.length ? `<div class="box"><h3>Goal kicking</h3>${kicks.join('')}</div>` : ''}
     ${evs.some(e => e.k === 'note' && e.p) ? `<div class="box commfeed"><h3><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0" fill="none" stroke="currentColor" stroke-width="2"/></svg>Live commentary</h3>
       ${evs.filter(e => e.k === 'note' && e.p).slice().reverse().slice(0, 12).map((e, i) => `<div class="cf${i === 0 ? ' latest' : ''}"><span class="cf-m">${e.m}′</span><p>${esc(e.p)}</p></div>`).join('')}</div>` : ''}
@@ -1558,7 +1567,7 @@ function viewMatch(m){
 }
 function playerBar(){
   const pb = $('#playerBar'), on = PLAYER && !COACH; pb.hidden = !on; if (!on) return;
-  pb.innerHTML = `<span class="cb-msg"><span class="pb-badge">Player</span>Signed in · videos, photos and records unlocked</span><div class="ctrl"><button type="button" class="btn ghost" data-menu>More…</button></div>`;
+  pb.innerHTML = `<span class="cb-msg"><span class="pb-badge">Player</span>Signed in · videos, photos and records unlocked</span>`;
 }
 function coachBar(){
   playerBar();
@@ -1566,7 +1575,7 @@ function coachBar(){
   const bar = $('#coachBar'); bar.hidden = !COACH || SANDBOX; if (!COACH || SANDBOX) return;
   bar.innerHTML = DATA.demo
     ? `<span><b>Coach view.</b> The matches below are examples. Clear them to start real scoring; supporters will see your matches straight away.</span><button type="button" class="btn primary" data-act="cleardemo">Clear the examples</button>`
-    : `<span class="cb-msg"><span class="cb-dot"></span><b>Coach view</b> · changes go live for everyone</span><div class="ctrl"><button type="button" class="btn primary" data-act="new">New match</button><button type="button" class="btn ghost" data-menu>More…</button></div>`;
+    : `<span class="cb-msg"><span class="cb-dot"></span><b>Coach view</b> · changes go live for everyone</span><div class="ctrl"><button type="button" class="btn primary" data-act="new">New match</button></div>`;
   if (READY && !HAS_DOC) bar.innerHTML = `<span><b>Coach view.</b> The scoreboard is empty. Bring across the matches from the Claude page to start.</span><button type="button" class="btn primary" data-act="seed">Set up the scoreboard</button><button type="button" class="btn ghost" data-act="signout">Sign out</button>`;
 }
 function render(){
@@ -1585,6 +1594,10 @@ function render(){
   $$('[data-lperiod]').forEach(b => b.onclick = () => { V.lPeriod = b.dataset.lperiod; render(); });
   const lt = $('#lrTeam'); if (lt) lt.onchange = () => { V.lTeam = lt.value; render(); };
   $$('[data-prog]').forEach(b => b.onclick = () => { V.prog = b.dataset.prog; render(); });
+  $$('[data-phx]').forEach(b => b.onclick = () => ask('Remove the photos link?', 'The photos link comes off this match for everyone. It won’t be added back automatically. You can add a link again in Edit details.', 'Remove', () => FB.setPhotos(b.dataset.phx, PHOTO_NONE).then(() => toast('Photos link removed from this match.')).catch(() => toast('That didn’t save. Try again.'))));
+  $$('[data-res]').forEach(b => b.onclick = () => { V.res = V.res === b.dataset.res ? '' : b.dataset.res; render(); });
+  $$('[data-clear]').forEach(b => b.onclick = () => { if (b.dataset.clear === 'latest'){ V.lPeriod = ''; V.lTeam = ''; } else { V.team = ''; V.season = 0; V.period = ''; V.res = ''; } render(); });
+  $$('[data-tabgo]').forEach(b => b.onclick = () => { V.tab = b.dataset.tabgo; render(); scrollTo(0, 0); });
   $$('[data-more]').forEach(b => b.onclick = () => { V['more' + b.dataset.more] = !V['more' + b.dataset.more]; render(); });
   $$('[data-open]').forEach(b => b.onclick = () => { V.open = b.dataset.open; try { history.replaceState(null, '', '#m.' + V.open); } catch(e){} render(); scrollTo(0, 0); });
   $$('[data-home]').forEach(b => b.onclick = () => { V.open = null; try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} render(); });
@@ -1609,7 +1622,55 @@ let NOMS = [], nomsUnsub = null, OPPN = {}, notesUnsub = null;
 let saving = false, READY = false, HAS_DOC = false, EMAIL = '', ADMIN = false, PLAYER = false, VEO = {}, PHOTOS = {}, veoUnsub = null;
 /* VEO links are kept in a private record only coaches and players can read; older ones may still sit on the match */
 const veoOf = m => (COACH || PLAYER) ? (VEO[m.id] || m.veo || '') : '';
-const photosOf = m => (COACH || PLAYER) ? (PHOTOS[m.id] || m.photos || '') : '';
+const PHOTO_NONE = 'none';   // a coach said "these photos aren't from this match": stops the automatic link
+let PHOTO_AUTO = {};
+const photosOf = m => (COACH || PLAYER) ? (PHOTOS[m.id] === PHOTO_NONE ? '' : PHOTOS[m.id] || m.photos || PHOTO_AUTO[m.id] || '') : '';
+/* ---------- match photos found automatically: a folder in the season's photo Drive named with the school and the date ---------- */
+const MON = {jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
+function folderDate(name, seasonY){
+  const x = String(name || '').toLowerCase(); let d, mo, y, mt;
+  if ((mt = x.match(/\b(20\d\d)[-_. ](\d{1,2})[-_. ](\d{1,2})\b/))){ y = +mt[1]; mo = +mt[2]; d = +mt[3]; }
+  else if ((mt = x.match(/\b(\d{1,2})[-_./](\d{1,2})(?:[-_./](\d{2,4}))?\b/))){ d = +mt[1]; mo = +mt[2]; y = mt[3] ? +mt[3] : 0; }
+  else if ((mt = x.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s*(jan|feb|mar|apr|may|jun|jul|aug|sept|sep|oct|nov|dec)[a-z]*\.?(?:\s*(\d{2,4}))?\b/))){ d = +mt[1]; mo = MON[mt[2]]; y = mt[3] ? +mt[3] : 0; }
+  else if ((mt = x.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sept|sep|oct|nov|dec)[a-z]*\.?\s*(\d{1,2})(?:st|nd|rd|th)?(?:,?\s*(\d{4}))?\b/))){ mo = MON[mt[1]]; d = +mt[2]; y = mt[3] ? +mt[3] : 0; }
+  if (!d || !mo || mo > 12 || d > 31) return '';
+  if (y && y < 100) y += 2000; if (!y) y = seasonY ? (mo >= 8 ? seasonY : seasonY + 1) : new Date().getFullYear();
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+const NAME_SKIP = /^(the|of|and|school|college|grammar|academy|high|royal|st|saint|collegiate|integrated|secondary|boys|girls|rugby|club|county|park|u1\d|xv|1st|2nd|3rd|photos?|v|vs)$/;
+function schoolInName(opp, name){
+  const x = ' ' + String(name || '').toLowerCase().replace(/[’'`.]/g, '').replace(/[^a-z0-9]+/g, ' ') + ' ', c = canonSchool(opp);
+  const nicks = Object.keys(SCHOOL_NICKNAMES).filter(k => SCHOOL_NICKNAMES[k] === c);
+  if (nicks.some(k => x.includes(' ' + k + ' '))) return true;
+  const words = c.toLowerCase().replace(/[’'`.]/g, '').split(/[^a-z0-9]+/).filter(w => w && w.length > 2 && !NAME_SKIP.test(w));
+  return !!words.length && x.includes(' ' + words[0] + ' ');
+}
+let phScanAt = 0, phScanning = false;
+async function photoScan(force){
+  if (!(COACH || PLAYER) || SANDBOX || !window.FB || !FB.teamDoc || phScanning) return; if (!force && Date.now() - phScanAt < 10*60e3) return;
+  const key = CFG.driveKey || (CFG.firebase || {}).apiKey; if (!key) return;
+  phScanning = true; phScanAt = Date.now();
+  try {
+    const pd = await FB.teamDoc('photos'), seasons = (pd && Array.isArray(pd.seasons) ? pd.seasons : []).filter(x => x && x.folder), hidden = (pd && pd.hidden) || {};
+    const list = async id => { const q = encodeURIComponent(`'${id}' in parents and trashed = false and mimeType = 'application/vnd.google-apps.folder'`);
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true&key=${encodeURIComponent(key)}`); if (!r.ok) return []; return ((await r.json()).files || []).filter(f => !hidden[f.id]); };
+    const found = [];
+    for (const s of seasons){ const sy = +(String(s.label || '').match(/20\d\d/) || [0])[0];
+      for (const f of await list(s.folder)){ const dt = folderDate(f.name, sy);
+        if (dt) found.push({id:f.id, name:f.name, d:dt});
+        else for (const g of (await list(f.id)).slice(0, 80)){ const d2 = folderDate(g.name, sy); if (d2) found.push({id:g.id, name:f.name + ' ' + g.name, d:d2}); } } }
+    const auto = {}, ours = DATA.matches.filter(m => usOf(m) && kot(m));
+    for (const f of found){
+      const day = ours.filter(m => ymd(new Date(kot(m))) === f.d); if (!day.length) continue;
+      let hit = day.filter(m => schoolInName(usOf(m) === 'A' ? m.home : m.away, f.name));
+      if (!hit.length && day.length === 1) hit = day;   // only one match that day: the date is enough
+      const tc = teamCode(f.name); if (hit.length > 1 && TEAM_CODES.includes(tc)){ const t2 = hit.filter(m => teamCode(m.team) === tc); if (t2.length) hit = t2; }
+      hit.forEach(m => { if (!auto[m.id]) auto[m.id] = 'https://drive.google.com/drive/folders/' + f.id; });
+    }
+    const was = JSON.stringify(PHOTO_AUTO); PHOTO_AUTO = auto; if (JSON.stringify(auto) !== was && READY && $('#modal').hidden) render();
+  } catch(e){} finally { phScanning = false; }
+}
+setInterval(() => photoScan(), 60e3);
 async function save(fn, keepOpen){
   if (!COACH || !window.FB || saving) return;
   if (keepOpen !== undefined){ V.open = keepOpen; V.openAt = Date.now(); }
@@ -1686,11 +1747,28 @@ function openEv(m, k, s, pending){
 /* match details */
 const COMPS = ['Ulster Schools’ Cup','Ulster Schools’ Bowl','Ulster Schools’ Shield','Ulster Schools’ Plate','Medallion Shield','Medallion Plate','Medallion Bowl','Subsidiary Cup','Ulster Schools’ Girls’ Cup','Friendly'];
 const TEAMS = ['1XV','2XV','3XV','U16','Meds','U14','U13','U12','SG','JG'];
+const ymd = d => new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0, 10);
+const nextSat = () => { const d = new Date(); d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7)); return ymd(d); };
+/* the squad for one of our teams, from the player profiles in the main app (team tab = 1XV, Meds, U14 …; Senior rugby covers 1st, 2nd and 3rd XV) */
+const SENIOR = ['1XV','2XV','3XV'];
+function squadKey(t){ const c = teamCode(t); return c && c !== 'Other' ? c : String(t || '').trim(); }
+function squadPlayers(T, team){ const want = squadKey(team), sen = SENIOR.includes(want);
+  const isSen = p => /senior/i.test(p.t || '') && !/girl/i.test(p.t || '');
+  return (T.roster || []).filter(p => sen && isSen(p) ? (p.xv || '1XV') === want : squadKey(p.t) === want); }
+function squadList(T, team){ const ps = squadPlayers(T, team).slice().sort((a, b) => (+a.pos || 99) - (+b.pos || 99) || (a.o || 0) - (b.o || 0));
+  const used = new Set(), out = []; ps.forEach(p => { const n = +p.pos; if (n >= 1 && n <= 23 && !used.has(n)){ used.add(n); out.push({n, name:(p.f + ' ' + p.l).trim()}); } else out.push({n:0, name:(p.f + ' ' + p.l).trim()}); });
+  let k = 1; out.forEach(p => { if (!p.n){ while (used.has(k)) k++; p.n = k; used.add(k); } }); return out.sort((a, b) => a.n - b.n); }
+function squadFor(T, team){ const ps = squadPlayers(T, team); if (!ps.length) return ''; const t = [...new Set(ps.map(p => (p.t || '').trim()))]; return 't:' + (t.find(x => squadKey(x) === squadKey(team)) || team); }
 function matchForm(m, past){
   const isNew = !m; let lastPast = null; if (!m && past){ try { lastPast = JSON.parse(localStorage.getItem('ergs.lastPast') || 'null'); } catch(e){} }
   // adding past results one after another: start from the last one entered (team, date, opponent, home/away, competition, venue)
   m = m || (lastPast ? Object.assign({home:'ERGS', away:'', us:'H', team:'1st XV', comp:'', round:'', venue:'', ko:'', code:'union', half:35}, lastPast, {veo:'', players:[], final:['', '']}) : {home:'ERGS', away:'', us:'H', team:'1st XV', comp:'', round:'', venue:'', ko:'', code:'union', half:35, veo:'', players:[]});
-  let ko = m.ko && !m.koTbc ? m.ko.slice(0, 16) : m.ko ? m.ko.slice(0, 10) + 'T12:00' : ''; if (!ko){ const d = new Date(); d.setMinutes(d.getMinutes() < 30 ? 30 : 60, 0, 0); ko = new Date(d - d.getTimezoneOffset()*60000).toISOString().slice(0, 16); }
+  // a new fixture starts on the date of the last one added (if still ahead), otherwise the coming Saturday
+  let koD = m.ko ? m.ko.slice(0, 10) : '', koT = m.ko && !m.koTbc ? m.ko.slice(11, 16) : '', koTbc = !!m.koTbc;
+  if (isNew && !past){ let last = null; try { last = JSON.parse(localStorage.getItem('ergs.lastNew') || 'null'); } catch(e){}
+    const today = ymd(new Date()); koD = last && last.d >= today ? last.d : nextSat(); koT = last && last.t || '11:00'; koTbc = !!(last && last.tbc && last.d >= today); }
+  if (!koD && past){ const d = new Date(); koD = ymd(d); koT = koT || '11:00'; }
+  if (!koT) koT = '11:00';
   const noPts = !(m.events || []).some(e => ptsOf(e)), showFinal = past || (m.status === 'FT' && noPts), fin = Array.isArray(m.final) ? m.final : ['', ''];
   const opps = [...new Set(Object.values(DATA.schools || {}).map(s => s.name).filter(Boolean).concat(ULSTER))].sort();
   openDialog(`<h2>${isNew ? (past ? 'Add a past result' : 'New match') : 'Match details'}</h2>
@@ -1698,31 +1776,40 @@ function matchForm(m, past){
     <datalist id="oppNames">${opps.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
     <div class="row2"><div class="field"><span class="label">ERGS are</span>${seg('us', [['H','Home'],['A','Away']], usOf(m) || 'H')}</div><div class="field"><label class="label" for="fTeam">Our team</label><select class="input" id="fTeam">${teamOptions(m.team)}</select></div></div>
     <div class="row2"><div class="field"><label class="label" for="fComp">Competition</label><input class="input" id="fComp" list="compNames" maxlength="50" value="${esc(m.comp || '')}"><datalist id="compNames">${COMPS.map(t => `<option value="${esc(t)}">`).join('')}</datalist></div><div class="field"><label class="label" for="fRound">Round</label><input class="input" id="fRound" maxlength="30" value="${esc(m.round || '')}" placeholder="Quarter-final"></div></div>
-    <div class="row2"><div class="field"><label class="label" for="fVenue">Venue</label><input class="input" id="fVenue" maxlength="60" list="venueNames" value="${esc(isNew && !m.venue ? HOME_GROUND : m.venue || '')}"><datalist id="venueNames">${[HOME_GROUND].concat(opps).map(n => `<option value="${esc(n)}">`).join('')}</datalist></div><div class="field"><label class="label" for="fKo">Kick-off</label><input class="input" id="fKo" type="datetime-local" value="${esc(ko)}"></div></div>
+    <div class="row2"><div class="field"><label class="label" for="fVenue">Venue</label><input class="input" id="fVenue" maxlength="60" list="venueNames" value="${esc(isNew && !m.venue ? HOME_GROUND : m.venue || '')}"><datalist id="venueNames">${[HOME_GROUND].concat(opps).map(n => `<option value="${esc(n)}">`).join('')}</datalist></div><div class="field"><label class="label" for="fKo">Date</label><input class="input" id="fKo" type="date" value="${esc(koD)}"><span class="hint ko-day" id="fKoDay"></span></div></div>
+    <div class="row2"><div class="field"><label class="label" for="fKoT">Kick-off</label><div class="ko-row"><input class="input" id="fKoT" type="time" value="${esc(koT)}" ${koTbc ? 'disabled' : ''}><label class="ko-tbc"><input type="checkbox" id="fTbc" ${koTbc ? 'checked' : ''}> TBC</label></div></div><div class="field"></div></div>
     <div class="row2"><div class="field"><span class="label">Code</span>${seg('code', [['union','15s'],['sevens','7s']], m.code || 'union')}</div><div class="field"><label class="label" for="fHalf">Half length (min)</label><input class="input" id="fHalf" type="number" min="3" max="45" value="${esc(m.half || 35)}"></div></div>
     ${showFinal ? `<div class="row2"><div class="field"><label class="label" for="fHs">Home score</label><input class="input" id="fHs" type="number" min="0" value="${esc(fin[0])}"></div><div class="field"><label class="label" for="fAs">Away score</label><input class="input" id="fAs" type="number" min="0" value="${esc(fin[1])}"></div></div>` : ''}
-    ${past ? '' : `<div class="field"><label class="label" for="fSheet">Team sheet</label><select class="input" id="fSheet"><option value="">${(m.players || []).length ? 'Current list (' + m.players.length + ' players)' : 'No team sheet'}</option></select><span class="hint" id="fSheetMsg"></span> <button type="button" class="linkish" id="fListBtn">Edit list</button>
+    ${past ? '' : `<div class="field"><label class="label" for="fSheet">Players</label><select class="input" id="fSheet"><option value="">${(m.players || []).length ? 'Current list (' + m.players.length + ' players)' : 'No team sheet'}</option></select><span class="hint" id="fSheetMsg"></span> <button type="button" class="linkish" id="fListBtn">Edit list</button>
       <textarea class="input" id="fPlayers" rows="5" hidden aria-label="Players, one per line with shirt number">${esc((m.players || []).map(p => (p.n ? p.n + ' ' : '') + p.name).join('\n'))}</textarea></div>`}
-    <div class="field"><label class="label" for="fVeo">VEO link (optional)</label><input class="input" id="fVeo" type="url" maxlength="300" value="${esc(veoOf(m))}" placeholder="https://app.veo.co/matches/…"></div>
+    <details class="links-x"${veoOf(m) || photosOf(m) ? ' open' : ''}><summary>Video and photos <small>(only signed-in coaches and players see these)</small></summary>
+    <div class="field"><label class="label" for="fVeo">VEO link</label><input class="input" id="fVeo" type="url" maxlength="300" value="${esc(veoOf(m))}" placeholder="https://app.veo.co/matches/…"></div>
+    <div class="field"><label class="label" for="fPh">Match photos link</label><input class="input" id="fPh" type="url" maxlength="500" value="${esc(photosOf(m))}" placeholder="Google Drive or Google Photos album"><span class="hint">${m.id && PHOTO_AUTO[m.id] && !PHOTOS[m.id] ? 'Found automatically in the photos Drive. Clear it if the photos aren’t from this match.' : ''}</span></div></details>
     <div class="dlg-a"><button type="button" class="btn ghost" data-close>Cancel</button><button type="button" class="btn primary" id="fGo">${isNew ? (past ? 'Add result' : 'Create match') : 'Save'}</button></div>`, d => {
     wireSegs(d);
+    const tIn = d.querySelector('#fKoT'), tbc = d.querySelector('#fTbc'), dIn = d.querySelector('#fKo'), dayL = d.querySelector('#fKoDay');
+    tbc.onchange = () => { tIn.disabled = tbc.checked; };
+    const dayTxt = () => { const t = Date.parse(dIn.value + 'T12:00'); dayL.textContent = isNaN(t) ? '' : new Date(t).toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'}); };
+    dIn.addEventListener('input', dayTxt); dayTxt();
     const sel = d.querySelector('#fSheet'); let picked = false;
     if (sel){ const msg = t => d.querySelector('#fSheetMsg').textContent = t, ta = d.querySelector('#fPlayers');
       d.querySelector('#fListBtn').onclick = () => { ta.hidden = !ta.hidden; if (!ta.hidden) ta.focus(); };
       ta.addEventListener('input', () => { picked = true; sel.value = ''; msg(`${ta.value.split(/\n/).filter(l => l.trim()).length} players typed in`); });
       const apply = (T, v) => { let list = [];
         if (v.startsWith('s:')){ const x = T.sheets.find(y => y.id === v.slice(2)); if (x) list = sheetPlayers(x); }
-        if (v.startsWith('t:')) list = T.roster.filter(p => (p.t || '').trim() === v.slice(2)).map((p, i) => ({n:i + 1, name:(p.f + ' ' + p.l).trim()}));
+        if (v.startsWith('t:')) list = squadList(T, v.slice(2));
         if (list.length){ ta.value = list.map(p => p.n + ' ' + p.name).join('\n'); msg(`${list.length} players ready for scoring`); } };
       loadTeams(true).then(T => { if (!T){ msg(''); return; }
-        const opts = T.sheets.map(x => ['s:' + x.id, sheetLabel(x)]);
-        [...new Set(T.roster.map(p => (p.t || '').trim()).filter(Boolean))].sort().forEach(t => opts.push(['t:' + t, 'Player profiles: ' + t]));
+        const opts = [];
+        [...new Set(T.roster.map(p => (p.t || '').trim()).filter(Boolean))].sort().forEach(t => opts.push(['t:' + t, 'Squad: ' + t]));
+        T.sheets.forEach(x => opts.push(['s:' + x.id, 'Team sheet: ' + sheetLabel(x)]));
         sel.insertAdjacentHTML('beforeend', opts.map(([v, t]) => `<option value="${esc(v)}">${esc(t)}</option>`).join(''));
         // pick the sheet for this fixture automatically (same opponent and day, else same opponent and team)
         const auto = () => { if (picked) return; const us = d.querySelector('[data-seg="us"]').dataset.val;
-          const probe = {home:d.querySelector('#fHome').value, away:d.querySelector('#fAway').value, us, team:d.querySelector('#fTeam').value, ko:d.querySelector('#fKo').value};
-          const x = m.sheetId && T.sheets.find(y => y.id === m.sheetId) || sheetFor(probe);
-          if (x){ sel.value = 's:' + x.id; apply(T, sel.value); } else if (!(m.players || []).length){ sel.value = ''; ta.value = ''; msg(T.sheets.length ? 'No sheet for this fixture yet. Pick one if it’s listed.' : 'Add team sheets in the main app under Squads & team sheets.'); } };
+          const probe = {home:d.querySelector('#fHome').value, away:d.querySelector('#fAway').value, us, team:d.querySelector('#fTeam').value, ko:d.querySelector('#fKo').value + 'T' + (d.querySelector('#fKoT').value || '12:00')};
+          const x = m.sheetId && T.sheets.find(y => y.id === m.sheetId) || sheetFor(probe), sq = squadFor(T, probe.team);
+          if (x){ sel.value = 's:' + x.id; apply(T, sel.value); }
+          else if (sq){ sel.value = sq; apply(T, sq); msg(`${ta.value.split(/\n/).filter(Boolean).length} players from the ${TEAM_NAMES[teamCode(probe.team)] || probe.team} squad`); } else if (!(m.players || []).length){ sel.value = ''; ta.value = ''; msg(T.sheets.length ? 'No sheet for this fixture yet. Pick one if it’s listed.' : 'Add team sheets in the main app under Squads & team sheets.'); } };
         auto();
         ['#fHome', '#fAway', '#fKo', '#fTeam'].forEach(q => d.querySelector(q).addEventListener('change', auto));
         d.querySelector('[data-seg="us"]').addEventListener('change', () => setTimeout(auto, 0));
@@ -1741,16 +1828,20 @@ function matchForm(m, past){
     d.querySelector('[data-seg="us"]').addEventListener('change', () => { const h = d.querySelector('#fHome'), a = d.querySelector('#fAway'), v = d.querySelector('[data-seg="us"]').dataset.val; if ((v === 'A' && OUR_RX.test(h.value)) || (v === 'H' && OUR_RX.test(a.value))){ const t = h.value; h.value = a.value; a.value = t; } });
     d.querySelector('#fGo').onclick = () => {
       const g = id => d.querySelector(id) ? d.querySelector(id).value.trim() : '';
-      const f = {home:g('#fHome'), away:g('#fAway'), us:d.querySelector('[data-seg="us"]').dataset.val, team:g('#fTeam'), comp:g('#fComp'), round:g('#fRound'), venue:g('#fVenue'), ko:g('#fKo'), koTbc:false, code:d.querySelector('[data-seg="code"]').dataset.val, half:Math.max(3, Math.min(45, +g('#fHalf') || 35)), veo:g('#fVeo')};
+      const f = {home:g('#fHome'), away:g('#fAway'), us:d.querySelector('[data-seg="us"]').dataset.val, team:g('#fTeam'), comp:g('#fComp'), round:g('#fRound'), venue:g('#fVenue'), ko:g('#fKo') ? g('#fKo') + 'T' + (tbc.checked ? '12:00' : g('#fKoT') || '12:00') : '', koTbc:!!(g('#fKo') && tbc.checked), code:d.querySelector('[data-seg="code"]').dataset.val, half:Math.max(3, Math.min(45, +g('#fHalf') || 35)), veo:g('#fVeo')};
       if (!f.home || !f.away){ toast('Enter both team names.'); return; }
       f.home = canonSchool(f.home); f.away = canonSchool(f.away);
       if (f.veo && !/^https:\/\//i.test(f.veo)){ toast('The VEO link must start with https://'); return; }
+      const phv = g('#fPh'); if (phv && !/^https:\/\//i.test(phv)){ toast('The photos link must start with https://'); return; }
       const veo = f.veo; delete f.veo;
       if (sel) f.sheetId = sel.value.startsWith('s:') ? sel.value.slice(2) : '';
       if (d.querySelector('#fPlayers')) f.players = g('#fPlayers').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map((l, i) => { const mm2 = l.match(/^(\d{1,2})[.)]?\s+(.+)$/); return mm2 ? {n:+mm2[1], name:mm2[2].replace(/\s*\([^)]*\)\s*$/, '').trim()} : {n:i + 1, name:l.replace(/\s*\([^)]*\)\s*$/, '').trim()}; });
       if (d.querySelector('#fHs')){ if (g('#fHs') === '' || g('#fAs') === ''){ toast('Enter both scores.'); return; } f.final = [+g('#fHs'), +g('#fAs')]; }
+      if (isNew && !past){ try { localStorage.setItem('ergs.lastNew', JSON.stringify({d:g('#fKo'), t:g('#fKoT'), tbc:tbc.checked})); } catch(e){} }
       closeDialog();
-      const keepVeo = id => { if (veo !== (VEO[id] || '')) FB.setVeo(id, veo).catch(() => toast('The VEO link didn’t save. Try again from the match.')); };
+      const keepVeo = id => { if (veo !== (VEO[id] || '')) FB.setVeo(id, veo).catch(() => toast('The VEO link didn’t save. Try again.'));
+        const was = photosOf(Object.assign({}, m, {id})); if (phv !== was) (phv || !PHOTO_AUTO[id] ? FB.setPhotos(id, phv) : FB.setPhotos(id, PHOTO_NONE)).catch(() => toast('The photos link didn’t save. Try again.')); };
+
       if (isNew && past){ try { localStorage.setItem('ergs.lastPast', JSON.stringify({home:f.home, away:f.away, us:f.us, team:f.team, comp:f.comp, round:f.round, venue:f.venue, ko:f.ko, koTbc:f.koTbc, code:f.code, half:f.half})); } catch(e){} }
       if (isNew){ const id = uid(); save(dd => dd.matches.push(Object.assign({id, status:past ? 'FT' : 'pre', clock:{base:0, since:0, running:false}, events:[], created:Date.now()}, f)), past ? null : id).then(() => keepVeo(id)); }
       else save(dd => { const x = dd.matches.find(y => y.id === m.id); Object.assign(x, f); delete x.veo; }, m.id).then(() => keepVeo(m.id));
@@ -2091,9 +2182,9 @@ function applyData(s){
 }
 // footer: coach sign-in
 const signLink = document.createElement('button'); signLink.type = 'button'; signLink.className = 'signin-btn'; signLink.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Coach &amp; player sign in';
-const outLink = document.createElement('button'); outLink.type = 'button'; outLink.className = 'linkish'; outLink.textContent = 'Sign out'; outLink.hidden = true;
-outLink.onclick = () => FB.signOut().then(() => { PLAYER = false; COACH = false; VEO = {}; PHOTOS = {}; render(); });
-$('footer').appendChild(signLink); $('footer').appendChild(outLink);
+const outLink = document.createElement('button'); outLink.type = 'button'; outLink.className = 'share-btn out-btn'; outLink.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h11"/></svg>Log out'; outLink.hidden = true;
+outLink.onclick = () => { if (SANDBOX) sbExit(); act('signout', null); };
+$('footer').appendChild(signLink);
 // share the apps: link and QR code
 const LIVE_URL = 'https://popcorn483.github.io/ergs-live/', SHORT_LIVE = 'https://popcorn483.github.io/ergs', SHORT_APP = 'https://popcorn483.github.io/ergsapp';   // short links for sharing (redirect pages on popcorn483.github.io)
 const shareBtn = document.createElement('button'); shareBtn.type = 'button'; shareBtn.className = 'share-btn';
@@ -2101,7 +2192,7 @@ shareBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none
 shareBtn.onclick = () => { const items = [{label:'ERGS Live', url:SHORT_LIVE, file:'ergs-live-qr', desc:'Live scores, fixtures and results for ERGS rugby. Anyone can open it, no account needed.', shareText:'Follow ERGS rugby live: scores, fixtures and results'}];
   if ((COACH || PLAYER) && !SANDBOX) items.push({label:'ERGS Rugby app', url:SHORT_APP, file:'ergs-rugby-app-qr', desc:'The team app for coaches and players: plays, drills, photos and team news. Sign in with a school Google account that a coach has added.'});
   window.ERGSShare.open({title:'Share', crest:DATA.crest, items}); };
-$('footer').prepend(shareBtn);
+const shareRow = document.createElement('div'); shareRow.className = 'share-row'; shareRow.append(shareBtn, outLink); $('footer').prepend(shareRow);
 /* postpone or cancel a fixture, with a reason parents can see */
 function offDialog(m){
   const REASONS = ['Waterlogged pitch', 'Frozen pitch', 'Bad weather', 'Opposition unable to field a team', 'School event'];
@@ -2166,9 +2257,9 @@ function boot(){
     EMAIL = user && user.email ? user.email.toLowerCase() : ''; ADMIN = !!EMAIL && EMAIL === String(CFG.admin || '').toLowerCase();
     let ok = ADMIN; if (EMAIL && !ok){ try { ok = await FB.isCoach(EMAIL); } catch(e){ ok = false; } }
     let pl = false; if (EMAIL && !ok){ try { pl = await FB.isPlayer(EMAIL); } catch(e){ pl = false; } }
-    COACH = ok; PLAYER = pl; if (COACH) loadTeams(true); signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL || COACH;
+    COACH = ok; PLAYER = pl; if (COACH) loadTeams(true); signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL;
     if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {}; PHOTOS = {};
-    if (COACH || PLAYER) veoUnsub = FB.onVeo((v, ph) => { VEO = v || {}; PHOTOS = ph || {}; if (READY) render(); });
+    if (COACH || PLAYER) veoUnsub = FB.onVeo((v, ph) => { VEO = v || {}; PHOTOS = ph || {}; if (READY) render(); photoScan(); });
     if (EMAIL && !ok && !pl) toast(`Signed in as ${EMAIL}, which isn’t on the coaches or players list.`);
     else if (pl) toast('Signed in as a player. Match videos and photos are unlocked.');
     if (nomsUnsub){ nomsUnsub(); nomsUnsub = null; } NOMS = []; if (notesUnsub){ notesUnsub(); notesUnsub = null; } OPPN = {};
@@ -2372,7 +2463,7 @@ function schDeleteDialog(n){
 }
 
 /* ---------- the ☰ menu: the team app first, then everything else, so the coach view stays clean ---------- */
-const ICON = {app:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/>', plus:'<path d="M12 5v14M5 12h14"/>', past:'<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/>', imp:'<path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v3h16v-3"/>', crest:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>', people:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5c2.6.2 4.6 1.9 5.3 5"/>', demo:'<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/>', share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>', out:'<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h11"/>', in:'<path d="M9 4H5v16h4"/><path d="M14 8l4 4-4 4M18 12H7"/>'};
+const ICON = {photo:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>', app:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/>', plus:'<path d="M12 5v14M5 12h14"/>', past:'<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/>', imp:'<path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v3h16v-3"/>', crest:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>', people:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5c2.6.2 4.6 1.9 5.3 5"/>', demo:'<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/>', share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>', out:'<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h11"/>', in:'<path d="M9 4H5v16h4"/><path d="M14 8l4 4-4 4M18 12H7"/>'};
 const ic = k => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
 function menuOpen(){
   let dr = $('#drawer'); if (!dr){ dr = document.createElement('div'); dr.id = 'drawer'; dr.className = 'drawer'; dr.hidden = true; document.body.appendChild(dr);
@@ -2406,4 +2497,9 @@ function menuClose(){ const dr = $('#drawer'); if (!dr) return; dr.classList.rem
   const sync = () => { const a = $('#hdApp'); if (a) a.hidden = !((COACH || PLAYER) && !SANDBOX); };
   setInterval(sync, 800); sync();
 })();
+/* installed on a computer: hop between ERGS Live and the team app in the same window, instead of opening a new window every time */
+(() => { const standalone = () => { try { return matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: window-controls-overlay)').matches || navigator.standalone === true; } catch(e){ return false; } };
+  document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || !standalone() || e.defaultPrevented || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+    let u; try { u = new URL(a.href, location.href); } catch(x){ return; } if (u.origin !== location.origin || !/^\/ergs/.test(u.pathname)) return;
+    e.preventDefault(); location.href = u.href; }, true); })();
 })();

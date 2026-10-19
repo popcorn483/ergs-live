@@ -506,14 +506,50 @@ body.dr-lock{overflow:hidden}
 .more{display:block;width:100%;margin-top:8px;min-height:42px;border:1px dashed var(--rule);border-radius:10px;background:transparent;color:var(--gold);font-family:var(--f-cond);font-weight:700;font-size:15px;letter-spacing:.08em;text-transform:uppercase}
 .more:hover{border-color:var(--gold)}
 .team-h{font-family:var(--f-display);font-weight:800;font-size:24px;text-transform:uppercase;margin:0 0 10px}
+/* results: filter by Won / Drawn / Lost, clear filters */
+.sum-f button{flex:1;min-width:70px;background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:10px 14px;display:grid;text-align:left;color:var(--chalk);cursor:pointer;transition:border-color .15s,background .15s}
+.sum-f button:hover{border-color:var(--gold)}
+.sum-f button.on{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 14%,var(--panel));box-shadow:inset 0 0 0 1px var(--gold)}
+.sum-f button.w b{color:var(--win)} .sum-f button.l b{color:var(--loss)}
+.sum-f button span{font-family:var(--f-cond);font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.sec-hint{margin-left:auto;font-weight:500;letter-spacing:.02em;text-transform:none;font-size:12px;color:var(--dim)}
+.clr-f{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:4px 12px;margin:0 0 10px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--gold);font-family:var(--f-cond);font-weight:700;font-size:13px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer}
+.clr-f:hover{border-color:var(--gold)}
+.lr-filters .clr-f{margin:0}
+.more small{color:var(--mute);font-weight:600;margin-left:6px}
+/* match view: the team is big and clear; VEO and photos sit in the banner */
+.mv-team{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 10px}
+.mv-code{font-family:var(--f-display);font-weight:900;font-size:clamp(22px,5vw,30px);line-height:1;letter-spacing:.02em;color:var(--gold-ink);background:var(--gold);border-radius:8px;padding:5px 12px 4px}
+.mv-name{font-family:var(--f-cond);font-weight:800;font-size:clamp(18px,4vw,22px);letter-spacing:.06em;text-transform:uppercase;color:var(--chalk)}
+.mv-comp{flex-basis:100%;font-family:var(--f-cond);font-weight:600;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.mv-media{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;padding-top:4px}
+.mv-media .veo{justify-self:auto}
+.mv-media .veo svg{width:16px;height:16px}
+.ph-x{border:0;background:transparent;color:var(--dim);font-size:12px;cursor:pointer;text-decoration:underline;padding:6px}
+.ph-x:hover{color:var(--loss)}
+/* new match: date, kick-off and TBC */
+.ko-row{display:flex;gap:10px;align-items:center}
+.ko-row .input{flex:1;min-width:0}
+.ko-row .input:disabled{opacity:.45}
+.ko-tbc{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-cond);font-weight:700;letter-spacing:.06em;white-space:nowrap;cursor:pointer}
+.ko-tbc input{width:18px;height:18px;accent-color:var(--gold)}
+.ko-day{display:block;margin-top:4px}
+.links-x{border:1px solid var(--rule);border-radius:10px;padding:8px 12px;margin:6px 0 4px}
+.links-x summary{cursor:pointer;font-family:var(--f-cond);font-weight:700;letter-spacing:.04em;color:var(--gold)}
+.links-x summary small{color:var(--dim);font-weight:500;letter-spacing:0}
+.links-x[open] summary{margin-bottom:8px}
+/* footer: share and log out side by side */
+.share-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.out-btn{border-color:var(--rule);color:var(--chalk)}
+.out-btn:hover{background:transparent;border-color:var(--loss);color:var(--loss)}
 
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = '9b7da749ed';</script>
-<script src="config.js?v=9b7da749ed"></script>
-<script src="crest.js?v=9b7da749ed"></script>
-<script src="app.js?v=9b7da749ed"></script>
-<script type="module" src="fb.js?v=9b7da749ed"></script>
+<script>window.ERGS_VER = '58c98fcb8b';</script>
+<script src="config.js?v=58c98fcb8b"></script>
+<script src="crest.js?v=58c98fcb8b"></script>
+<script src="app.js?v=58c98fcb8b"></script>
+<script type="module" src="fb.js?v=58c98fcb8b"></script>
 </body>
 </html>
