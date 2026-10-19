@@ -494,7 +494,7 @@ function schoolsDialog(){
   openDialog(`<h2>School crests</h2><p>Add each school’s crest once and it shows on every match against them. Small images keep the page quick for supporters.</p>
     <form class="sch-add" id="schAdd"><div class="field"><label class="label" for="schName">Add a school</label><input class="input" id="schName" list="schAddNames" maxlength="50" placeholder="School name" autocomplete="off"><datalist id="schAddNames">${opps.map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
       <label class="btn" id="schPick">Choose crest<input type="file" accept="image/*" hidden id="schFile"></label><button type="submit" class="btn primary">Add</button></form>
-    ${list.length ? `<div class="schs">${list.map(n => { const s = school(n) || {}; return `<div class="sch">${crest(n)}<span>${esc(n)}</span><label class="btn ghost small">Crest<input type="file" accept="image/*" hidden data-crest="${esc(n)}"></label>${s.crest || s.color ? `<button type="button" class="btn ghost small danger sch-del" data-delcrest="${esc(n)}" aria-label="Delete ${esc(n)} crest">Delete</button>` : '<span></span>'}<input type="color" value="${esc(s.color || '#3A4466')}" data-col="${esc(n)}" aria-label="Colour for ${esc(n)}"></div>`; }).join('')}</div>` : '<div class="empty">No schools yet. Add one above, or add a match and its opponent appears here.</div>'}
+    ${schListHTML(list)}
     <div class="dlg-a"><button type="button" class="btn primary" data-close>Done</button></div>`, d => {
     let addFile = null; const fileIn = d.querySelector('#schFile'), pick = d.querySelector('#schPick');
     fileIn.onchange = () => { addFile = fileIn.files[0] || null; pick.firstChild.textContent = addFile ? 'Crest chosen ✓' : 'Choose crest'; };
@@ -512,6 +512,9 @@ function schoolsDialog(){
       ask(`Delete ${n}’s crest?`, 'Their matches will show initials instead. You can add a crest again any time.', 'Delete', () => save(dd => { const c = canonSchool(n);
         Object.keys(dd.schools || {}).forEach(k => { const v = dd.schools[k]; if (k === schoolKey(n) || (v && v.name && canonSchool(v.name) === c)) delete dd.schools[k]; }); }).then(() => { toast(`${n}’s crest deleted.`); schoolsDialog(); })); });
     d.querySelectorAll('[data-col]').forEach(inp => inp.onchange = () => { const n = inp.dataset.col; closeDialog(); save(dd => { dd.schools = dd.schools || {}; const k = schoolKey(n); dd.schools[k] = Object.assign({name:n}, dd.schools[k], {color:inp.value}); }); });
+    d.querySelectorAll('[data-schf]').forEach(b => b.onclick = () => { V.schFilter = b.dataset.schf; schoolsDialog(); });
+    d.querySelectorAll('[data-merge]').forEach(b => b.onclick = () => schMergeDialog(b.dataset.merge, list));
+    d.querySelectorAll('[data-delsch]').forEach(b => b.onclick = () => schDeleteDialog(b.dataset.delsch));
   });
 }
 
@@ -1000,4 +1003,48 @@ document.addEventListener('click', e => { if (e.target.closest && e.target.close
 // coaches' risky tools are switched off in the demo
 const actReal = act;
 act = function(a, m){ if (SANDBOX && ['coaches', 'signout', 'seed', 'cleardemo', 'import'].includes(a)){ toast('That isn’t available in the demo. Leave the demo first.'); return; } return actReal(a, m); };
+
+/* ---------- school crests: every school in the database, with merge and delete ---------- */
+const sameSchool = (a, b) => !!a && !!b && canonSchool(a) === canonSchool(b);
+const schMatches = n => DATA.matches.filter(m => sameSchool(usOf(m) === 'A' ? m.home : m.away, n) || sameSchool(m.home, n) || sameSchool(m.away, n));
+function schListHTML(list){
+  if (!list.length) return '<div class="empty">No schools yet. Add one above, or add a match and its opponent appears here.</div>';
+  const rows = list.map(n => { const s0 = school(n) || {}; return {n, s:s0, crest:!!s0.crest, c:schMatches(n).length}; }), miss = rows.filter(r => !r.crest).length;
+  const f = V.schFilter === 'missing' && miss ? 'missing' : 'all', show = f === 'missing' ? rows.filter(r => !r.crest) : rows;
+  return `<div class="sch-tools"><span class="hint"><b>${rows.length}</b> schools · ${miss ? `<b class="miss">${miss} without a crest</b>` : 'every school has a crest'}</span>
+      <div class="seg"><button type="button" data-schf="all" aria-pressed="${f === 'all'}">All</button><button type="button" data-schf="missing" aria-pressed="${f === 'missing'}" ${miss ? '' : 'disabled'}>No crest (${miss})</button></div></div>
+    <div class="schs">${show.map(({n, s, crest:has, c}) => `<div class="sch${has ? '' : ' no-crest'}">${crest(n)}<span class="sch-n"><b>${esc(n)}</b><small>${c ? `${c} match${c === 1 ? '' : 'es'}` : 'No matches'}${has ? '' : ' · <em>No crest</em>'}${Array.isArray(s.aliases) && s.aliases.length ? ' · also “' + esc(s.aliases.slice(0, 2).join('”, “')) + '”' : ''}</small></span>
+      <label class="btn ${has ? 'ghost' : ''} small">${has ? 'Change' : 'Add crest'}<input type="file" accept="image/*" hidden data-crest="${esc(n)}"></label>
+      <input type="color" value="${esc(s.color || '#3A4466')}" data-col="${esc(n)}" aria-label="Colour for ${esc(n)}">
+      <button type="button" class="btn ghost small" data-merge="${esc(n)}">Merge</button>
+      ${has ? `<button type="button" class="btn ghost small" data-delcrest="${esc(n)}" aria-label="Remove ${esc(n)} crest">Remove crest</button>` : ''}
+      <button type="button" class="btn ghost small danger" data-delsch="${esc(n)}">Delete</button></div>`).join('')}</div>`;
+}
+async function schReopen(done){ for (let i = 0; i < 25 && !done(); i++) await new Promise(r => setTimeout(r, 100)); schoolsDialog(); }
+function schMergeDialog(from, list){
+  const others = list.filter(n => n !== from), c = schMatches(from).length;
+  openDialog(`<h2>Merge ${esc(from)}</h2><p>Use this when the same school has been entered twice, for example a typo or a short name. ${c ? `Its ${c} match${c === 1 ? '' : 'es'} move` : 'It moves'} to the school you choose, and “${esc(from)}” is remembered as another name for it.</p>
+    <div class="field"><label class="label" for="mgTo">Merge into</label><select class="input" id="mgTo">${others.map(n => `<option>${esc(n)}</option>`).join('')}</select></div>
+    <div class="dlg-a"><button type="button" class="btn ghost" id="mgBack">Back</button><button type="button" class="btn primary" id="mgGo">Merge</button></div>`, d => {
+    d.querySelector('#mgBack').onclick = schoolsDialog;
+    d.querySelector('#mgGo').onclick = async () => { const to = d.querySelector('#mgTo').value; if (!to) return; closeDialog();
+      await save(dd => { dd.schools = dd.schools || {}; const kTo = schoolKey(to), src = Object.entries(dd.schools).filter(([k, v]) => k === schoolKey(from) || (v && v.name && sameSchool(v.name, from)));
+        const tgt = dd.schools[kTo] = Object.assign({name:to}, dd.schools[kTo]);
+        src.forEach(([k, v]) => { if (!tgt.crest && v && v.crest){ tgt.crest = v.crest; tgt.color = tgt.color || v.color; } (v && Array.isArray(v.aliases) ? v.aliases : []).forEach(a => tgt.aliases = [...new Set((tgt.aliases || []).concat(a))]); if (k !== kTo) delete dd.schools[k]; });
+        tgt.aliases = [...new Set((tgt.aliases || []).concat(from))].filter(a => !sameSchool(a, to) || a !== to);
+        dd.matches.forEach(m => { if (sameSchool(m.home, from)) m.home = to; if (sameSchool(m.away, from)) m.away = to; }); });
+      toast(`${from} merged into ${to}.`); schReopen(() => !DATA.matches.some(m => m.home === from || m.away === from) && !Object.values(DATA.schools || {}).some(v => v && v.name === from)); };
+  });
+}
+function schDeleteDialog(n){
+  const ms = schMatches(n), c = ms.length;
+  openDialog(`<h2>Delete ${esc(n)}?</h2>${c ? `<p><b>${esc(n)} has ${c} match${c === 1 ? '' : 'es'}</b> (${esc(ms.slice(0, 3).map(m => (m.team ? m.team + ' ' : '') + new Date(kot(m) || Date.now()).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'})).join(', '))}${c > 3 ? '…' : ''}). If it’s the same school under another name, use Merge instead so those results are kept.</p>` : `<p>${esc(n)} has no matches. Its crest and colour are removed.</p>`}
+    <div class="dlg-a"><button type="button" class="btn ghost" id="dsBack">Back</button>${c ? `<button type="button" class="btn" id="dsMerge">Merge instead</button>` : ''}<button type="button" class="btn danger" id="dsGo">${c ? `Delete school and ${c} match${c === 1 ? '' : 'es'}` : 'Delete school'}</button></div>`, d => {
+    d.querySelector('#dsBack').onclick = schoolsDialog;
+    const mg = d.querySelector('#dsMerge'); if (mg) mg.onclick = () => { const names = new Set(); DATA.matches.forEach(m => [m.home, m.away].forEach(x => { if (x && !OUR_RX.test(x)) names.add(canonSchool(x)); })); Object.values(DATA.schools || {}).forEach(v => v && v.name && names.add(canonSchool(v.name))); schMergeDialog(n, [...names].sort()); };
+    d.querySelector('#dsGo').onclick = async () => { const ids = new Set(ms.map(m => m.id)); closeDialog();
+      await save(dd => { Object.keys(dd.schools || {}).forEach(k => { const v = dd.schools[k]; if (k === schoolKey(n) || (v && v.name && sameSchool(v.name, n))) delete dd.schools[k]; }); dd.matches = dd.matches.filter(m => !ids.has(m.id)); });
+      toast(c ? `${n} and ${c} match${c === 1 ? '' : 'es'} deleted.` : `${n} deleted.`); schReopen(() => !schMatches(n).length && !Object.values(DATA.schools || {}).some(v => v && v.name && sameSchool(v.name, n))); };
+  });
+}
 })();

@@ -313,6 +313,14 @@ textarea.input{resize:vertical;line-height:1.4}
 .sb-float{position:fixed;left:max(12px,env(safe-area-inset-left,0px));bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:60;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-radius:99px;background:#1a1630;border:2px solid var(--gold);box-shadow:0 6px 18px rgba(0,0,0,.5);font-family:var(--f-cond);font-weight:800;letter-spacing:.1em;color:var(--gold);text-transform:uppercase;font-size:13px}
 .sb-float button{min-height:30px;padding:2px 12px;border-radius:99px;border:0;background:var(--gold);color:#1A1630;font:inherit;cursor:pointer}
 .sb-win{margin:0;color:var(--gold);font-weight:600}
+.sch-tools{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:10px 0}
+.sch-tools .miss{color:#ffb4a8}
+.sch-tools .seg button{white-space:nowrap}
+.sch{flex-wrap:wrap}
+.sch .sch-n{display:grid;flex:1 1 160px;min-width:0}
+.sch .sch-n small{color:var(--mute);font-size:12px}
+.sch .sch-n em{color:#ffb4a8;font-style:normal;font-weight:700}
+.sch.no-crest{border-color:rgba(229,72,59,.45)}
 .off-tag.moved{background:var(--gold)!important;color:#1A1630!important}
 .off-ban.moved{border-color:var(--gold);background:rgba(217,192,140,.1)}
 .off-ban.moved b{color:var(--gold)}
@@ -399,7 +407,8 @@ textarea.input{resize:vertical;line-height:1.4}
 .fx-confetti i:nth-child(5n){border-radius:50%;height:var(--w)}
 .fx.on .fx-confetti i{animation:confetti var(--t) calc(.92s + var(--d)) cubic-bezier(.12,.72,.32,1) forwards}
 @keyframes confetti{0%{opacity:1;transform:translate(0,0) rotate(0) scale(.6)}35%{opacity:1;transform:translate(var(--x),var(--y)) rotate(calc(var(--r)*.4)) scale(1)}100%{opacity:0;transform:translate(calc(var(--x)*1.15),calc(var(--y) + var(--f))) rotate(var(--r)) scale(1)}}
-.schs .sch{grid-template-columns:auto minmax(0,1fr) auto auto 44px}
+.schs .sch{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+.schs .sch input[type=color]{width:40px;height:34px;padding:2px}
 .sch-add{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px;padding:10px;border:1px dashed var(--rule);border-radius:10px}
 .sch-add .field{flex:1 1 200px}
 .schs .sch span:nth-child(2){white-space:normal;overflow:visible;line-height:1.2;font-size:14px}
@@ -472,10 +481,10 @@ textarea.input{resize:vertical;line-height:1.4}
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = '5614e5055b';</script>
-<script src="config.js?v=5614e5055b"></script>
-<script src="crest.js?v=5614e5055b"></script>
-<script src="app.js?v=5614e5055b"></script>
-<script type="module" src="fb.js?v=5614e5055b"></script>
+<script>window.ERGS_VER = 'e9bc1aa761';</script>
+<script src="config.js?v=e9bc1aa761"></script>
+<script src="crest.js?v=e9bc1aa761"></script>
+<script src="app.js?v=e9bc1aa761"></script>
+<script type="module" src="fb.js?v=e9bc1aa761"></script>
 </body>
 </html>
