@@ -1558,8 +1558,7 @@ function viewMatch(m){
 }
 function playerBar(){
   const pb = $('#playerBar'), on = PLAYER && !COACH; pb.hidden = !on; if (!on) return;
-  pb.innerHTML = `<div class="pb-who"><span class="pb-badge">Player</span><span><b>You’re signed in.</b> Match videos and photos are unlocked.<small>${esc(EMAIL)}</small></span></div>
-    <div class="ctrl"><a class="btn primary" href="${MAIN_APP}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Open the ERGS Rugby app</a><button type="button" class="btn ghost" data-act="signout">Sign out</button></div>`;
+  pb.innerHTML = `<span class="cb-msg"><span class="pb-badge">Player</span>Signed in · videos, photos and records unlocked</span><div class="ctrl"><button type="button" class="btn ghost" data-menu>More…</button></div>`;
 }
 function coachBar(){
   playerBar();
@@ -1567,7 +1566,7 @@ function coachBar(){
   const bar = $('#coachBar'); bar.hidden = !COACH || SANDBOX; if (!COACH || SANDBOX) return;
   bar.innerHTML = DATA.demo
     ? `<span><b>Coach view.</b> The matches below are examples. Clear them to start real scoring; supporters will see your matches straight away.</span><button type="button" class="btn primary" data-act="cleardemo">Clear the examples</button>`
-    : `<span><b>Coach view.</b> Every change goes live for everyone watching.</span><div class="ctrl"><button type="button" class="btn" id="sbGo1">Practise in the demo</button><button type="button" class="btn primary" data-act="new">New match</button><button type="button" class="btn" data-act="past">Add a past result</button><button type="button" class="btn" data-act="import">Import fixtures</button><button type="button" class="btn" data-act="schools">School crests</button><button type="button" class="btn" data-act="coaches">Coaches</button><a class="btn ghost" href="${MAIN_APP}" target="_blank" rel="noopener">Main app</a><button type="button" class="btn ghost" data-act="signout">Sign out</button></div>`;
+    : `<span class="cb-msg"><span class="cb-dot"></span><b>Coach view</b> · changes go live for everyone</span><div class="ctrl"><button type="button" class="btn primary" data-act="new">New match</button><button type="button" class="btn ghost" data-menu>More…</button></div>`;
   if (READY && !HAS_DOC) bar.innerHTML = `<span><b>Coach view.</b> The scoreboard is empty. Bring across the matches from the Claude page to start.</span><button type="button" class="btn primary" data-act="seed">Set up the scoreboard</button><button type="button" class="btn ghost" data-act="signout">Sign out</button>`;
 }
 function render(){
@@ -2310,7 +2309,6 @@ function sbBar(){
   let bar = $('#sbBar');
   if (!bar){ bar = document.createElement('div'); bar.id = 'sbBar'; bar.className = 'sb-bar'; $('#coachBar').before(bar); }
   // the way in, for coaches and players
-  const pb = $('#playerBar'); if (pb && !pb.hidden && !$('#sbGo2')){ const ctl = pb.querySelector('.ctrl'); if (ctl) ctl.insertAdjacentHTML('beforeend', '<button type="button" class="btn" id="sbGo2">Try the demo</button>'); }
   let fl = $('#sbFloat'); if (!fl){ fl = document.createElement('div'); fl.id = 'sbFloat'; fl.className = 'sb-float'; fl.innerHTML = '<span>Demo</span><button type="button">Leave</button>'; document.body.appendChild(fl); fl.querySelector('button').onclick = () => sbExit(); }
   fl.hidden = !SANDBOX;
   bar.hidden = !SANDBOX; if (!SANDBOX) return;
@@ -2372,4 +2370,40 @@ function schDeleteDialog(n){
       toast(c ? `${n} and ${c} match${c === 1 ? '' : 'es'} deleted.` : `${n} deleted.`); schReopen(() => !schMatches(n).length && !Object.values(DATA.schools || {}).some(v => v && v.name && sameSchool(v.name, n)) && (!ULSTER.some(u => sameSchool(u, n)) || (DATA.removedSchools || []).some(x => sameSchool(x, n)))); };
   });
 }
+
+/* ---------- the ☰ menu: the team app first, then everything else, so the coach view stays clean ---------- */
+const ICON = {app:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/>', plus:'<path d="M12 5v14M5 12h14"/>', past:'<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/>', imp:'<path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v3h16v-3"/>', crest:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>', people:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5c2.6.2 4.6 1.9 5.3 5"/>', demo:'<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/>', share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>', out:'<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h11"/>', in:'<path d="M9 4H5v16h4"/><path d="M14 8l4 4-4 4M18 12H7"/>'};
+const ic = k => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
+function menuOpen(){
+  let dr = $('#drawer'); if (!dr){ dr = document.createElement('div'); dr.id = 'drawer'; dr.className = 'drawer'; dr.hidden = true; document.body.appendChild(dr);
+    dr.addEventListener('click', e => { if (e.target === dr) menuClose(); }); document.addEventListener('keydown', e => { if (e.key === 'Escape' && !dr.hidden) menuClose(); }); }
+  const squad = (COACH || PLAYER) && !SANDBOX, real = SANDBOX ? SB_ROLE : {COACH, PLAYER};
+  const item = (k, t, sub, attr) => `<button type="button" class="dr-item" ${attr}>${ic(k)}<span><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span></button>`;
+  dr.innerHTML = `<nav class="dr-panel" aria-label="Menu"><div class="dr-head"><img alt="" src="${esc(DATA.crest || '')}"><div><b>ERGS Live</b><small>${EMAIL ? esc(EMAIL) + ' · ' + (real.COACH ? 'Coach' : real.PLAYER ? 'Player' : 'Supporter') : 'Live scores, fixtures and results'}</small></div><button type="button" class="dr-x" aria-label="Close menu">✕</button></div>
+    ${squad || (SANDBOX && (real.COACH || real.PLAYER)) ? `<a class="dr-app" href="${esc(MAIN_APP)}" target="_blank" rel="noopener">${ic('app')}<span><b>Open the ERGS Rugby app</b><small>Plays, drills, photos, graphics and team news</small></span><span class="dr-arrow">↗</span></a>` : ''}
+    ${COACH && !SANDBOX ? `<div class="dr-sec">Matches</div>${item('plus', 'New match', 'Add a fixture to score', 'data-mact="new"')}${item('past', 'Add a past result', 'A score from before ERGS Live', 'data-mact="past"')}${item('imp', 'Import fixtures', 'From a photo, PDF or list', 'data-mact="import"')}
+      <div class="dr-sec">Manage</div>${item('crest', 'School crests', 'Crests, colours, merge and delete', 'data-mact="schools"')}${item('people', 'Coaches', 'Who can score and manage', 'data-mact="coaches"')}` : ''}
+    ${(real.COACH || real.PLAYER) ? `<div class="dr-sec">Learn</div>${SANDBOX ? item('demo', 'Leave the demo', 'Back to the real scoreboard', 'data-mdemo="out"') : item('demo', real.COACH ? 'Practise in the demo' : 'Try the demo', 'Score a match and see the animations. Nothing is saved', 'data-mdemo="in"')}` : ''}
+    <div class="dr-sec">More</div>${item('share', 'Share ERGS Live', 'Link and QR code', 'data-mshare')}${document.querySelector('#installSlot button, #installSlot a') ? item('imp', 'Install the app', 'On your phone or computer', 'data-minst') : ''}
+    ${EMAIL ? item('out', 'Sign out', '', 'data-mout') : item('in', 'Coach & player sign in', 'With your Google account', 'data-min')}</nav>`;
+  dr.querySelector('.dr-x').onclick = menuClose;
+  dr.querySelectorAll('[data-mact]').forEach(b => b.onclick = () => { menuClose(); act(b.dataset.mact, null); });
+  dr.querySelectorAll('[data-mdemo]').forEach(b => b.onclick = () => { menuClose(); b.dataset.mdemo === 'in' ? sbEnter() : sbExit(); });
+  const sh = dr.querySelector('[data-mshare]'); if (sh) sh.onclick = () => { menuClose(); shareBtn.click(); };
+  const so = dr.querySelector('[data-mout]'); if (so) so.onclick = () => { menuClose(); if (SANDBOX) sbExit(); act('signout', null); };
+  const ins = dr.querySelector('[data-minst]'); if (ins) ins.onclick = () => { menuClose(); const t = document.querySelector('#installSlot button, #installSlot a'); if (t) t.click(); };
+  const si = dr.querySelector('[data-min]'); if (si) si.onclick = () => { menuClose(); signLink.click(); };
+  dr.hidden = false; document.body.classList.add('dr-lock'); requestAnimationFrame(() => dr.classList.add('on')); const f = dr.querySelector('.dr-app, .dr-item'); if (f) f.focus();
+}
+function menuClose(){ const dr = $('#drawer'); if (!dr) return; dr.classList.remove('on'); document.body.classList.remove('dr-lock'); setTimeout(() => { dr.hidden = true; }, 220); }
+(() => {
+  const hd = document.querySelector('header'); if (!hd) return;
+  const wrap = document.createElement('div'); wrap.className = 'hd-menu';
+  wrap.innerHTML = `<a class="hd-app" id="hdApp" href="${esc(MAIN_APP)}" target="_blank" rel="noopener" hidden>${ic('app')}<span>Team app</span></a><button type="button" class="hd-burger" id="hdBurger" aria-label="Menu" aria-haspopup="dialog"><span></span><span></span><span></span></button>`;
+  hd.appendChild(wrap);
+  $('#hdBurger').onclick = menuOpen;
+  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('[data-menu]')) menuOpen(); });
+  const sync = () => { const a = $('#hdApp'); if (a) a.hidden = !((COACH || PLAYER) && !SANDBOX); };
+  setInterval(sync, 800); sync();
+})();
 })();
