@@ -1779,7 +1779,8 @@ function matchForm(m, past){
     <div class="row2"><div class="field"><label class="label" for="fVenue">Venue</label><input class="input" id="fVenue" maxlength="60" list="venueNames" value="${esc(isNew && !m.venue ? HOME_GROUND : m.venue || '')}"><datalist id="venueNames">${[HOME_GROUND].concat(opps).map(n => `<option value="${esc(n)}">`).join('')}</datalist></div><div class="field"><label class="label" for="fKo">Date</label><input class="input" id="fKo" type="date" value="${esc(koD)}"><span class="hint ko-day" id="fKoDay"></span></div></div>
     <div class="row2"><div class="field"><label class="label" for="fKoT">Kick-off</label><div class="ko-row"><input class="input" id="fKoT" type="time" value="${esc(koT)}" ${koTbc ? 'disabled' : ''}><label class="ko-tbc"><input type="checkbox" id="fTbc" ${koTbc ? 'checked' : ''}> TBC</label></div></div><div class="field"></div></div>
     <div class="row2"><div class="field"><span class="label">Code</span>${seg('code', [['union','15s'],['sevens','7s']], m.code || 'union')}</div><div class="field"><label class="label" for="fHalf">Half length (min)</label><input class="input" id="fHalf" type="number" min="3" max="45" value="${esc(m.half || 35)}"></div></div>
-    ${showFinal ? `<div class="row2"><div class="field"><label class="label" for="fHs">Home score</label><input class="input" id="fHs" type="number" min="0" value="${esc(fin[0])}"></div><div class="field"><label class="label" for="fAs">Away score</label><input class="input" id="fAs" type="number" min="0" value="${esc(fin[1])}"></div></div>` : ''}
+    ${showFinal ? `<div class="row2"><div class="field"><label class="label" for="fHs">Home score</label><input class="input" id="fHs" type="number" min="0" value="${esc(fin[0])}"></div><div class="field"><label class="label" for="fAs">Away score</label><input class="input" id="fAs" type="number" min="0" value="${esc(fin[1])}"></div></div>
+      <div class="row2"><div class="field"><label class="label" for="fHt">Home tries <small>(for cup bonus points)</small></label><input class="input" id="fHt" type="number" min="0" value="${esc((m.finalTries || [])[0] != null ? m.finalTries[0] : '')}"></div><div class="field"><label class="label" for="fAt">Away tries</label><input class="input" id="fAt" type="number" min="0" value="${esc((m.finalTries || [])[1] != null ? m.finalTries[1] : '')}"></div></div>` : ''}
     ${past ? '' : `<div class="field"><label class="label" for="fSheet">Players</label><select class="input" id="fSheet"><option value="">${(m.players || []).length ? 'Current list (' + m.players.length + ' players)' : 'No team sheet'}</option></select><span class="hint" id="fSheetMsg"></span> <button type="button" class="linkish" id="fListBtn">Edit list</button>
       <textarea class="input" id="fPlayers" rows="5" hidden aria-label="Players, one per line with shirt number">${esc((m.players || []).map(p => (p.n ? p.n + ' ' : '') + p.name).join('\n'))}</textarea></div>`}
     <details class="links-x"${veoOf(m) || photosOf(m) ? ' open' : ''}><summary>Video and photos <small>(only signed-in coaches and players see these)</small></summary>
@@ -1836,7 +1837,7 @@ function matchForm(m, past){
       const veo = f.veo; delete f.veo;
       if (sel) f.sheetId = sel.value.startsWith('s:') ? sel.value.slice(2) : '';
       if (d.querySelector('#fPlayers')) f.players = g('#fPlayers').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map((l, i) => { const mm2 = l.match(/^(\d{1,2})[.)]?\s+(.+)$/); return mm2 ? {n:+mm2[1], name:mm2[2].replace(/\s*\([^)]*\)\s*$/, '').trim()} : {n:i + 1, name:l.replace(/\s*\([^)]*\)\s*$/, '').trim()}; });
-      if (d.querySelector('#fHs')){ if (g('#fHs') === '' || g('#fAs') === ''){ toast('Enter both scores.'); return; } f.final = [+g('#fHs'), +g('#fAs')]; }
+      if (d.querySelector('#fHs')){ if (g('#fHs') === '' || g('#fAs') === ''){ toast('Enter both scores.'); return; } f.final = [+g('#fHs'), +g('#fAs')]; if (g('#fHt') !== '' || g('#fAt') !== '') f.finalTries = [+g('#fHt') || 0, +g('#fAt') || 0]; }
       if (isNew && !past){ try { localStorage.setItem('ergs.lastNew', JSON.stringify({d:g('#fKo'), t:g('#fKoT'), tbc:tbc.checked})); } catch(e){} }
       closeDialog();
       const keepVeo = id => { if (veo !== (VEO[id] || '')) FB.setVeo(id, veo).catch(() => toast('The VEO link didn’t save. Try again.'));
@@ -2515,12 +2516,16 @@ const cupKey = n => { let x = ' ' + String(canonSchool(n) || n || '').toLowerCas
 const cupOurs = n => OUR_RX.test(n || '');
 const cupSeasonY = () => { const c = cupOf(); const y = c && +(String(c.season || '').match(/20\d\d/) || [0])[0]; return y || (new Date().getMonth() >= 7 ? new Date().getFullYear() : new Date().getFullYear() - 1); };
 const cupShort = n => String(n || '').replace(/\bGS\b/g, 'Grammar School').replace(/\bHS\b/g, 'High School').replace(/\bES\b/g, 'Endowed School').replace(/^RS\b/, 'Royal School').replace(/\bColl\b/g, 'College').replace(/\bAcad\b/g, 'Academy').replace(/\s+/g, ' ').trim();   // full school names, never cut short
-const triesOf = (m, s) => (m.events || []).filter(e => e.s === s && (e.k === 'try' || e.k === 'pt') && !e.miss).length;
+const triesOf = (m, s) => { const n = (m.events || []).filter(e => e.s === s && (e.k === 'try' || e.k === 'pt') && !e.miss).length; return n || !Array.isArray(m.finalTries) ? n : (+m.finalTries[s === 'H' ? 0 : 1] || 0); };
+/* is this one of our group games? a Cup match (or one with no competition set) against a school in the group, this season, 1st XV */
+const cupIsGroupGame = m => teamCode(m.team) === '1XV' && seasonOf(m) === cupSeasonY() && !/medallion|girls|bowl|shield|plate|trophy|friendly|subsidiary/i.test(m.comp || '') && (/cup/i.test(m.comp || '') || !String(m.comp || '').trim());
+// when a table was pasted, our results already in it are the ones finished before the paste; anything finished or added after goes on top
+const cupAfterBase = (m, B) => !B || isLive(m) || (m.ftAt || m.created || kot(m) || 0) > (B.t || 0);
 /* our group games, straight from the scoreboard (1st XV, a "Cup" competition, this season) */
 function cupOurGames(g){
   const mates = g.teams.filter(t => !cupOurs(t)); if (mates.length === g.teams.length) return [];
   const out = [];
-  DATA.matches.filter(m => usOf(m) && (m.status === 'FT' || isLive(m)) && /cup/i.test(m.comp || '') && !/medallion|girls|bowl|shield|plate|trophy/i.test(m.comp || '') && teamCode(m.team) === '1XV' && seasonOf(m) === cupSeasonY() && !(cupBase(g) && (m.ko || '').slice(0, 10) <= cupBase(g).asOf)).forEach(m => {
+  DATA.matches.filter(m => usOf(m) && (m.status === 'FT' || isLive(m)) && cupIsGroupGame(m) && cupAfterBase(m, cupBase(g))).forEach(m => {
     const us = usOf(m), opp = us === 'A' ? m.home : m.away, mate = mates.find(t => cupKey(t) === cupKey(opp)); if (!mate) return;
     const [h, a] = score(m), ours = g.teams.find(cupOurs);
     out.push({id:'m:' + m.id, h:us === 'H' ? ours : mate, a:us === 'H' ? mate : ours, hs:h, as:a, ht:triesOf(m, 'H'), at:triesOf(m, 'A'), live:isLive(m), auto:true, mid:m.id}); });
@@ -2546,7 +2551,7 @@ function cupLeft(g, games){ const k = (x, y) => [cupKey(x), cupKey(y)].sort().jo
   // the pasted table only gives games played, so pick the remaining fixtures that fit each school's count (ERGS's own fixtures on the scoreboard decide between options)
   const need = new Map(g.teams.map(t => [cupKey(t), Math.max(0, g.teams.length - 1 - ((B.by[cupKey(t)] || {}).P || 0) - games.filter(x => !x.live && (cupKey(x.h) === cupKey(t) || cupKey(x.a) === cupKey(t))).length)]));
   const ourKey = cupKey(g.teams.find(cupOurs) || ''), mine = new Set(), played = new Set();
-  DATA.matches.filter(m => usOf(m) && /cup/i.test(m.comp || '') && teamCode(m.team) === '1XV' && seasonOf(m) === cupSeasonY()).forEach(m => { const o = cupKey(usOf(m) === 'A' ? m.home : m.away); (m.status === 'pre' ? mine : played).add([ourKey, o].sort().join('|')); });
+  DATA.matches.filter(m => usOf(m) && cupIsGroupGame(m)).forEach(m => { const o = cupKey(usOf(m) === 'A' ? m.home : m.away); (m.status === 'pre' ? mine : played).add([ourKey, o].sort().join('|')); });
   let best = null, bestS = -1e9;
   for (let mask = 0; mask < (1 << out.length); mask++){ const pick = out.filter((_, i) => mask & (1 << i)), cnt = new Map();
     pick.forEach(([a, b]) => { cnt.set(cupKey(a), (cnt.get(cupKey(a)) || 0) + 1); cnt.set(cupKey(b), (cnt.get(cupKey(b)) || 0) + 1); });
@@ -2585,7 +2590,7 @@ function viewCup(){
   // the race for the best runners-up
   const ru = tables.map(x => x.t[1] && Object.assign({grp:x.g.n}, x.t[1])).filter(Boolean).sort((a, b) => b.Pts - a.Pts || (b.F - b.A) - (a.F - a.A) || b.F - a.F);
   const anyLive = tables.some(x => x.games.some(y => y.live));
-  const tbl = x => `<div class="cup-g${x.g.teams.some(cupOurs) ? ' ours' : ''}"><div class="cup-gh"><b>Group ${esc(x.g.n)}</b>${x.games.some(y => y.live) ? '<span class="pill live">Live</span>' : ''}${COACH ? `<button type="button" class="lnk cup-ed" data-cupres="${esc(x.g.n)}">Results</button>` : ''}</div>
+  const tbl = x => `<div class="cup-g${x.g.teams.some(cupOurs) ? ' ours' : ''}"><div class="cup-gh"><b>Group ${esc(x.g.n)}</b>${x.games.some(y => y.live) ? '<span class="pill live">Live</span>' : ''}${COACH ? `<button type="button" class="lnk cup-ed" data-cupres="${esc(x.g.n)}">Results</button>` : ''}</div>${cupBase(x.g) ? `<p class="cup-src">Ulster Rugby table from ${esc(new Date(cupBase(x.g).t).toLocaleDateString('en-GB', {day:'numeric', month:'short'}))}${x.games.length ? ` + ${x.games.length} result${x.games.length === 1 ? '' : 's'} added since: ${x.games.map(y => `${esc(cupShort(y.h))} ${y.hs}–${y.as} ${esc(cupShort(y.a))}`).join(', ')}` : ''}</p>` : ''}
     <div class="tbl"><table class="cup-t"><thead><tr><th></th><th class="l">School</th><th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">PD</th><th class="hide-s" title="Try bonus">TB</th><th class="hide-s" title="Losing bonus">LB</th><th>Pts</th></tr></thead><tbody>
     ${x.t.map((o, i) => { const ri = ru.findIndex(r => r.grp === x.g.n), q = i === 0 ? 'q' : i === 1 && ri >= 0 && ri < R.runners ? 'q2' : ''; return `<tr class="${cupOurs(o.n) ? 'us ' : ''}${q}"><td class="pos">${i + 1}</td><td class="l"><span class="who">${crest(o.n)}<span>${esc(cupShort(o.n))}</span>${o.live ? '<span class="dot"></span>' : ''}</span></td><td>${o.P}</td><td>${o.W}</td><td>${o.D}</td><td>${o.L}</td>${o.P && !o.F && !o.A ? '<td class="hide-s">–</td><td class="hide-s">–</td><td class="hide-s">–</td>' : `<td class="hide-s">${o.F - o.A > 0 ? '+' : ''}${o.F - o.A}</td><td class="hide-s">${o.TB}</td><td class="hide-s">${o.LB}</td>`}<td class="pts">${o.Pts}</td></tr>`; }).join('')}</tbody></table></div>
     ${COACH && V.cupEdit ? cupEditList(x.g) : x.games.length ? `<details class="cup-res"><summary>${x.games.length} result${x.games.length === 1 ? '' : 's'}</summary>${x.games.map(y => `<div class="cup-r${y.live ? ' live' : ''}"><span>${esc(cupShort(y.h))}</span><b>${y.hs}–${y.as}</b><span>${esc(cupShort(y.a))}</span>${y.live ? '<span class="pill live">Live</span>' : ''}</div>`).join('')}</details>` : ''}</div>`;
