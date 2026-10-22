@@ -1446,13 +1446,41 @@ function calIcs(list, file){
   try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], {type:'text/calendar'})); a.download = file; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 3000);
     toast(ev.length === 1 ? 'Open the file to add it to your calendar.' : `${ev.length} fixtures ready. Open the file to add them to your calendar.`); } catch(e){ toast('That didn’t work on this device.'); }
 }
+/* ---------- season calendar: every match this season on a month-by-month calendar, for the teams you pick ---------- */
+const CAL_COL = {'1XV':'#DCC08A','2XV':'#5BC0FF','3XV':'#9B8CFF','U16':'#FF8A65','Meds':'#4CD18A','U14':'#FF5DA8','U13':'#FFD21F','U12':'#2FD4C9','SG':'#E5484D','JG':'#F4A6C0'};
+const calCol = t => CAL_COL[t] || '#9aa3c0';
+try { V.fxView = localStorage.getItem('ergs.fxView') || ''; } catch(e){}
+try { const v = JSON.parse(localStorage.getItem('ergs.calTeams') || '[]'); V.calTeams = new Set(Array.isArray(v) ? v : []); } catch(e){ V.calTeams = new Set(); }
+function viewCalendar(){
+  const d0 = new Date(), sy = d0.getMonth() >= 7 ? d0.getFullYear() : d0.getFullYear() - 1, from = new Date(sy, 7, 1).getTime(), to = new Date(sy + 1, 7, 1).getTime();
+  const season = DATA.matches.filter(m => kot(m) >= from && kot(m) < to), tOf = m => teamCode(m.team) || m.team || 'Other';
+  const teams = [...new Set(season.map(tOf))].sort((a, b) => (TEAM_CODES.indexOf(a) + 1 || 99) - (TEAM_CODES.indexOf(b) + 1 || 99));
+  [...V.calTeams].forEach(t => { if (!teams.includes(t)) V.calTeams.delete(t); });
+  const show = season.filter(m => !V.calTeams.size || V.calTeams.has(tOf(m))), byDay = {};
+  show.forEach(m => { const d = new Date(kot(m)), k = d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); (byDay[k] = byDay[k] || []).push(m); });
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const chips = `<div class="cal-teams" role="group" aria-label="Teams to show"><button type="button" data-calt="" aria-pressed="${!V.calTeams.size}">All teams</button>${teams.map(t => `<button type="button" data-calt="${esc(t)}" aria-pressed="${V.calTeams.has(t)}"><i style="background:${calCol(t)}"></i>${esc(TEAM_NAMES[t] || t)}</button>`).join('')}</div>`;
+  let months = '';
+  for (let mi = 0; mi < 12; mi++){ const y = sy + (mi + 7 >= 12 ? 1 : 0), mo = (mi + 7) % 12, first = new Date(y, mo, 1), days = new Date(y, mo + 1, 0).getDate(), lead = (first.getDay() + 6) % 7;
+    const any = Object.keys(byDay).some(k => k.startsWith(y + '-' + mo + '-')); if (!any && (mo === 6 || mo === 7 && mi > 0)) continue;   // skip empty summer months
+    let cells = '<i class="cal-h">M</i><i class="cal-h">T</i><i class="cal-h">W</i><i class="cal-h">T</i><i class="cal-h">F</i><i class="cal-h">S</i><i class="cal-h">S</i>' + '<i></i>'.repeat(lead);
+    for (let d = 1; d <= days; d++){ const k = y + '-' + mo + '-' + d, ms = byDay[k] || [], dt = new Date(y, mo, d), past = dt < today, isToday = +dt === +today, sel = V.calDay === k;
+      const res = ms.length === 1 && ms[0].status === 'FT' ? (() => { const sc = score(ms[0]), u = /ERGS|Enniskillen/i.test(ms[0].home) ? 0 : 1, f = sc[u], g = sc[1 - u]; return f > g ? 'W' : f < g ? 'L' : 'D'; })() : '';
+      cells += ms.length ? `<button type="button" class="cal-d has${past ? ' past' : ''}${isToday ? ' today' : ''}${sel ? ' sel' : ''}${ms.some(m => m.off) ? ' off' : ''}" data-cald="${k}" aria-label="${dt.toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'})}: ${ms.length} match${ms.length === 1 ? '' : 'es'}">${d}<span class="cal-dots">${ms.slice(0, 4).map(m => `<b style="background:${calCol(tOf(m))}"></b>`).join('')}</span>${res ? `<em class="r-${res}">${res}</em>` : ''}</button>`
+        : `<i class="cal-d${past ? ' past' : ''}${isToday ? ' today' : ''}">${d}</i>`; }
+    months += `<div class="cal-m${y === today.getFullYear() && mo === today.getMonth() ? ' now' : ''}"><div class="cal-mh">${first.toLocaleDateString('en-GB', {month:'long', year:'numeric'})}</div><div class="cal-g">${cells}</div></div>`; }
+  const dayList = V.calDay && byDay[V.calDay] ? `<div class="cal-day" id="calDay"><div class="sec">${esc(new Date(kot(byDay[V.calDay][0])).toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'}))}</div><div class="list">${byDay[V.calDay].sort((a, b) => kot(a) - kot(b)).map(row).join('')}</div></div>` : '';
+  return `${chips}<div class="cal-sum">${show.length} match${show.length === 1 ? '' : 'es'} this season${V.calTeams.size ? ' for ' + esc([...V.calTeams].map(t => TEAM_NAMES[t] || t).join(', ')) : ''} · tap a day to see them</div>${dayList}<div class="cal-ms">${months}</div>`;
+}
 function viewFixtures(){
   const now = Date.now(), up = DATA.matches.filter(m => m.status !== 'FT' && kot(m) > now - 6*3600e3).sort((a, b) => kot(a) - kot(b));
   const undated = COACH ? DATA.matches.filter(m => m.status === 'pre' && !kot(m)) : [];
-  if (!up.length && !undated.length) return '<div class="empty">No upcoming fixtures yet.</div>';
+  const tog = `<div class="fx-view" role="tablist"><button type="button" data-fxv="list" aria-pressed="${V.fxView !== 'cal'}">List</button><button type="button" data-fxv="cal" aria-pressed="${V.fxView === 'cal'}">📅 Season calendar</button></div>`;
+  if (V.fxView === 'cal') return tog + viewCalendar();
+  if (!up.length && !undated.length) return tog + '<div class="empty">No upcoming fixtures yet.</div>';
   const teams = [...new Set(up.map(m => teamCode(m.team) || m.team).filter(Boolean))].sort((a, b) => TEAM_CODES.indexOf(a) - TEAM_CODES.indexOf(b));
   const calBar = up.some(m => kot(m)) ? `<div class="cal-bar"><span>📅 Add fixtures to your calendar</span>${teams.length > 1 ? `<select class="input" id="calTeam" aria-label="Which team"><option value="">All teams</option>${teams.map(t => `<option value="${esc(t)}" ${V.calTeam === t ? 'selected' : ''}>${esc(TEAM_NAMES[t] || t)}</option>`).join('')}</select>` : ''}<button type="button" class="btn" data-calall>Add ${V.calTeam ? esc(TEAM_NAMES[V.calTeam] || V.calTeam) : 'all'}</button></div>` : '';
-  let out = calBar + '<div class="ha-key"><span><i class="k-h"></i>Home, at Eisenhower Playing Fields</span><span><i class="k-a"></i>Away</span></div>', cur = '';
+  let out = tog + calBar + '<div class="ha-key"><span><i class="k-h"></i>Home, at Eisenhower Playing Fields</span><span><i class="k-a"></i>Away</span></div>', cur = '';
   for (const m of up){ const k = new Date(kot(m)).toLocaleDateString('en-GB', {month:'long', year:'numeric'}); if (k !== cur){ if (cur) out += '</div>'; out += `<div class="month">${esc(k)}</div><div class="list">`; cur = k; } out += row(m); }
   if (cur) out += '</div>';
   if (undated.length) out += `<div class="month">Date to be confirmed</div><div class="list">${undated.map(row).join('')}</div>`;
@@ -1612,6 +1640,10 @@ function render(){
   $$('[data-phx]').forEach(b => b.onclick = () => ask('Remove the photos link?', 'The photos link comes off this match for everyone. It won’t be added back automatically. You can add a link again in Edit details.', 'Remove', () => FB.setPhotos(b.dataset.phx, PHOTO_NONE).then(() => toast('Photos link removed from this match.')).catch(() => toast('That didn’t save. Try again.'))));
   $$('[data-res]').forEach(b => b.onclick = () => { V.res = V.res === b.dataset.res ? '' : b.dataset.res; render(); });
   $$('[data-clear]').forEach(b => b.onclick = () => { if (b.dataset.clear === 'latest'){ V.lPeriod = ''; V.lTeam = ''; } else { V.team = ''; V.season = 0; V.period = ''; V.res = ''; } render(); });
+  { const nm = $('.cal-m.now'); if (nm && !V.calJumped && innerWidth < 760){ V.calJumped = true; setTimeout(() => nm.scrollIntoView({block:'start', behavior:'smooth'}), 60); } }   // phones open on this month
+  $$('[data-fxv]').forEach(b => b.onclick = () => { V.calJumped = false; V.fxView = b.dataset.fxv; try { localStorage.setItem('ergs.fxView', V.fxView); } catch(e){} render(); });
+  $$('[data-calt]').forEach(b => b.onclick = () => { const t = b.dataset.calt; if (!t) V.calTeams.clear(); else V.calTeams.has(t) ? V.calTeams.delete(t) : V.calTeams.add(t); V.calDay = ''; try { localStorage.setItem('ergs.calTeams', JSON.stringify([...V.calTeams])); } catch(e){} render(); });
+  $$('[data-cald]').forEach(b => b.onclick = () => { V.calDay = V.calDay === b.dataset.cald ? '' : b.dataset.cald; render(); const d = $('#calDay'); if (d) d.scrollIntoView({behavior:'smooth', block:'nearest'}); });
   $$('[data-cal1]').forEach(b => b.onclick = () => { const x = DATA.matches.find(y => y.id === b.dataset.cal1); if (x) calIcs([x], 'ergs-match.ics'); });
   { const ct = $('#calTeam'); if (ct) ct.onchange = () => { V.calTeam = ct.value; render(); }; }
   $$('[data-calall]').forEach(b => b.onclick = () => { const now = Date.now(), list = DATA.matches.filter(m => m.status !== 'FT' && m.off !== 'cancelled' && kot(m) > now - 3*3600e3 && (!V.calTeam || (teamCode(m.team) || m.team) === V.calTeam)); calIcs(list, 'ergs-fixtures.ics'); });
