@@ -2349,8 +2349,12 @@ function boot(){
     let pl = false; if (ok === 'noscore'){ ok = false; pl = true; }
     if (EMAIL && !ok && !pl){ try { pl = await FB.isPlayer(EMAIL); } catch(e){ pl = false; } }
     // a coach or player who has just signed in here goes on to the team app (they can come back for scoring)
-    { let go = false; try { go = sessionStorage.getItem('ergs.toApp') === '1'; if (EMAIL) sessionStorage.removeItem('ergs.toApp'); } catch(e){}
-      if (go && (ok || pl) && !SANDBOX){ location.href = new URL('app/', location.href).href; return; } }
+    // and a coach or player opening ERGS Live fresh (the installed app, a bookmark) starts in the team app too.
+    // They stay here when they came from the team app (Scores link), opened a match link, or already chose to stay this session.
+    { let go = false, stay = false; try { go = sessionStorage.getItem('ergs.toApp') === '1'; if (EMAIL) sessionStorage.removeItem('ergs.toApp');
+        stay = sessionStorage.getItem('ergs.liveOK') === '1' || /\/app\//.test(document.referrer || '') || /^#m\./.test(location.hash) || /[?&]live\b/.test(location.search); } catch(e){}
+      if ((ok || pl) && !SANDBOX && (go || !stay)){ location.replace(new URL('app/', location.href).href); return; }
+      try { if (EMAIL) sessionStorage.setItem('ergs.liveOK', '1'); } catch(e){} }
     COACH = ok; PLAYER = pl; if (COACH) loadTeams(true); signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL;
     if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {}; PHOTOS = {};
     if (COACH || PLAYER) veoUnsub = FB.onVeo((v, ph) => { VEO = v || {}; PHOTOS = ph || {}; if (READY) render(); photoScan(); });
