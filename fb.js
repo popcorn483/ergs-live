@@ -13,7 +13,7 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     onAuth(cb){ return onAuthStateChanged(auth, cb); },
     async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
     signOut(){ return signOut(auth); },
-    async isCoach(email){ return (await getDoc(doc(db, 'coaches', email))).exists(); },
+    async isCoach(email){ const s = await getDoc(doc(db, 'coaches', email)); if (!s.exists()) return false; const d = s.data() || {}; return d.perms && d.perms.scoring === false ? 'noscore' : true; },   // a coach without scoring sees ERGS Live like a player
     async isPlayer(email){ return (await getDoc(doc(db, 'players', email))).exists(); },
     // private VEO links (team/veo, readable by coaches and players only)
     onVeo(cb){ return onSnapshot(doc(db, 'team', 'veo'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(v.byMatch || {}, v.photos || {}); }, () => cb({}, {})); },

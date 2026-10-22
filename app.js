@@ -2257,7 +2257,8 @@ function boot(){
   FB.onAuth(async user => {
     EMAIL = user && user.email ? user.email.toLowerCase() : ''; ADMIN = !!EMAIL && EMAIL === String(CFG.admin || '').toLowerCase();
     let ok = ADMIN; if (EMAIL && !ok){ try { ok = await FB.isCoach(EMAIL); } catch(e){ ok = false; } }
-    let pl = false; if (EMAIL && !ok){ try { pl = await FB.isPlayer(EMAIL); } catch(e){ pl = false; } }
+    let pl = false; if (ok === 'noscore'){ ok = false; pl = true; }
+    if (EMAIL && !ok && !pl){ try { pl = await FB.isPlayer(EMAIL); } catch(e){ pl = false; } }
     COACH = ok; PLAYER = pl; if (COACH) loadTeams(true); signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL;
     if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {}; PHOTOS = {};
     if (COACH || PLAYER) veoUnsub = FB.onVeo((v, ph) => { VEO = v || {}; PHOTOS = ph || {}; if (READY) render(); photoScan(); });
