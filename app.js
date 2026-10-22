@@ -1408,13 +1408,45 @@ function board(m, full){
 }
 const movedRecent = m => m.moved && m.status === 'pre' && !m.off && Date.now() - (m.moved.at || 0) < 10*864e5;
 const wasText = m => { const t = Date.parse(m.moved.from); return isNaN(t) ? '' : new Date(t).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}) + (m.moved.fromTbc ? '' : ', ' + new Date(t).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})); };
+/* ---------- match weather: Open-Meteo forecast for the ground at kick-off (up to 16 days ahead) ---------- */
+const WX = {geo:{}, fc:{}, busy:{}};
+try { WX.geo = JSON.parse(localStorage.getItem('ergs.wxGeo') || '{}') || {}; } catch(e){}
+const WX_HOME = {lat:54.3476, lon:-7.6416, name:'Enniskillen'};   // Eisenhower Playing Fields
+const WX_KNOWN = {portora:'Enniskillen', 'mount lourdes':'Enniskillen', 'st michael':'Enniskillen', rainey:'Magherafelt', 'wallace':'Lisburn', 'friends':'Lisburn', 'campbell':'Belfast', 'inst':'Belfast', 'methody':'Belfast', 'methodist':'Belfast', 'rbai':'Belfast', 'bra':'Belfast', 'sullivan':'Holywood', 'bangor':'Bangor', 'regent':'Newtownards', 'ballyclare':'Ballyclare', 'carrick':'Carrickfergus', 'coleraine':'Coleraine', 'dalriada':'Ballymoney', 'royal school armagh':'Armagh', 'rs armagh':'Armagh', 'royal school dungannon':'Dungannon', 'rs dungannon':'Dungannon', 'banbridge':'Banbridge', 'lurgan':'Lurgan', 'portadown':'Portadown', 'omagh':'Omagh', 'foyle':'Derry', 'grosvenor':'Belfast', 'down high':'Downpatrick', 'cookstown':'Cookstown', 'larne':'Larne', 'belfast':'Belfast', 'ballymena':'Ballymena', 'antrim':'Antrim', 'limavady':'Limavady', 'strabane':'Strabane', 'newry':'Newry'};
+const WX_CODE = c => c === 0 ? ['☀️', 'Clear'] : c <= 2 ? ['🌤️', 'Partly cloudy'] : c === 3 ? ['☁️', 'Cloudy'] : c <= 48 ? ['🌫️', 'Fog'] : c <= 57 ? ['🌦️', 'Drizzle'] : c <= 67 ? ['🌧️', 'Rain'] : c <= 77 ? ['🌨️', 'Snow'] : c <= 82 ? ['🌦️', 'Showers'] : c <= 86 ? ['🌨️', 'Snow showers'] : ['⛈️', 'Thunder'];
+const ourName = n => /ERGS|Enniskillen R/i.test(n || '');
+function wxPlace(m){ const k = String(m.venue || (usOf(m) === 'A' ? m.home : m.away) || '') + (usOf(m) === 'H' && !m.venue ? '#home' : ''); return WX.busy[k] || (WX.busy[k] = wxPlace0(m)); }
+async function wxPlace0(m){
+  const home = usOf(m) === 'H' && !m.venue; if (home) return WX_HOME;
+  const opp = usOf(m) === 'A' ? m.home : m.away, q = String(m.venue || opp || '').trim(), lk = q.toLowerCase(); if (!q) return null;
+  if (WX.geo[lk] !== undefined) return WX.geo[lk];
+  let town = Object.keys(WX_KNOWN).find(k => lk.includes(k)); town = town ? WX_KNOWN[town] : null;
+  const tries = [town, m.venue, ...String(q).split(/[\s,]+/).filter(w => /^[A-Z][a-z]{3,}/.test(w) && !/^(Royal|Grammar|School|College|Academy|High|Academical|Institution|Methodist|Saint|Collegiate|Integrated|Secondary|Boys|Girls)$/.test(w))].filter(Boolean);
+  let hit = null; for (const t of tries){ try { const r = await (await fetch('https://geocoding-api.open-meteo.com/v1/search?count=5&language=en&name=' + encodeURIComponent(t))).json();
+      const g = (r.results || []).find(x => x.country_code === 'GB' && /Northern Ireland/i.test(x.admin1 || '')) || (r.results || []).find(x => x.country_code === 'GB' || x.country_code === 'IE'); if (g){ hit = {lat:g.latitude, lon:g.longitude, name:g.name}; break; } } catch(e){ return null; } }
+  WX.geo[lk] = hit; try { localStorage.setItem('ergs.wxGeo', JSON.stringify(WX.geo)); } catch(e){} return hit;
+}
+async function wxFor(m){
+  const t = kot(m); if (!t || m.status !== 'pre' || m.off === 'cancelled') return null; const days = (t - Date.now())/864e5; if (days > 15.5 || days < -0.2) return null;
+  const pl = await wxPlace(m); if (!pl) return null; const day = new Date(t).toISOString().slice(0, 10), key = pl.lat.toFixed(2) + ',' + pl.lon.toFixed(2) + ',' + day;
+  if (!WX.fc[key]) WX.fc[key] = fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pl.lat}&longitude=${pl.lon}&hourly=temperature_2m,precipitation_probability,weather_code,wind_speed_10m&wind_speed_unit=mph&timezone=UTC&start_date=${day}&end_date=${day}`).then(r => r.json()).catch(() => null);
+  const f = await WX.fc[key]; if (!f || !f.hourly || !f.hourly.time) return null;
+  const hr = new Date(t).getUTCHours(), i = Math.max(0, f.hourly.time.findIndex(x => +x.slice(11, 13) === hr)), [ic, txt] = WX_CODE(f.hourly.weather_code[i]);
+  return {ic, txt, temp:Math.round(f.hourly.temperature_2m[i]), rain:f.hourly.precipitation_probability[i], wind:Math.round(f.hourly.wind_speed_10m[i]), place:pl.name, exact:!m.koTbc};
+}
+// fill in any weather spots on screen (rows and the match page) once the forecast arrives
+function wxFill(){ $$('[data-wx]').forEach(async el => { if (el.dataset.done) return; el.dataset.done = '1'; const m = DATA.matches.find(x => x.id === el.dataset.wx); if (!m) return;
+  const w = await wxFor(m); if (!w || !el.isConnected) return;
+  if (el.classList.contains('wx-big')) el.innerHTML = `<div class="wx-ic">${w.ic}</div><div class="wx-main"><b>${w.temp}°C · ${esc(w.txt)}</b><span>${w.rain != null ? w.rain + '% chance of rain · ' : ''}wind ${w.wind} mph</span><small>Forecast for ${esc(w.place)}${w.exact ? ' at kick-off' : ''}</small></div>`;
+  else { el.textContent = `${w.ic} ${w.temp}°`; el.title = `${w.txt}, ${w.temp}°C, ${w.rain}% rain, wind ${w.wind} mph (${w.place})`; }
+  el.hidden = false; }); }
 function row(m){
   const d = new Date(kot(m)), us = usOf(m), opp = us === 'A' ? m.home : m.away, r = resultOf(m);
   const right = m.off && m.status === 'pre' ? `<span class="pill off">${m.off === 'cancelled' ? 'Cancelled' : 'Postponed'}</span>` : isLive(m) ? `<span class="pill live" data-clock="${esc(m.id)}">${esc(clockText(m))}</span>` : r ? `${resPill(r)} <b>${r.f}–${r.g}</b>` : '';
   const ha = m.status === 'FT' ? '' : us === 'H' ? ' home' : us === 'A' ? ' away' : '';
   return `<button type="button" class="row${ha}${m.off && m.status === 'pre' ? ' is-off' : ''}" data-open="${esc(m.id)}"><span class="cd"><b>${kot(m) ? d.getDate() : '–'}</b><span>${kot(m) ? esc(d.toLocaleDateString('en-GB', {weekday:'short'})) : ''}</span></span>${crest(opp)}
     <span class="ri"><b>${esc((m.team ? m.team + ' ' : '') + (us === 'A' ? '@ ' : 'v ') + opp)}</b><span>${esc([m.off && m.status === 'pre' ? (m.off === 'cancelled' ? 'CANCELLED' : 'POSTPONED') + (m.offWhy ? ': ' + m.offWhy : '') : movedRecent(m) ? 'NEW DATE (was ' + wasText(m) + ')' : '', m.koTbc ? 'Kick-off to be confirmed' : kot(m) ? d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '', us === 'H' ? 'Home' : us === 'A' ? 'Away' : '', m.comp, m.venue].filter(Boolean).join(' · '))}</span></span>
-    <span class="rr">${COACH && m.status === 'pre' && oppNote(opp) ? '<span class="note-tag" title="You have notes on this school">Notes</span>' : ''}${right || (ha ? `<span class="ha-tag">${us === 'H' ? 'Home' : 'Away'}</span>` : '')}</span></button>`;
+    <span class="rr">${m.status === 'pre' && !m.off && kot(m) && kot(m) - Date.now() < 15.5*864e5 && kot(m) > Date.now() - 3600e3 ? `<span class="wx-chip" data-wx="${esc(m.id)}" hidden></span>` : ''}${COACH && m.status === 'pre' && oppNote(opp) ? '<span class="note-tag" title="You have notes on this school">Notes</span>' : ''}${right || (ha ? `<span class="ha-tag">${us === 'H' ? 'Home' : 'Away'}</span>` : '')}</span></button>`;
 }
 function viewMatches(){
   const live = DATA.matches.filter(isLive), now = Date.now();
@@ -1600,7 +1632,8 @@ function viewMatch(m){
   const media = veoOf(m) || photosOf(m) ? `<div class="mv-media">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ View on VEO</a>` : ''}${photosOf(m) ? `<a class="veo photos" href="${esc(photosOf(m))}" target="_blank" rel="noopener">${ic('photo')}Match photos</a>${COACH && !DATA.demo ? `<button type="button" class="ph-x" data-phx="${esc(m.id)}" title="Not the photos from this match? Remove the link">✕ Not this match</button>` : ''}` : ''}</div>` : '';
   const banner = (isLive(m) || m.status === 'FT' ? board(m, true) : `<div class="sb quiet"><div class="sb-meta">${esc(compLine(m))}</div><div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b></div><div class="score" style="font-size:40px;color:var(--dim)">v</div><div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b></div></div><span class="clock" style="border-color:var(--rule)">${esc(when(m, true) || 'Date to be confirmed')}</span></div>`).replace(/<div class="sb-meta">[^<]*<\/div>/, s0 => { if (!teamBig) return s0; const t = [m.status === '1H' ? '1st half' : m.status === '2H' ? '2nd half' : '', isLive(m) || m.status === 'FT' ? m.venue : ''].filter(Boolean).join(' · '); return teamBig + (t ? `<div class="sb-meta">${esc(t)}</div>` : ''); }).replace(/<\/div>\s*$/, media + '</div>');
   const calOne = m.status === 'pre' && kot(m) && m.off !== 'cancelled' && kot(m) > Date.now() - 3*3600e3 ? `<div class="cal-one"><button type="button" class="btn" data-cal1="${esc(m.id)}">📅 Add to calendar</button></div>` : '';
-  return `<button class="back" type="button" data-home>All matches</button>${offBox}${banner}${calOne}
+  const wxBox = m.status === 'pre' && m.off !== 'cancelled' && kot(m) && kot(m) - Date.now() < 15.5*864e5 ? `<div class="box wx-big" data-wx="${esc(m.id)}" hidden></div>` : '';
+  return `<button class="back" type="button" data-home>All matches</button>${offBox}${banner}${calOne}${wxBox}
     ${coachPanel(m)}
     ${m.venue && m.status === 'pre' ? `<div class="box"><h3>Venue</h3><div>${esc(m.venue)}</div></div>` : ''}
     ${kicks.length ? `<div class="box"><h3>Goal kicking</h3>${kicks.join('')}</div>` : ''}
@@ -1641,6 +1674,7 @@ function render(){
   $$('[data-res]').forEach(b => b.onclick = () => { V.res = V.res === b.dataset.res ? '' : b.dataset.res; render(); });
   $$('[data-clear]').forEach(b => b.onclick = () => { if (b.dataset.clear === 'latest'){ V.lPeriod = ''; V.lTeam = ''; } else { V.team = ''; V.season = 0; V.period = ''; V.res = ''; } render(); });
   { const nm = $('.cal-m.now'); if (nm && !V.calJumped && innerWidth < 760){ V.calJumped = true; setTimeout(() => nm.scrollIntoView({block:'start', behavior:'smooth'}), 60); } }   // phones open on this month
+  wxFill();
   $$('[data-fxv]').forEach(b => b.onclick = () => { V.calJumped = false; V.fxView = b.dataset.fxv; try { localStorage.setItem('ergs.fxView', V.fxView); } catch(e){} render(); });
   $$('[data-calt]').forEach(b => b.onclick = () => { const t = b.dataset.calt; if (!t) V.calTeams.clear(); else V.calTeams.has(t) ? V.calTeams.delete(t) : V.calTeams.add(t); V.calDay = ''; try { localStorage.setItem('ergs.calTeams', JSON.stringify([...V.calTeams])); } catch(e){} render(); });
   $$('[data-cald]').forEach(b => b.onclick = () => { V.calDay = V.calDay === b.dataset.cald ? '' : b.dataset.cald; render(); const d = $('#calDay'); if (d) d.scrollIntoView({behavior:'smooth', block:'nearest'}); });
