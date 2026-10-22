@@ -2499,9 +2499,9 @@ function menuClose(){ const dr = $('#drawer'); if (!dr) return; dr.classList.rem
   const sync = () => { const a = $('#hdApp'); if (a) a.hidden = !((COACH || PLAYER) && !SANDBOX); };
   setInterval(sync, 800); sync();
 })();
-/* installed on a computer: hop between ERGS Live and the team app in the same window, instead of opening a new window every time */
+/* hop between ERGS Live and the team app in the same tab (or window, when installed) instead of opening a new one every time */
 (() => { const standalone = () => { try { return matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: window-controls-overlay)').matches || navigator.standalone === true; } catch(e){ return false; } };
-  document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || !standalone() || e.defaultPrevented || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
+  document.addEventListener('click', e => { const a = e.target.closest && e.target.closest('a[href]'); if (!a || e.defaultPrevented || e.ctrlKey || e.metaKey || e.shiftKey || e.button) return;
     let u; try { u = new URL(a.href, location.href); } catch(x){ return; } if (u.origin !== location.origin || !/^\/ergs/.test(u.pathname)) return;
     e.preventDefault(); location.href = u.href; }, true); })();
 /* ---------- Danske Bank Ulster Schools' Cup: group tables, live, with what ERGS need (coaches and players) ---------- */
