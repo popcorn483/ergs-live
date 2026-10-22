@@ -32,6 +32,8 @@ service cloud.firestore {
         && request.resource.data.season is string
         && (resource == null || resource.data.status == 'open' || resource.data.season != request.resource.data.season);
       // a player can take their own headshot down (they then can't send another this season unless a coach lets them)
+      // a player can mark a coach's decision as seen (only the 'seen' field changes)
+      allow update: if isPlayer() && me() == email && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']);
       allow create, update: if isPlayer() && me() == email && request.resource.data.status == 'removed' && request.resource.data.photo == '' && request.resource.data.season is string;
     }
     match /players/{email} {
