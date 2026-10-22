@@ -2190,8 +2190,7 @@ $('footer').appendChild(signLink);
 const LIVE_URL = 'https://popcorn483.github.io/ergs-live/', SHORT_LIVE = 'https://popcorn483.github.io/ergs', SHORT_APP = 'https://popcorn483.github.io/ergsapp';   // short links for sharing (redirect pages on popcorn483.github.io)
 const shareBtn = document.createElement('button'); shareBtn.type = 'button'; shareBtn.className = 'share-btn';
 shareBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Share ERGS Live';
-shareBtn.onclick = () => { const items = [{label:'ERGS Live', url:SHORT_LIVE, file:'ergs-live-qr', desc:'Live scores, fixtures and results for ERGS rugby. Anyone can open it, no account needed.', shareText:'Follow ERGS rugby live: scores, fixtures and results'}];
-  if ((COACH || PLAYER) && !SANDBOX) items.push({label:'ERGS Rugby app', url:SHORT_APP, file:'ergs-rugby-app-qr', desc:'The team app for coaches and players: plays, drills, photos and team news. Sign in with a school Google account that a coach has added.'});
+shareBtn.onclick = () => { const items = [{label:'ERGS Rugby', url:SHORT_APP, file:'ergs-rugby-qr', desc:'One app for ERGS rugby. Anyone can follow live scores, fixtures and results; coaches and players sign in with Google for plays, drills, photos and team news.', shareText:'ERGS Rugby: live scores, fixtures and results, and the team app'}];
   window.ERGSShare.open({title:'Share', crest:DATA.crest, items}); };
 const shareRow = document.createElement('div'); shareRow.className = 'share-row'; shareRow.append(shareBtn, outLink); $('footer').prepend(shareRow);
 /* postpone or cancel a fixture, with a reason parents can see */
@@ -2249,7 +2248,7 @@ function offDialog(m){
     <div class="dlg-a"><button type="button" class="btn primary" data-close>Got it</button></div>`);
 })();
 try { if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch(e){}
-signLink.onclick = async () => { try { await FB.signIn(); } catch(e){ toast(/popup/.test(e && e.code || '') ? 'Allow pop-ups for this site, then try again.' : 'Sign-in didn’t finish. Try again.'); } };
+signLink.onclick = async () => { try { sessionStorage.setItem('ergs.toApp', '1'); } catch(e){} try { await FB.signIn(); } catch(e){ toast(/popup/.test(e && e.code || '') ? 'Allow pop-ups for this site, then try again.' : 'Sign-in didn’t finish. Try again.'); } };
 function boot(){
   const FB = window.FB;
   if (!FB){ $('#view').innerHTML = '<div class="empty">The scoreboard isn’t connected yet. (Setup: add the Firebase details to config.js.)</div>'; return; }
@@ -2259,6 +2258,9 @@ function boot(){
     let ok = ADMIN; if (EMAIL && !ok){ try { ok = await FB.isCoach(EMAIL); } catch(e){ ok = false; } }
     let pl = false; if (ok === 'noscore'){ ok = false; pl = true; }
     if (EMAIL && !ok && !pl){ try { pl = await FB.isPlayer(EMAIL); } catch(e){ pl = false; } }
+    // a coach or player who has just signed in here goes on to the team app (they can come back for scoring)
+    { let go = false; try { go = sessionStorage.getItem('ergs.toApp') === '1'; if (EMAIL) sessionStorage.removeItem('ergs.toApp'); } catch(e){}
+      if (go && (ok || pl) && !SANDBOX){ location.href = new URL('app/', location.href).href; return; } }
     COACH = ok; PLAYER = pl; if (COACH) loadTeams(true); signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL;
     if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {}; PHOTOS = {};
     if (COACH || PLAYER) veoUnsub = FB.onVeo((v, ph) => { VEO = v || {}; PHOTOS = ph || {}; if (READY) render(); photoScan(); });
@@ -2477,7 +2479,7 @@ function menuOpen(){
     ${COACH && !SANDBOX ? `<div class="dr-sec">Matches</div>${item('plus', 'New match', 'Add a fixture to score', 'data-mact="new"')}${item('past', 'Add a past result', 'A score from before ERGS Live', 'data-mact="past"')}${item('imp', 'Import fixtures', 'From a photo, PDF or list', 'data-mact="import"')}
       <div class="dr-sec">Manage</div>${item('crest', 'School crests', 'Crests, colours, merge and delete', 'data-mact="schools"')}${item('people', 'Coaches', 'Who can score and manage', 'data-mact="coaches"')}` : ''}
     ${(real.COACH || real.PLAYER) ? `<div class="dr-sec">Learn</div>${SANDBOX ? item('demo', 'Leave the demo', 'Back to the real scoreboard', 'data-mdemo="out"') : item('demo', real.COACH ? 'Practise in the demo' : 'Try the demo', 'Score a match and see the animations. Nothing is saved', 'data-mdemo="in"')}` : ''}
-    <div class="dr-sec">More</div>${item('share', 'Share ERGS Live', 'Link and QR code', 'data-mshare')}${document.querySelector('#installSlot button, #installSlot a') ? item('imp', 'Install the app', 'On your phone or computer', 'data-minst') : ''}
+    <div class="dr-sec">More</div>${item('share', 'Share the app', 'Link and QR code', 'data-mshare')}${document.querySelector('#installSlot button, #installSlot a') ? item('imp', 'Install the app', 'On your phone or computer', 'data-minst') : ''}
     ${EMAIL ? item('out', 'Sign out', '', 'data-mout') : item('in', 'Coach & player sign in', 'With your Google account', 'data-min')}</nav>`;
   dr.querySelector('.dr-x').onclick = menuClose;
   dr.querySelectorAll('[data-mact]').forEach(b => b.onclick = () => { menuClose(); act(b.dataset.mact, null); });
