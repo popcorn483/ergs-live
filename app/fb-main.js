@@ -142,6 +142,7 @@ window.ERGS_AUTH = {
   async setAccess(kind, email, data){ try { await setDoc(doc(fs, kind, email.toLowerCase()), data, {merge:true}); } catch(e){ throw err(e); } }, get admin(){ return EMAIL && EMAIL === ADMIN; }, adminEmail:ADMIN,
   async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
   signOut(){ return signOut(auth); },
+  async getOne(kind, id){ try { const s = await getDoc(doc(fs, kind, String(id).toLowerCase())); return s.exists() ? Object.assign({id:s.id}, s.data()) : null; } catch(e){ throw err(e); } },
   async list(kind){ const out = []; await new Promise((res, rej) => { const u = onSnapshot(collection(fs, kind), s => { s.docs.forEach(d => out.push(d.id)); u(); res(); }, e => { rej(err(e)); }); }); return out.sort(); },
   async add(kind, email){ try { await setDoc(doc(fs, kind, email.toLowerCase()), {added:Date.now(), by:EMAIL}); } catch(e){ throw err(e); } },
   async remove(kind, email){ try { await deleteDoc(doc(fs, kind, email.toLowerCase())); } catch(e){ throw err(e); } },

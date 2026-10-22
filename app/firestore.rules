@@ -16,12 +16,21 @@ service cloud.firestore {
     // who can sign in
     match /coaches/{email} {
       allow read: if isCoach() || (signedIn() && me() == email);
-      allow write: if isAdmin();
+      allow write: if isCoach();
     }
     // someone who signed in but isn't on a list yet leaves a request; coaches see it and add them as a player or coach
     match /requests/{email} {
       allow read, delete: if isCoach();
       allow create, update: if signedIn() && me() == email && request.resource.data.keys().hasOnly(['name', 'photo', 'at']) && request.resource.data.name is string && request.resource.data.name.size() < 120;
+    }
+    // a player sends their own headshot (once a season, unless a coach opens it again); coaches approve it
+    match /headshots/{email} {
+      allow read: if isCoach() || (signedIn() && me() == email);
+      allow update, delete: if isCoach();
+      allow create, update: if isPlayer() && me() == email
+        && request.resource.data.status == 'pending' && request.resource.data.photo is string && request.resource.data.photo.size() < 950000
+        && request.resource.data.season is string
+        && (resource == null || resource.data.status == 'open' || resource.data.season != request.resource.data.season);
     }
     match /players/{email} {
       allow read: if isCoach() || (signedIn() && me() == email);
@@ -32,6 +41,13 @@ service cloud.firestore {
     match /plays/{doc} { allow read: if isSquad(); allow write: if isCoach(); }
     match /images/{doc} { allow read: if isSquad(); allow write: if isCoach(); }
     match /totw/{doc} { allow read, write: if isCoach(); }
+    match /drills/{doc} { allow read: if isSquad(); allow write: if isCoach(); }
+    // small headshots for the score animations on ERGS Live: anyone can see them, only coaches add them
+    match /faces/{doc} {
+      allow read: if true;
+      allow write: if isCoach() && request.resource.data.d is string && request.resource.data.d.size() < 120000;
+      allow delete: if isCoach();
+    }
     match /sponsors/{doc} { allow read, write: if isCoach(); }
     match /sheets/{doc} { allow read, write: if isCoach(); }
     match /members/{uid} {

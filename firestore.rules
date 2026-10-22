@@ -23,6 +23,15 @@ service cloud.firestore {
       allow read, delete: if isCoach();
       allow create, update: if signedIn() && me() == email && request.resource.data.keys().hasOnly(['name', 'photo', 'at']) && request.resource.data.name is string && request.resource.data.name.size() < 120;
     }
+    // a player sends their own headshot (once a season, unless a coach opens it again); coaches approve it
+    match /headshots/{email} {
+      allow read: if isCoach() || (signedIn() && me() == email);
+      allow update, delete: if isCoach();
+      allow create, update: if isPlayer() && me() == email
+        && request.resource.data.status == 'pending' && request.resource.data.photo is string && request.resource.data.photo.size() < 950000
+        && request.resource.data.season is string
+        && (resource == null || resource.data.status == 'open' || resource.data.season != request.resource.data.season);
+    }
     match /players/{email} {
       allow read: if isCoach() || (signedIn() && me() == email);
       allow write: if isCoach();
