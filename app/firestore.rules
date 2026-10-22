@@ -36,6 +36,12 @@ service cloud.firestore {
       allow update: if isPlayer() && me() == email && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']);
       allow create, update: if isPlayer() && me() == email && request.resource.data.status == 'removed' && request.resource.data.photo == '' && request.resource.data.season is string;
     }
+    // a player says whether they can play each match; coaches see it when picking the team
+    match /avail/{email} {
+      allow read: if isCoach() || (signedIn() && me() == email);
+      allow write: if isPlayer() && me() == email && request.resource.data.keys().hasOnly(['m', 'name', 'team', 'rid', 'at']) && request.resource.data.m.size() < 60;
+      allow delete: if isCoach();
+    }
     match /players/{email} {
       allow read: if isCoach() || (signedIn() && me() == email);
       allow write: if isCoach();
