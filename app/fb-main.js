@@ -20,6 +20,8 @@ const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth
     else { try { if ((await getDoc(doc(fs, 'coaches', EMAIL))).exists()) ROLE = 'coach'; } catch(e){} }
     if (ROLE !== 'coach'){ try { const ps = await getDoc(doc(fs, 'players', EMAIL)); if (ps.exists()){ ROLE = 'player'; PLAYER = ps.data() || {}; } } catch(e){} }
   }
+  // not on a list yet: leave a request so the coaches see them waiting (needs the requests rule in Firebase)
+  if (EMAIL && ROLE === 'public'){ try { await setDoc(doc(fs, 'requests', EMAIL), {name:(USER.displayName || '').slice(0, 100), photo:(USER.photoURL || '').slice(0, 500), at:Date.now()}); } catch(e){} }
   if (first){ first = false; res(); } else location.reload();
 }); });
 getRedirectResult(auth).catch(() => {});

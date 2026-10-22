@@ -18,6 +18,11 @@ service cloud.firestore {
       allow read: if isCoach() || (signedIn() && me() == email);
       allow write: if isAdmin();
     }
+    // someone who signed in but isn't on a list yet leaves a request; coaches see it and add them as a player or coach
+    match /requests/{email} {
+      allow read, delete: if isCoach();
+      allow create, update: if signedIn() && me() == email && request.resource.data.keys().hasOnly(['name', 'photo', 'at']) && request.resource.data.name is string && request.resource.data.name.size() < 120;
+    }
     match /players/{email} {
       allow read: if isCoach() || (signedIn() && me() == email);
       allow write: if isCoach();
