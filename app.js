@@ -1434,11 +1434,25 @@ function viewMatches(){
     <div class="sec">${wk.length ? 'Coming up this week' : 'Next fixture'}</div>${next.length ? `<div class="list">${next.map(row).join('')}</div>${later ? `<button type="button" class="more" data-tabgo="fixtures">See all fixtures <small>${later} more</small> →</button>` : ''}` : `<div class="empty">No fixtures announced yet.${COACH ? ' Add a match or import the fixtures list.' : ''}</div>`}
     <div class="sec">Latest results</div>${lFilters}${done.length ? `<div class="list">${done.map(row).join('')}</div>${allDone.length > 5 ? `<button type="button" class="more" data-more="Done">${V.moreDone ? 'Show fewer' : `Show ${allDone.length - 5} more`}</button>` : ''}` : `<div class="empty">${ftDone.length ? `No ${V.lTeam ? esc(TEAM_NAMES[V.lTeam]) + ' ' : ''}results${V.lPeriod === 'week' ? ' in the past week' : V.lPeriod === 'month' ? ' in the past month' : ''}.` : 'No results yet.'}</div>`}`;
 }
+/* add fixtures to a phone or computer calendar (.ics), for anyone */
+function calIcs(list, file){
+  const f = t => new Date(t).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, ''), ours = n => /ERGS|Enniskillen/i.test(n || ''), clean = x => String(x || '').replace(/[,;\\]/g, ' ').replace(/\n/g, ' ');
+  const ev = list.filter(m => kot(m)).map(m => { const t = kot(m), home = ours(m.home), opp = home ? m.away : m.home, tc = teamCode(m.team);
+    return ['BEGIN:VEVENT', 'UID:' + m.id + '@ergs-live', 'DTSTAMP:' + f(Date.now()), 'DTSTART:' + f(t), 'DTEND:' + f(t + 90*60000),
+      'SUMMARY:' + clean(`ERGS ${TEAM_CODES.includes(tc) ? tc : m.team || ''} ${home ? 'v' : '@'} ${opp}`).replace(/\s+/g, ' '), 'LOCATION:' + clean(m.venue || (home ? 'Eisenhower Playing Fields, Enniskillen' : opp)),
+      'DESCRIPTION:' + clean(`${m.koTbc ? 'Kick-off time to be confirmed. ' : ''}Live scores on ERGS Live: ${LIVE_URL}`), 'BEGIN:VALARM', 'TRIGGER:-PT2H', 'ACTION:DISPLAY', 'DESCRIPTION:ERGS rugby today', 'END:VALARM', 'END:VEVENT'].join('\r\n'); });
+  if (!ev.length){ toast('No dated fixtures to add.'); return; }
+  const txt = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ERGS Live//EN', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:ERGS Rugby'].concat(ev, ['END:VCALENDAR']).join('\r\n');
+  try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], {type:'text/calendar'})); a.download = file; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 3000);
+    toast(ev.length === 1 ? 'Open the file to add it to your calendar.' : `${ev.length} fixtures ready. Open the file to add them to your calendar.`); } catch(e){ toast('That didn’t work on this device.'); }
+}
 function viewFixtures(){
   const now = Date.now(), up = DATA.matches.filter(m => m.status !== 'FT' && kot(m) > now - 6*3600e3).sort((a, b) => kot(a) - kot(b));
   const undated = COACH ? DATA.matches.filter(m => m.status === 'pre' && !kot(m)) : [];
   if (!up.length && !undated.length) return '<div class="empty">No upcoming fixtures yet.</div>';
-  let out = '<div class="ha-key"><span><i class="k-h"></i>Home, at Eisenhower Playing Fields</span><span><i class="k-a"></i>Away</span></div>', cur = '';
+  const teams = [...new Set(up.map(m => teamCode(m.team) || m.team).filter(Boolean))].sort((a, b) => TEAM_CODES.indexOf(a) - TEAM_CODES.indexOf(b));
+  const calBar = up.some(m => kot(m)) ? `<div class="cal-bar"><span>📅 Add fixtures to your calendar</span>${teams.length > 1 ? `<select class="input" id="calTeam" aria-label="Which team"><option value="">All teams</option>${teams.map(t => `<option value="${esc(t)}" ${V.calTeam === t ? 'selected' : ''}>${esc(TEAM_NAMES[t] || t)}</option>`).join('')}</select>` : ''}<button type="button" class="btn" data-calall>Add ${V.calTeam ? esc(TEAM_NAMES[V.calTeam] || V.calTeam) : 'all'}</button></div>` : '';
+  let out = calBar + '<div class="ha-key"><span><i class="k-h"></i>Home, at Eisenhower Playing Fields</span><span><i class="k-a"></i>Away</span></div>', cur = '';
   for (const m of up){ const k = new Date(kot(m)).toLocaleDateString('en-GB', {month:'long', year:'numeric'}); if (k !== cur){ if (cur) out += '</div>'; out += `<div class="month">${esc(k)}</div><div class="list">`; cur = k; } out += row(m); }
   if (cur) out += '</div>';
   if (undated.length) out += `<div class="month">Date to be confirmed</div><div class="list">${undated.map(row).join('')}</div>`;
@@ -1557,7 +1571,8 @@ function viewMatch(m){
   const tc = teamCode(m.team), teamBig = m.team ? `<div class="mv-team"><span class="mv-code">${esc(TEAM_CODES.includes(tc) ? tc : m.team)}</span>${TEAM_CODES.includes(tc) ? `<span class="mv-name">${esc(TEAM_NAMES[tc])}</span>` : ''}${m.comp ? `<span class="mv-comp">${esc([m.comp, m.round].filter(Boolean).join(' · '))}</span>` : ''}</div>` : '';
   const media = veoOf(m) || photosOf(m) ? `<div class="mv-media">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ View on VEO</a>` : ''}${photosOf(m) ? `<a class="veo photos" href="${esc(photosOf(m))}" target="_blank" rel="noopener">${ic('photo')}Match photos</a>${COACH && !DATA.demo ? `<button type="button" class="ph-x" data-phx="${esc(m.id)}" title="Not the photos from this match? Remove the link">✕ Not this match</button>` : ''}` : ''}</div>` : '';
   const banner = (isLive(m) || m.status === 'FT' ? board(m, true) : `<div class="sb quiet"><div class="sb-meta">${esc(compLine(m))}</div><div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b></div><div class="score" style="font-size:40px;color:var(--dim)">v</div><div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b></div></div><span class="clock" style="border-color:var(--rule)">${esc(when(m, true) || 'Date to be confirmed')}</span></div>`).replace(/<div class="sb-meta">[^<]*<\/div>/, s0 => { if (!teamBig) return s0; const t = [m.status === '1H' ? '1st half' : m.status === '2H' ? '2nd half' : '', isLive(m) || m.status === 'FT' ? m.venue : ''].filter(Boolean).join(' · '); return teamBig + (t ? `<div class="sb-meta">${esc(t)}</div>` : ''); }).replace(/<\/div>\s*$/, media + '</div>');
-  return `<button class="back" type="button" data-home>All matches</button>${offBox}${banner}
+  const calOne = m.status === 'pre' && kot(m) && m.off !== 'cancelled' && kot(m) > Date.now() - 3*3600e3 ? `<div class="cal-one"><button type="button" class="btn" data-cal1="${esc(m.id)}">📅 Add to calendar</button></div>` : '';
+  return `<button class="back" type="button" data-home>All matches</button>${offBox}${banner}${calOne}
     ${coachPanel(m)}
     ${m.venue && m.status === 'pre' ? `<div class="box"><h3>Venue</h3><div>${esc(m.venue)}</div></div>` : ''}
     ${kicks.length ? `<div class="box"><h3>Goal kicking</h3>${kicks.join('')}</div>` : ''}
@@ -1597,6 +1612,9 @@ function render(){
   $$('[data-phx]').forEach(b => b.onclick = () => ask('Remove the photos link?', 'The photos link comes off this match for everyone. It won’t be added back automatically. You can add a link again in Edit details.', 'Remove', () => FB.setPhotos(b.dataset.phx, PHOTO_NONE).then(() => toast('Photos link removed from this match.')).catch(() => toast('That didn’t save. Try again.'))));
   $$('[data-res]').forEach(b => b.onclick = () => { V.res = V.res === b.dataset.res ? '' : b.dataset.res; render(); });
   $$('[data-clear]').forEach(b => b.onclick = () => { if (b.dataset.clear === 'latest'){ V.lPeriod = ''; V.lTeam = ''; } else { V.team = ''; V.season = 0; V.period = ''; V.res = ''; } render(); });
+  $$('[data-cal1]').forEach(b => b.onclick = () => { const x = DATA.matches.find(y => y.id === b.dataset.cal1); if (x) calIcs([x], 'ergs-match.ics'); });
+  { const ct = $('#calTeam'); if (ct) ct.onchange = () => { V.calTeam = ct.value; render(); }; }
+  $$('[data-calall]').forEach(b => b.onclick = () => { const now = Date.now(), list = DATA.matches.filter(m => m.status !== 'FT' && m.off !== 'cancelled' && kot(m) > now - 3*3600e3 && (!V.calTeam || (teamCode(m.team) || m.team) === V.calTeam)); calIcs(list, 'ergs-fixtures.ics'); });
   $$('[data-tabgo]').forEach(b => b.onclick = () => { V.tab = b.dataset.tabgo; render(); scrollTo(0, 0); });
   $$('[data-more]').forEach(b => b.onclick = () => { V['more' + b.dataset.more] = !V['more' + b.dataset.more]; render(); });
   $$('[data-open]').forEach(b => b.onclick = () => { V.open = b.dataset.open; try { history.replaceState(null, '', '#m.' + V.open); } catch(e){} render(); scrollTo(0, 0); });
@@ -2189,7 +2207,7 @@ $('footer').appendChild(signLink);
 // share the apps: link and QR code
 const LIVE_URL = 'https://popcorn483.github.io/ergs-live/', SHORT_LIVE = 'https://popcorn483.github.io/ergs', SHORT_APP = 'https://popcorn483.github.io/ergsapp';   // short links for sharing (redirect pages on popcorn483.github.io)
 const shareBtn = document.createElement('button'); shareBtn.type = 'button'; shareBtn.className = 'share-btn';
-shareBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Share ERGS Live';
+shareBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Share the app';
 shareBtn.onclick = () => { const items = [{label:'ERGS Rugby', url:SHORT_APP, file:'ergs-rugby-qr', desc:'One app for ERGS rugby. Anyone can follow live scores, fixtures and results; coaches and players sign in with Google for plays, drills, photos and team news.', shareText:'ERGS Rugby: live scores, fixtures and results, and the team app'}];
   window.ERGSShare.open({title:'Share', crest:DATA.crest, items}); };
 const shareRow = document.createElement('div'); shareRow.className = 'share-row'; shareRow.append(shareBtn, outLink); $('footer').prepend(shareRow);
