@@ -1468,6 +1468,7 @@ function viewMatches(){
   const wk = allUp.filter(m => kot(m) < now + 7*864e5), next = wk.length ? wk : allUp.slice(0, 1), later = allUp.length - next.length;
   const undated = [];
   // latest results can be narrowed by time (past week / month) and by team
+  V.lPeriod = ''; V.lTeam = '';   // Latest results on Matches: no filters (the Results tab has them, in the menu)
   const ftDone = DATA.matches.filter(m => m.status === 'FT'), lSince = V.lPeriod === 'week' ? now - 7*864e5 : V.lPeriod === 'month' ? now - 31*864e5 : 0;
   const allDone = ftDone.filter(m => (!lSince || kot(m) >= lSince) && (!V.lTeam || (teamCode(m.team) || 'Other') === V.lTeam)).sort((a, b) => kot(b) - kot(a)), done = V.moreDone ? allDone : allDone.slice(0, 5);
   const lTeams = TEAM_CODES.filter(c => ftDone.some(m => teamCode(m.team) === c));
@@ -1526,10 +1527,11 @@ function viewFixtures(){
   const allTeams = [...new Set(up0.map(tmOf))].sort((a, b) => (TEAM_CODES.indexOf(a) + 1 || 99) - (TEAM_CODES.indexOf(b) + 1 || 99)), chipsL = allTeams.length > 1 ? tmChips(allTeams) : '';
   const undated = COACH ? DATA.matches.filter(m => m.status === 'pre' && !kot(m)) : [];
   const tog = `<div class="fx-view" role="tablist"><button type="button" data-fxv="list" aria-pressed="${V.fxView !== 'cal'}">List</button><button type="button" data-fxv="cal" aria-pressed="${V.fxView === 'cal'}">📅 Season calendar</button></div>`;
-  if (V.fxView === 'cal') return tog + haBar() + viewCalendar();
-  if (!up.length && !undated.length) return tog + chipsL + haBar() + `<div class="empty">${V.ha || V.calTeams.size ? `No upcoming fixtures match. <button type="button" class="lnk" data-fxclear>Show all</button>` : 'No upcoming fixtures yet.'}</div>`;
+  V.flt = {kind:'fixtures', html:tog + chipsL + haBar()};
+  if (V.fxView === 'cal') return fltLine() + fltSrc() + viewCalendar();
+  if (!up.length && !undated.length) return fltLine() + fltSrc() + `<div class="empty">${V.ha || V.calTeams.size ? `No upcoming fixtures match. <button type="button" class="lnk" data-fxclear>Show all</button>` : 'No upcoming fixtures yet.'}</div>`;
   const calBar = up.some(m => kot(m)) ? `<div class="cal-bar"><span>📅 Add ${V.calTeams.size || V.ha ? 'these' : 'all'} fixtures to your calendar</span><button type="button" class="btn" data-calall>Add ${up.filter(m => kot(m)).length}</button></div>` : '';
-  let out = tog + chipsL + haBar() + calBar, cur = '';
+  V.flt.html += calBar; let out = fltLine() + fltSrc(), cur = '';
   for (const m of up){ const k = new Date(kot(m)).toLocaleDateString('en-GB', {month:'long', year:'numeric'}); if (k !== cur){ if (cur) out += '</div>'; out += `<div class="month">${esc(k)}</div><div class="list">`; cur = k; } out += row(m); }
   if (cur) out += '</div>';
   if (undated.length) out += `<div class="month">Date to be confirmed</div><div class="list">${undated.map(row).join('')}</div>`;
@@ -1575,6 +1577,14 @@ function leaders(list){
   const noLists = !list.some(m => Array.isArray(m.players) && m.players.length);
   return `<div class="sec">Leaderboards${V.team ? ' · ' + esc(V.team) : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div><div class="lbs">${boards.join('')}</div>${noLists ? '<p class="hint">Appearances count players named in a match’s team list, plus anyone who scored. Paste the squad into each match (Edit details) to count everyone who played.</p>' : ''}`;
 }
+/* the page keeps the real filter buttons hidden; the menu shows copies that press them */
+const fltSrc = () => `<div class="flt-src" hidden>${V.flt.html}</div>`;
+function fltLine(){
+  const f = V.flt; let bits = [], on = false;
+  if (f.kind === 'fixtures'){ bits.push(V.calTeams.size ? [...V.calTeams].map(t => TEAM_NAMES[t] || t).join(', ') : 'All teams'); if (V.ha){ bits.push(V.ha === 'H' ? 'Home' : 'Away'); } if (V.fxView === 'cal') bits.push('Season calendar'); on = !!(V.calTeams.size || V.ha); }
+  else { bits.push(V.team ? TEAM_NAMES[V.team] || 'Other teams' : 'All teams'); if (V.period) bits.push(V.period === 'week' ? 'Past week' : 'Past month'); if (V.season) bits.push(seasonLabel(V.season)); on = !!(V.team || V.period || V.season || V.res); }
+  return `<div class="flt-line"><button type="button" class="flt-btn" data-menu><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 5h18M6 12h12M10 19h4"/></svg><span>${esc(bits.join(' · '))}</span><b>Filter</b></button>${on ? `<button type="button" class="flt-x" ${f.kind === 'fixtures' ? 'data-fxclear' : 'data-clear="results"'} aria-label="Clear filters">✕</button>` : ''}</div>`;
+}
 function viewResults(){
   const ftAll = DATA.matches.filter(m => m.status === 'FT').sort((a, b) => kot(b) - kot(a));
   if (!ftAll.some(m => resultOf(m))) return '<div class="empty">No results yet.</div>';
@@ -1593,7 +1603,8 @@ function viewResults(){
   const resT = V.team ? allRes.filter(m => (teamCode(m.team) || 'Other') === V.team) : allRes, rsT = resT.map(m => [m, resultOf(m)]).filter(x => x[1]);
   const rs = V.res ? rsT.filter(x => x[1].r === V.res) : rsT, res = rs.map(x => x[0]);
   const whenTxt = V.period === 'week' ? ' in the past week' : V.period === 'month' ? ' in the past month' : V.season ? ' in ' + seasonLabel(V.season) : '';
-  if (!rsT.length) return chips + clearB + `<div class="empty">No ${V.team ? esc(TEAM_NAMES[V.team] || V.team) + ' ' : ''}results${whenTxt} yet.</div>`;
+  V.flt = {kind:'results', html:chips}; const chipsP = fltLine() + fltSrc();
+  if (!rsT.length) return chipsP + `<div class="empty">No ${V.team ? esc(TEAM_NAMES[V.team] || V.team) + ' ' : ''}results${whenTxt} yet.</div>`;
   // season by season for one team: the same team each year, or one year group as it moves up
   let prog = '';
   const squad = COACH || PLAYER;   // the school-by-school record and season history are for coaches and players only
@@ -1613,7 +1624,7 @@ function viewResults(){
   const sumB = (k, n, t, cls) => `<button type="button" class="${cls}${V.res === k ? ' on' : ''}" data-res="${k}" aria-pressed="${V.res === k}" title="${k ? (V.res === k ? 'Show all results' : 'Show only matches ' + t.toLowerCase()) : 'Show all results'}"><b>${n}</b><span>${t}</span></button>`;
   const RES_T = {W:'won', D:'drawn', L:'lost'};
   const by = new Map(); rsT.forEach(([m, r]) => { const k = schoolKey(r.opp) || r.opp, o = by.get(k) || {n:r.opp, p:0, w:0, d:0, l:0, f:0, a:0}; o.p++; o[r.r.toLowerCase()]++; o.f += r.f; o.a += r.g; by.set(k, o); });
-  return chips + `${V.team || V.season || V.period ? `<div class="team-h">${esc(V.team ? TEAM_NAMES[V.team] || 'Other teams' : 'All teams')}${V.period === 'week' ? ' · past week' : V.period === 'month' ? ' · past month' : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>` : ''}${clearB}<div class="sum sum-f">${sumB('', rsT.length, 'Played', '')}${sumB('W', W, 'Won', 'w')}${sumB('D', D, 'Drawn', '')}${sumB('L', L, 'Lost', 'l')}</div>
+  return chipsP + `${V.team || V.season || V.period ? `<div class="team-h">${esc(V.team ? TEAM_NAMES[V.team] || 'Other teams' : 'All teams')}${V.period === 'week' ? ' · past week' : V.period === 'month' ? ' · past month' : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>` : ''}<div class="sum sum-f">${sumB('', rsT.length, 'Played', '')}${sumB('W', W, 'Won', 'w')}${sumB('D', D, 'Drawn', '')}${sumB('L', L, 'Lost', 'l')}</div>
     <div class="sec">${V.res ? 'Matches ' + RES_T[V.res] : 'Results'}<span class="sec-hint">${V.res ? '' : 'Tap Won, Drawn or Lost to filter'}</span></div>${res.length ? `<div class="list">${res.map(row).join('')}</div>` : `<div class="empty">No matches ${RES_T[V.res]}.</div>`}
     ${squad ? leaders(resT) : ''}${prog}${squad ? `<div class="sec">Record against each school${V.team ? ' · ' + esc(V.team) : ''}${V.season ? ' · ' + seasonLabel(V.season) : ''}</div>
     <div class="tbl"><table><thead><tr><th>School</th><th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">For</th><th class="hide-s">Against</th></tr></thead><tbody>
@@ -1691,14 +1702,17 @@ function coachPanel(m){
   if (m.status === '1H' || m.status === '2H') clock += b('pause', m.clock && m.clock.running ? 'Pause clock' : 'Restart clock') + b('minus', '−1 min', 'ghost') + b('plus', '+1 min', 'ghost');
   if (m.status === 'FT') clock = b('reopen', 'Reopen match');
   const pad = ['H', 'A'].map(s => `<div class="col"><div class="side-h">${crest(s === 'H' ? m.home : m.away)}<span>${esc(s === 'H' ? m.home : m.away)}</span></div>${['try','con','pen','dg','pt','yc','rc'].map(k => `<button type="button" class="btn ${PTS[k] ? 'pts' : 'card'} ${k}" data-ev="${k}" data-side="${s}" ${m.status === 'pre' || m.status === 'FT' ? 'disabled' : ''}><span>${EVK[k][0]}</span><small>${PTS[k] ? '+' + PTS[k] : '■'}</small></button>`).join('')}</div>`).join('');
-  const notes = usOf(m) ? oppNoteBox(m) : '';
-  return `${m.status === 'pre' ? notes : ''}<div class="box coach"><h3>Match clock</h3><div class="ctrl">${clock}</div></div>
-    <div class="box coach"><h3>Score</h3><div class="pad">${pad}</div>${m.status === 'pre' ? '<p class="hint">Press Kick off first.</p>' : ''}</div>
-    <div class="box coach"><h3>Commentary</h3><form class="inline" id="noteForm"><input class="input" id="noteIn" maxlength="140" placeholder="Big turnover at the breakdown" aria-label="Commentary line"><button class="btn" type="submit">Post</button></form></div>
+  const notes0 = usOf(m) ? oppNoteBox(m) : '', opp = usOf(m) === 'H' ? m.away : m.home, live = ['1H', 'HT', '2H'].includes(m.status);
+  // coaches see only what the moment needs: Kick off before the game, the score pad during it; notes and match settings fold away
+  const notes = notes0 ? `<details class="box coach dt"${m.status === 'pre' && /opp-notes has/.test(notes0) ? ' open' : ''}><summary>📝 Notes on ${esc(opp)}</summary>${notes0}</details>` : '';
+  const settings = `<details class="box coach dt"><summary>⚙ Match settings</summary>${veoOf(m) || photosOf(m) ? '' : '<p class="hint" style="margin:0 0 8px">Add the VEO video and photo album links in Edit details.</p>'}<div class="ctrl">${b('edit', 'Edit details')}${b('share', 'Copy match link')}${m.status === 'FT' ? b('copyres', 'Copy result') + b('reopen', 'Reopen match') : ''}${m.status === 'pre' && !m.off ? b('postpone', 'Postpone, cancel or move') : ''}${b('del', 'Delete match', 'ghost danger')}</div></details>`;
+  if (m.status === 'pre' && !m.off) clock = b('ko', 'Kick off', 'primary ko-big');
+  return `${m.status !== 'FT' ? `<div class="box coach${m.status === 'pre' ? ' ko-box' : ''}"><h3>Match clock</h3><div class="ctrl">${clock}</div>${m.status === 'pre' && !m.off ? '<p class="hint">The scoring buttons appear when you press Kick off.</p>' : ''}</div>` : ''}
+    ${live ? `<div class="box coach"><h3>Score</h3><div class="pad">${pad}</div></div>
+    <div class="box coach"><h3>Commentary</h3><form class="inline" id="noteForm"><input class="input" id="noteIn" maxlength="140" placeholder="Big turnover at the breakdown" aria-label="Commentary line"><button class="btn" type="submit">Post</button></form></div>` : ''}
     ${m.status === 'FT' && usOf(m) ? `<div class="box coach"><h3>After the match</h3><p class="hint" style="margin:0">Opens the main app with the score and scorers filled in, ready to download, plus a match report draft to edit.</p><div class="ctrl"><a class="btn primary" href="${MAIN_APP}#ft.${esc(m.id)}" target="_blank" rel="noopener">Full-time graphic &amp; match report</a></div></div>` : ''}
     ${m.status === 'FT' && usOf(m) ? nomBox(m) : ''}
-    ${m.status !== 'pre' ? notes : ''}
-    <div class="box coach"><h3>Match</h3>${veoOf(m) || photosOf(m) ? '' : '<p class="hint" style="margin:0 0 8px">Add the VEO video and photo album links in Edit details.</p>'}<div class="ctrl">${b('edit', 'Edit details')}${b('share', 'Copy match link')}${m.status === 'FT' ? b('copyres', 'Copy result') : ''}${b('del', 'Delete match', 'ghost danger')}</div></div>`;
+    ${notes}${settings}`;
 }
 function viewMatch(m){
   const evs = sorted(m), t = [0, 0], run = new Map(); evs.forEach(e => { const p = ptsOf(e); if (e.s === 'H') t[0] += p; if (e.s === 'A') t[1] += p; run.set(e, t.join('–')); });
@@ -1709,11 +1723,13 @@ function viewMatch(m){
   const tc = teamCode(m.team), teamBig = m.team ? `<div class="mv-team"><span class="mv-code">${esc(TEAM_CODES.includes(tc) ? tc : m.team)}</span>${TEAM_CODES.includes(tc) ? `<span class="mv-name">${esc(TEAM_NAMES[tc])}</span>` : ''}${m.comp ? `<span class="mv-comp">${esc([m.comp, m.round].filter(Boolean).join(' · '))}</span>` : ''}</div>` : '';
   const media = veoOf(m) || photosOf(m) ? `<div class="mv-media">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ View on VEO</a>` : ''}${photosOf(m) ? `<a class="veo photos" href="${esc(photosOf(m))}" target="_blank" rel="noopener">${ic('photo')}Match photos</a>${COACH && !DATA.demo ? `<button type="button" class="ph-x" data-phx="${esc(m.id)}" title="Not the photos from this match? Remove the link">✕ Not this match</button>` : ''}` : ''}</div>` : '';
   const banner = (isLive(m) || m.status === 'FT' ? board(m, true) : `<div class="sb quiet"><div class="sb-meta">${esc(compLine(m))}</div><div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b></div><div class="score" style="font-size:40px;color:var(--dim)">v</div><div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b></div></div><span class="clock" style="border-color:var(--rule)">${esc(when(m, true) || 'Date to be confirmed')}</span></div>`).replace(/<div class="sb-meta">[^<]*<\/div>/, s0 => { if (!teamBig) return s0; const t = [m.status === '1H' ? '1st half' : m.status === '2H' ? '2nd half' : '', isLive(m) || m.status === 'FT' ? m.venue : ''].filter(Boolean).join(' · '); return teamBig + (t ? `<div class="sb-meta">${esc(t)}</div>` : ''); }).replace(/<\/div>\s*$/, media + '</div>');
-  const sumBtn = m.status === 'FT' && (COACH || PLAYER) ? `<div class="cal-one"><button type="button" class="btn primary" data-sum="${esc(m.id)}">📸 Match summary picture</button></div>` : '';
-  const calOne = m.status === 'pre' && kot(m) && m.off !== 'cancelled' && kot(m) > Date.now() - 3*3600e3 ? `<div class="cal-one"><button type="button" class="btn" data-cal1="${esc(m.id)}">📅 Add to calendar</button></div>` : '';
+  // share, calendar and summary picture: a row of small round icons under the scoreboard
+  const IB = (attr, label, path) => `<button type="button" class="mv-ic" ${attr} aria-label="${label}" title="${label}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg></button>`;
+  const sumBtn = m.status === 'FT' && (COACH || PLAYER) ? IB(`data-sum="${esc(m.id)}"`, 'Match summary picture', '<rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/>') : '';
+  const calOne = m.status === 'pre' && kot(m) && m.off !== 'cancelled' && kot(m) > Date.now() - 3*3600e3 ? IB(`data-cal1="${esc(m.id)}"`, 'Add to calendar', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>') : '';
   const wxBox = m.status === 'pre' && m.off !== 'cancelled' && kot(m) && kot(m) - Date.now() < 15.5*864e5 ? `<div class="box wx-big" data-wx="${esc(m.id)}" hidden></div>` : '';
-  const shareOne = DATA.demo ? '' : `<div class="cal-one"><button type="button" class="btn" data-shm="${esc(m.id)}">${isLive(m) ? '📣 Share this match live' : '📤 Share this match'}</button></div>`;
-  return `<button class="back" type="button" data-home>All matches</button>${offBox}${banner}${sumBtn}${shareOne}${calOne}${wxBox}
+  const shareOne = DATA.demo ? '' : IB(`data-shm="${esc(m.id)}"`, isLive(m) ? 'Share this match live' : 'Share this match', '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>');
+  return `<button class="back" type="button" data-home>All matches</button>${offBox}${banner}${shareOne || calOne || sumBtn ? `<div class="mv-icons">${shareOne}${calOne}${sumBtn}</div>` : ''}${wxBox}
     ${coachPanel(m)}
     ${m.venue && m.status === 'pre' ? `<div class="box"><h3>Venue</h3><div>${esc(m.venue)}</div></div>` : ''}
     ${kicks.length ? `<div class="box"><h3>Goal kicking</h3>${kicks.join('')}</div>` : ''}
@@ -1729,7 +1745,7 @@ const followOK = m => { if (SANDBOX || !SUP || !SUP.follow || !SUP.follow.length
   return !c || SUP.follow.includes(c) || m.id === V.open || location.hash === '#m.' + m.id; };   // a shared match link always opens
 const reapply = () => { if (LASTS !== undefined && !SANDBOX) applyData(LASTS); };
 function supBar(){
-  const sb = $('#supBar'); if (!sb) return; const on = !!SUP && !COACH && !PLAYER && !SANDBOX; sb.hidden = !on; if (!on) return;
+  const sb = $('#supBar'); if (!sb) return; const on = false; sb.hidden = true; if (!on) return;
   sb.innerHTML = `<span class="cb-msg"><span class="pb-badge sup">Supporter</span>Following <b>${esc(followTxt(SUP.follow))}</b></span><button type="button" class="btn small" id="supChange">Change squads</button><button type="button" class="btn small" id="supShare">Share the app</button>`;
   $('#supChange').onclick = () => followDialog(false); $('#supShare').onclick = () => shareBtn.click();
 }
@@ -1755,13 +1771,13 @@ async function supLoad(){
     if (!asked && $('#modal').hidden) followDialog(true); }
 }
 function playerBar(){
-  const pb = $('#playerBar'), on = PLAYER && !COACH; pb.hidden = !on; if (!on) return;
+  const pb = $('#playerBar'), on = false; pb.hidden = true; if (!on) return;
   pb.innerHTML = `<span class="cb-msg"><span class="pb-badge">Player</span>Signed in · videos, photos and records unlocked</span>`;
 }
 function coachBar(){
   playerBar(); supBar();
   sbBar();
-  const bar = $('#coachBar'); bar.hidden = !COACH || SANDBOX; if (!COACH || SANDBOX) return;
+  const bar = $('#coachBar'); bar.hidden = !COACH || SANDBOX || !DATA.demo; if (bar.hidden) return;
   bar.innerHTML = DATA.demo
     ? `<span><b>Coach view.</b> The matches below are examples. Clear them to start real scoring; supporters will see your matches straight away.</span><button type="button" class="btn primary" data-act="cleardemo">Clear the examples</button>`
     : `<span class="cb-msg"><span class="cb-dot"></span><b>Coach view</b> · changes go live for everyone</span><div class="ctrl"><button type="button" class="btn primary" data-act="new">New match</button></div>`;
@@ -2698,12 +2714,18 @@ function menuOpen(){
   const item = (k, t, sub, attr) => `<button type="button" class="dr-item" ${attr}>${ic(k)}<span><b>${t}</b>${sub ? `<small>${sub}</small>` : ''}</span></button>`;
   dr.innerHTML = `<nav class="dr-panel" aria-label="Menu"><div class="dr-head"><img alt="" src="${esc(DATA.crest || '')}"><div><b>ERGS Live</b><small>${EMAIL ? esc(EMAIL) + ' · ' + (real.COACH ? 'Coach' : real.PLAYER ? 'Player' : 'Supporter') : 'Live scores, fixtures and results'}</small></div><button type="button" class="dr-x" aria-label="Close menu">✕</button></div>
     ${squad || (SANDBOX && (real.COACH || real.PLAYER)) ? `<a class="dr-app" href="${esc(MAIN_APP)}" target="_blank" rel="noopener">${ic('app')}<span><b>Open the ERGS Rugby app</b><small>Plays, drills, photos, graphics and team news</small></span><span class="dr-arrow">↗</span></a>` : ''}
+    ${(V.tab === 'fixtures' || V.tab === 'results') && V.flt && V.flt.kind === V.tab ? `<div class="dr-sec">${V.tab === 'fixtures' ? 'Fixtures' : 'Results'}: what to show</div><div class="dr-flt">${V.flt.html.replace(/ data-(?!px)/g, ' data-px-').replace(/ id="/g, ' data-pxid="')}</div>` : ''}
+    ${SUP && !COACH && !PLAYER && !SANDBOX ? `<div class="dr-sec">Following</div>${item('people', 'Squads you follow', esc(followTxt(SUP.follow)), 'data-mfollow')}` : ''}
     ${COACH && !SANDBOX ? `<div class="dr-sec">Matches</div>${item('plus', 'New match', 'Add a fixture to score', 'data-mact="new"')}${item('past', 'Add a past result', 'A score from before ERGS Live', 'data-mact="past"')}${item('imp', 'Import fixtures', 'From a photo, PDF or list', 'data-mact="import"')}
       <div class="dr-sec">Manage</div>${item('crest', 'School crests', 'Crests, colours, merge and delete', 'data-mact="schools"')}${item('people', 'Coaches', 'Who can score and manage', 'data-mact="coaches"')}` : ''}
     ${(real.COACH || real.PLAYER) ? `<div class="dr-sec">Learn</div>${SANDBOX ? item('demo', 'Leave the demo', 'Back to the real scoreboard', 'data-mdemo="out"') : item('demo', real.COACH ? 'Practise in the demo' : 'Try the demo', 'Score a match and see the animations. Nothing is saved', 'data-mdemo="in"')}` : ''}
     <div class="dr-sec">More</div>${item('share', 'Share the app', 'Link and QR code', 'data-mshare')}${document.querySelector('#installSlot button, #installSlot a') ? item('imp', 'Install the app', 'On your phone or computer', 'data-minst') : ''}
     ${EMAIL ? item('out', 'Sign out', '', 'data-mout') : item('in', 'Coach & player sign in', 'With your Google account', 'data-min')}</nav>`;
   dr.querySelector('.dr-x').onclick = menuClose;
+  const mf = dr.querySelector('[data-mfollow]'); if (mf) mf.onclick = () => { menuClose(); followDialog(false); };
+  // filter copies press the real (hidden) buttons on the page, then the menu redraws
+  const fl = dr.querySelector('.dr-flt'); if (fl) fl.onclick = e => { const b = e.target.closest('button'); if (!b) return; const a = [...b.attributes].find(x => x.name.startsWith('data-px-')); if (!a) return;
+    const real = document.querySelector(`.flt-src [${a.name.replace('data-px-', 'data-')}="${CSS.escape(a.value)}"]`); if (real){ real.click(); setTimeout(menuOpen, 0); } };
   dr.querySelectorAll('[data-mact]').forEach(b => b.onclick = () => { menuClose(); act(b.dataset.mact, null); });
   dr.querySelectorAll('[data-mdemo]').forEach(b => b.onclick = () => { menuClose(); b.dataset.mdemo === 'in' ? sbEnter() : sbExit(); });
   const sh = dr.querySelector('[data-mshare]'); if (sh) sh.onclick = () => { menuClose(); shareBtn.click(); };
