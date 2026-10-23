@@ -2358,7 +2358,7 @@ function boot(){
     COACH = ok; PLAYER = pl; if (COACH) loadTeams(true); signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL;
     if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {}; PHOTOS = {};
     if (COACH || PLAYER) veoUnsub = FB.onVeo((v, ph) => { VEO = v || {}; PHOTOS = ph || {}; if (READY) render(); photoScan(); });
-    if (EMAIL && !ok && !pl) toast(`Signed in as ${EMAIL}, which isn’t on the coaches or players list.`);
+    if (EMAIL && !ok && !pl){ toast(`Signed in as ${EMAIL}, which isn’t on the coaches or players list.`); if (FB.noteSupporter) FB.noteSupporter(); }
     else if (pl) toast('Signed in as a player. Match videos and photos are unlocked.');
     if (nomsUnsub){ nomsUnsub(); nomsUnsub = null; } NOMS = []; if (notesUnsub){ notesUnsub(); notesUnsub = null; } OPPN = {};
     if (COACH && FB.onOppNotes) notesUnsub = FB.onOppNotes(v => { OPPN = v || {}; if (READY && !$('#oppNoteIn:focus')) render(); });

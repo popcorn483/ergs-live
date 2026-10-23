@@ -16,6 +16,10 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
     signOut(){ return signOut(auth); },
     async isCoach(email){ let s = await getDoc(doc(db, 'coaches', email)); if (!s.exists() && c2kTwin(email)) s = await getDoc(doc(db, 'coaches', c2kTwin(email))); if (!s.exists()) return false; const d = s.data() || {}; return d.perms && d.perms.scoring === false ? 'noscore' : true; },   // a coach without scoring sees ERGS Live like a player
+    // someone signed in who isn't a coach or player: note them as a supporter so the coaches see them (a request they already made is left alone)
+    async noteSupporter(){ const u = auth.currentUser; if (!u || !u.email) return; const id = u.email.toLowerCase(), ref = doc(db, 'requests', id);
+      try { const s = await getDoc(ref); if (!s.exists()) await setDoc(ref, {name:(u.displayName || id.split('@')[0]).slice(0, 100), photo:(u.photoURL || '').slice(0, 500), at:Date.now(), kind:'supporter'});
+        else if ((s.data() || {}).kind === 'supporter') await setDoc(ref, {at:Date.now(), photo:(u.photoURL || '').slice(0, 500)}, {merge:true}); } catch(e){} },
     async isPlayer(email){ if ((await getDoc(doc(db, 'players', email))).exists()) return true; return !!c2kTwin(email) && (await getDoc(doc(db, 'players', c2kTwin(email)))).exists(); },
     // private VEO links (team/veo, readable by coaches and players only)
     onVeo(cb){ return onSnapshot(doc(db, 'team', 'veo'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(v.byMatch || {}, v.photos || {}); }, () => cb({}, {})); },
