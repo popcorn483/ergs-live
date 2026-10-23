@@ -1275,7 +1275,10 @@ window.ERGSShare = (function(){
 .es-btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
 .es-btns button{min-height:44px;border-radius:12px;border:1px solid rgba(217,192,140,.6);background:transparent;color:#eef0f7;font-weight:700;letter-spacing:.04em;text-transform:uppercase;font-size:13px;cursor:pointer}
 .es-btns button.p{background:#d9c08c;color:#1a1630;border-color:#d9c08c}
-.es-note{margin:0;color:#aab0c8;font-size:12px;text-align:center}`; document.head.appendChild(s); }
+.es-note{margin:0;color:#aab0c8;font-size:12px;text-align:center}
+.es-soc{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px}
+.es-s{display:flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:6px 8px;border-radius:12px;color:#fff;text-decoration:none;font-weight:700;font-size:13px}
+.es-fb{background:#1877F2}.es-wa{background:#1FA855}.es-ms{background:#A033FF}.es-tw{background:#000;border:1px solid rgba(255,255,255,.25)}.es-em{background:#2D3962}.es-s:hover{filter:brightness(1.12)}`; document.head.appendChild(s); }
   function draw(url, crestSrc){
     const m = window.ERGSQR(url, 'H'), n = m.length, q = 4, sc = 12, size = (n + q*2)*sc, c = document.createElement('canvas'); c.width = c.height = size;
     const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, size, size); g.fillStyle = '#0f1530';
@@ -1284,6 +1287,14 @@ window.ERGSShare = (function(){
       const k = Math.min(box/im.naturalWidth, box/im.naturalHeight), w = im.naturalWidth*k, h = im.naturalHeight*k; g.drawImage(im, (size - w)/2, (size - h)/2, w, h); }; im.src = crestSrc; }
     return c;
   }
+  // one tap to the big apps: Facebook, WhatsApp, Messenger (phones), X and email
+  const SV = p => `<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">${p}</svg>`;
+  function soc(it){ const u = encodeURIComponent(it.url), t = it.shareText || it.desc || it.label, tx = encodeURIComponent(t), phone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    return [['fb', 'Facebook', 'https://www.facebook.com/sharer/sharer.php?u=' + u, SV('<path d="M13.5 22v-8h2.7l.4-3.2h-3.1V8.8c0-.9.3-1.6 1.6-1.6h1.7V4.4c-.3 0-1.3-.1-2.5-.1-2.5 0-4.2 1.5-4.2 4.3v2.3H7.4V14h2.7v8z"/>')],
+      ['wa', 'WhatsApp', 'https://wa.me/?text=' + encodeURIComponent(t + ' ' + it.url), SV('<path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.8 14.1c-.2.7-1.4 1.3-2 1.4-.5.1-1.2.1-1.9-.1-.4-.1-1-.3-1.7-.6-3-1.3-4.9-4.3-5-4.5-.2-.2-1.2-1.6-1.2-3s.8-2.2 1-2.5c.3-.3.6-.4.8-.4h.6c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .5l-.3.5-.4.5c-.1.1-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1.1c.2-.3.4-.2.7-.1l2 1c.3.1.5.2.5.3.1.2.1.6-.1 1.3z"/>')]]
+      .concat(phone ? [['ms', 'Messenger', 'fb-messenger://share/?link=' + u, SV('<path d="M12 2C6.4 2 2 6.1 2 11.5c0 2.8 1.2 5.3 3.2 7v3.5l3-1.7c1.2.3 2.5.5 3.8.5 5.6 0 10-4.1 10-9.3S17.6 2 12 2zm1 12.4-2.6-2.7-5 2.7 5.5-5.8 2.6 2.7 5-2.7z"/>')]] : [])
+      .concat([['tw', 'X', 'https://twitter.com/intent/tweet?text=' + tx + '&url=' + u, SV('<path d="M17.8 3h3.1l-6.8 7.8L22 21h-6.2l-4.9-6.4L5.3 21H2.2l7.3-8.3L2 3h6.4l4.4 5.8zm-1.1 16.2h1.7L7.4 4.7H5.6z"/>')],
+        ['em', 'Email', 'mailto:?subject=' + encodeURIComponent(it.label) + '&body=' + encodeURIComponent(t + '\n\n' + it.url), SV('<path d="M3 5h18v14H3zm2 2v.5l7 4.6 7-4.6V7zm14 2.9-7 4.6-7-4.6V17h14z"/>')]]); }
   function open(o){
     style(); const items = o.items || []; let cur = 0;
     const ov = document.createElement('div'); ov.className = 'es-ov'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', o.title || 'Share');
@@ -1293,7 +1304,8 @@ window.ERGSShare = (function(){
         ${items.length > 1 ? `<div class="es-tabs">${items.map((x, i) => `<button type="button" data-i="${i}" aria-pressed="${i === cur}">${esc(x.label)}</button>`).join('')}</div>` : ''}
         <p class="es-desc">${esc(it.desc || '')}</p><div class="es-qr" aria-label="QR code for ${esc(it.label)}"></div>
         <div class="es-link"><input readonly value="${esc(it.url.replace(/^https?:\/\//, '').replace(/\/$/, ''))}" aria-label="Link"></div>
-        <div class="es-btns"><button type="button" class="p" data-a="copy">Copy link</button>${navigator.share ? '<button type="button" data-a="share">Share</button>' : ''}<button type="button" data-a="dl">Save QR code</button></div>
+        <div class="es-soc" aria-label="Share to">${soc(it).map(([k, t, h, svg]) => `<a class="es-s es-${k}" href="${esc(h)}" target="_blank" rel="noopener" title="Share on ${t}"><span aria-hidden="true">${svg}</span>${t}</a>`).join('')}</div>
+        <div class="es-btns"><button type="button" class="p" data-a="copy">Copy link</button>${navigator.share ? '<button type="button" data-a="share">More…</button>' : ''}<button type="button" data-a="dl">Save QR code</button></div>
         <p class="es-note">Point a phone camera at the code to open ${esc(it.label)}. Print the QR code for posters and programmes.</p></div>`;
       const cv = draw(it.url, o.crest); ov.querySelector('.es-qr').appendChild(cv);
       ov.querySelector('.es-x').onclick = close; ov.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { cur = +b.dataset.i; render(); });
@@ -1645,6 +1657,19 @@ async function summaryCanvas(m){
   if (DATA.crest){ const cr = await loadImg(DATA.crest); if (cr){ try { g.drawImage(cr, 40, H - 110, 70, 70*cr.height/cr.width); } catch(e){} } }
   return c;
 }
+/* share one match: its own link (opens straight onto the match), with the score or kick-off in the message */
+function matchShareText(m){
+  const [h, a] = score(m), tm = m.team ? m.team + ' ' : '', line = `${m.home} ${h}–${a} ${m.away}`;
+  if (isLive(m)) return `🔴 LIVE${m.status === 'HT' ? ' (half-time)' : ` ${minuteNow(m)}′`}: ERGS ${tm}· ${line}. Follow it live on ERGS Live 🏉`;
+  if (m.status === 'FT') return `Full time: ERGS ${tm}· ${line} 🏉`;
+  if (m.off) return `ERGS ${tm}v ${usOf(m) === 'A' ? m.home : m.away} is ${m.off === 'cancelled' ? 'cancelled' : 'postponed'}${m.offWhy ? ': ' + m.offWhy : ''}.`;
+  const t = kot(m), d = t ? new Date(t) : null;
+  return `ERGS ${tm}${usOf(m) === 'A' ? '@ ' + m.home : 'v ' + m.away}${d ? ' · ' + d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}) + (m.koTbc ? ', time TBC' : ', ' + d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})) : ''}. Follow it live on ERGS Live 🏉`;
+}
+function shareMatch(m){
+  const opp = usOf(m) === 'A' ? m.home : m.away, text = matchShareText(m), label = `${m.team ? m.team + ' ' : 'ERGS '}v ${opp || 'opposition'}`;
+  window.ERGSShare.open({title:'Share this match', crest:DATA.crest, items:[{label, url:LIVE_URL + '#m.' + m.id, file:'ergs-match-qr', desc:text + ' The link opens straight onto this match.', shareText:text}]});
+}
 async function shareSummary(m){
   toast('Making the summary…'); let c; try { c = await summaryCanvas(m); } catch(e){ toast('That didn’t work on this device.'); return; }
   const blob = await new Promise(r => c.toBlob(r, 'image/png')), us = usOf(m), opp = us === 'A' ? m.home : m.away, [h, a] = score(m);
@@ -1687,7 +1712,8 @@ function viewMatch(m){
   const sumBtn = m.status === 'FT' && (COACH || PLAYER) ? `<div class="cal-one"><button type="button" class="btn primary" data-sum="${esc(m.id)}">📸 Match summary picture</button></div>` : '';
   const calOne = m.status === 'pre' && kot(m) && m.off !== 'cancelled' && kot(m) > Date.now() - 3*3600e3 ? `<div class="cal-one"><button type="button" class="btn" data-cal1="${esc(m.id)}">📅 Add to calendar</button></div>` : '';
   const wxBox = m.status === 'pre' && m.off !== 'cancelled' && kot(m) && kot(m) - Date.now() < 15.5*864e5 ? `<div class="box wx-big" data-wx="${esc(m.id)}" hidden></div>` : '';
-  return `<button class="back" type="button" data-home>All matches</button>${offBox}${banner}${sumBtn}${calOne}${wxBox}
+  const shareOne = DATA.demo ? '' : `<div class="cal-one"><button type="button" class="btn" data-shm="${esc(m.id)}">${isLive(m) ? '📣 Share this match live' : '📤 Share this match'}</button></div>`;
+  return `<button class="back" type="button" data-home>All matches</button>${offBox}${banner}${sumBtn}${shareOne}${calOne}${wxBox}
     ${coachPanel(m)}
     ${m.venue && m.status === 'pre' ? `<div class="box"><h3>Venue</h3><div>${esc(m.venue)}</div></div>` : ''}
     ${kicks.length ? `<div class="box"><h3>Goal kicking</h3>${kicks.join('')}</div>` : ''}
@@ -1704,8 +1730,8 @@ const followOK = m => { if (SANDBOX || !SUP || !SUP.follow || !SUP.follow.length
 const reapply = () => { if (LASTS !== undefined && !SANDBOX) applyData(LASTS); };
 function supBar(){
   const sb = $('#supBar'); if (!sb) return; const on = !!SUP && !COACH && !PLAYER && !SANDBOX; sb.hidden = !on; if (!on) return;
-  sb.innerHTML = `<span class="cb-msg"><span class="pb-badge sup">Supporter</span>Following <b>${esc(followTxt(SUP.follow))}</b></span><button type="button" class="btn small" id="supChange">Change squads</button>`;
-  $('#supChange').onclick = () => followDialog(false);
+  sb.innerHTML = `<span class="cb-msg"><span class="pb-badge sup">Supporter</span>Following <b>${esc(followTxt(SUP.follow))}</b></span><button type="button" class="btn small" id="supChange">Change squads</button><button type="button" class="btn small" id="supShare">Share the app</button>`;
+  $('#supChange').onclick = () => followDialog(false); $('#supShare').onclick = () => shareBtn.click();
 }
 function followDialog(first){
   const pick = new Set((SUP && SUP.follow) || []);
@@ -1767,6 +1793,7 @@ function render(){
   $$('[data-fxv]').forEach(b => b.onclick = () => { V.calJumped = false; V.fxView = b.dataset.fxv; try { localStorage.setItem('ergs.fxView', V.fxView); } catch(e){} render(); });
   $$('[data-calt]').forEach(b => b.onclick = () => { const t = b.dataset.calt; if (!t) V.calTeams.clear(); else V.calTeams.has(t) ? V.calTeams.delete(t) : V.calTeams.add(t); V.calDay = ''; try { localStorage.setItem('ergs.calTeams', JSON.stringify([...V.calTeams])); } catch(e){} render(); });
   $$('[data-cald]').forEach(b => b.onclick = () => { V.calDay = V.calDay === b.dataset.cald ? '' : b.dataset.cald; render(); const d = $('#calDay'); if (d) d.scrollIntoView({behavior:'smooth', block:'nearest'}); });
+  $$('[data-shm]').forEach(b => b.onclick = () => { const x = DATA.matches.find(y => y.id === b.dataset.shm); if (x) shareMatch(x); });
   $$('[data-sum]').forEach(b => b.onclick = () => { const x = DATA.matches.find(y => y.id === b.dataset.sum); if (x) shareSummary(x); });
   $$('[data-cal1]').forEach(b => b.onclick = () => { const x = DATA.matches.find(y => y.id === b.dataset.cal1); if (x) calIcs([x], 'ergs-match.ics'); });
   { const ct = $('#calTeam'); if (ct) ct.onchange = () => { V.calTeam = ct.value; render(); }; }
