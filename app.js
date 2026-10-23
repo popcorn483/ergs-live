@@ -1607,6 +1607,54 @@ function viewResults(){
     <div class="tbl"><table><thead><tr><th>School</th><th>P</th><th>W</th><th>D</th><th>L</th><th class="hide-s">For</th><th class="hide-s">Against</th></tr></thead><tbody>
     ${[...by.values()].sort((a, b) => b.p - a.p || a.n.localeCompare(b.n)).map(o => `<tr><td><span class="who">${crest(o.n)}${esc(o.n)}</span></td><td>${o.p}</td><td>${o.w}</td><td>${o.d}</td><td>${o.l}</td><td class="hide-s">${o.f}</td><td class="hide-s">${o.a}</td></tr>`).join('')}</tbody></table></div>` : `<p class="hint squad-note">Coaches and players can sign in to see the record against each school.</p>`}`;
 }
+/* ---------- match summary image: one tap after the match, ready for WhatsApp ---------- */
+const loadImg = src => new Promise(res => { if (!src) return res(null); const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => res(im); im.onerror = () => res(null); im.src = src; setTimeout(() => res(null), 4000); });
+async function summaryCanvas(m){
+  const W = 1080, H = 1350, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  const [h, a] = score(m), us = usOf(m), f = us === 'H' ? h : a, o = us === 'H' ? a : h, res = !us ? '' : f > o ? 'WIN' : f < o ? 'LOSS' : 'DRAW', resCol = res === 'WIN' ? '#3FBF6F' : res === 'LOSS' ? '#E5484D' : '#DCC08A';
+  const font = (w, sz, fam) => `${w} ${sz}px ${fam || "'Barlow Condensed','Arial Narrow',Arial,sans-serif"}`;
+  const fit = (txt, w, sz, maxW) => { g.font = font(w, sz); while (g.measureText(txt).width > maxW && sz > 18){ sz -= 2; g.font = font(w, sz); } return sz; };
+  // background
+  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#16204A'); bg.addColorStop(1, '#0A0F26'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.fillStyle = 'rgba(255,255,255,.03)'; for (let x = -H; x < W; x += 60){ g.beginPath(); g.moveTo(x, 0); g.lineTo(x + H, H); g.lineTo(x + H + 24, H); g.lineTo(x + 24, 0); g.fill(); }
+  g.fillStyle = '#DCC08A'; g.fillRect(0, 0, W, 10); g.fillRect(0, H - 10, W, 10);
+  // header
+  g.textAlign = 'center'; g.fillStyle = '#DCC08A'; g.font = font(700, 34); g.fillText('FULL TIME' + (m.team ? ' · ' + String(m.team).toUpperCase() : ''), W/2, 92);
+  g.fillStyle = 'rgba(255,255,255,.7)'; g.font = font(500, 28, 'Arial,sans-serif'); g.fillText([m.comp, kot(m) ? new Date(kot(m)).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short', year:'numeric'}) : '', m.venue].filter(Boolean).join('  ·  '), W/2, 138);
+  // crests and names
+  const [ih, ia] = await Promise.all([loadImg((school(m.home) || {}).crest), loadImg((school(m.away) || {}).crest)]);
+  const side = (im, name, x) => { const R = 120; g.save(); g.fillStyle = 'rgba(255,255,255,.06)'; g.beginPath(); g.arc(x, 330, R + 18, 0, Math.PI*2); g.fill(); g.restore();
+    if (im){ try { const k = Math.min(2*R/im.width, 2*R/im.height); g.drawImage(im, x - im.width*k/2, 330 - im.height*k/2, im.width*k, im.height*k); } catch(e){} }
+    else { g.fillStyle = '#2A3566'; g.beginPath(); g.arc(x, 330, R, 0, Math.PI*2); g.fill(); g.fillStyle = '#fff'; g.font = font(800, 76); g.fillText(String(name).replace(/[^A-Za-z ]/g, '').split(/\s+/).map(w => w[0]).join('').slice(0, 3).toUpperCase(), x, 356); }
+    const sz = fit(String(name).toUpperCase(), 700, 40, 400); g.fillStyle = '#fff'; g.font = font(700, sz); g.fillText(String(name).toUpperCase(), x, 520); };
+  side(ih, m.home, 250); side(ia, m.away, W - 250);
+  // score
+  g.fillStyle = '#fff'; g.font = font(900, 190, "Impact,'Arial Black',sans-serif"); g.fillText(`${h}`, W/2 - 150, 700); g.fillText(`${a}`, W/2 + 150, 700);
+  g.fillStyle = 'rgba(255,255,255,.4)'; g.font = font(900, 120, "Impact,'Arial Black',sans-serif"); g.fillText('–', W/2, 690);
+  if (res){ g.fillStyle = resCol; const tw = 220; g.beginPath(); g.roundRect ? g.roundRect(W/2 - tw/2, 740, tw, 64, 32) : g.rect(W/2 - tw/2, 740, tw, 64); g.fill(); g.fillStyle = res === 'DRAW' ? '#111318' : '#fff'; g.font = font(800, 40); g.fillText(res, W/2, 786); }
+  // scorers, one column per team
+  const col = (s, x) => { const ev = sorted(m).filter(e => e.s === s && !e.miss && ['try', 'pt', 'con', 'pen', 'dg'].includes(e.k)), by = {};
+    ev.forEach(e => { const k = e.k === 'pt' ? 'try' : e.k, n = (e.p || '').replace(/^\s*#?\d{1,2}[.)]?\s+/, '').trim() || '—'; by[k] = by[k] || {}; (by[k][n] = by[k][n] || []).push(e.m); });
+    let y = 880; g.textAlign = 'center';
+    [['try', 'TRIES'], ['con', 'CONVERSIONS'], ['pen', 'PENALTIES'], ['dg', 'DROP GOALS']].forEach(([k, t]) => { if (!by[k]) return; g.fillStyle = '#DCC08A'; g.font = font(700, 26); g.fillText(t, x, y); y += 38;
+      Object.entries(by[k]).forEach(([n, mins]) => { if (y > H - 120) return; const line = `${n}${mins.length > 1 ? ' ×' + mins.length : ''}${mins.some(v => v) ? '  ' + mins.filter(Boolean).map(v => v + '′').join(' ') : ''}`; g.fillStyle = '#fff'; const sz = fit(line, 600, 30, 440); g.font = font(600, sz); g.fillText(line, x, y); y += 36; }); y += 14; });
+    if (!ev.length){ g.fillStyle = 'rgba(255,255,255,.35)'; g.font = font(600, 28); g.fillText('No scores', x, y); } };
+  g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(W/2 - 1, 850, 2, 330); col('H', 270); col('A', W - 270);
+  // footer
+  g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,.55)'; g.font = font(600, 26); g.fillText('ERGS RUGBY  ·  popcorn483.github.io/ergs', W/2, H - 44);
+  if (DATA.crest){ const cr = await loadImg(DATA.crest); if (cr){ try { g.drawImage(cr, 40, H - 110, 70, 70*cr.height/cr.width); } catch(e){} } }
+  return c;
+}
+async function shareSummary(m){
+  toast('Making the summary…'); let c; try { c = await summaryCanvas(m); } catch(e){ toast('That didn’t work on this device.'); return; }
+  const blob = await new Promise(r => c.toBlob(r, 'image/png')), us = usOf(m), opp = us === 'A' ? m.home : m.away, [h, a] = score(m);
+  const name = `ERGS-${(m.team || 'match').replace(/\W+/g, '')}-v-${String(opp || '').replace(/\W+/g, '')}.png`, file = new File([blob], name, {type:'image/png'}), text = `ERGS ${m.team || ''} ${h}–${a} ${opp ? (us === 'A' ? 'at ' : 'v ') + opp : ''}`.replace(/\s+/g, ' ').trim();
+  openDialog(`<h2>Match summary</h2><img class="sum-img" alt="Match summary picture" src="${URL.createObjectURL(blob)}"><div class="dlg-a"><button type="button" class="btn" id="sumSave">Save picture</button><span style="flex:1"></span><button type="button" class="btn ghost" data-close>Close</button><button type="button" class="btn primary" id="sumShare">Share to WhatsApp…</button></div>`);
+  const save = () => { const u = URL.createObjectURL(blob), l = document.createElement('a'); l.href = u; l.download = name; document.body.appendChild(l); l.click(); setTimeout(() => { URL.revokeObjectURL(u); l.remove(); }, 3000); };
+  $('#sumSave').onclick = save;
+  $('#sumShare').onclick = async () => { if (navigator.canShare && navigator.canShare({files:[file]})){ try { await navigator.share({files:[file], text}); return; } catch(e){ if (e && e.name === 'AbortError') return; } }
+    save(); toast('Saved. Open WhatsApp and attach the picture.'); };
+}
 function coachPanel(m){
   if (!COACH || DATA.demo) return '';
   const b = (act, t, cls) => `<button type="button" class="btn ${cls || ''}" data-act="${act}">${t}</button>`;
@@ -1636,9 +1684,10 @@ function viewMatch(m){
   const tc = teamCode(m.team), teamBig = m.team ? `<div class="mv-team"><span class="mv-code">${esc(TEAM_CODES.includes(tc) ? tc : m.team)}</span>${TEAM_CODES.includes(tc) ? `<span class="mv-name">${esc(TEAM_NAMES[tc])}</span>` : ''}${m.comp ? `<span class="mv-comp">${esc([m.comp, m.round].filter(Boolean).join(' · '))}</span>` : ''}</div>` : '';
   const media = veoOf(m) || photosOf(m) ? `<div class="mv-media">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ View on VEO</a>` : ''}${photosOf(m) ? `<a class="veo photos" href="${esc(photosOf(m))}" target="_blank" rel="noopener">${ic('photo')}Match photos</a>${COACH && !DATA.demo ? `<button type="button" class="ph-x" data-phx="${esc(m.id)}" title="Not the photos from this match? Remove the link">✕ Not this match</button>` : ''}` : ''}</div>` : '';
   const banner = (isLive(m) || m.status === 'FT' ? board(m, true) : `<div class="sb quiet"><div class="sb-meta">${esc(compLine(m))}</div><div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b></div><div class="score" style="font-size:40px;color:var(--dim)">v</div><div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b></div></div><span class="clock" style="border-color:var(--rule)">${esc(when(m, true) || 'Date to be confirmed')}</span></div>`).replace(/<div class="sb-meta">[^<]*<\/div>/, s0 => { if (!teamBig) return s0; const t = [m.status === '1H' ? '1st half' : m.status === '2H' ? '2nd half' : '', isLive(m) || m.status === 'FT' ? m.venue : ''].filter(Boolean).join(' · '); return teamBig + (t ? `<div class="sb-meta">${esc(t)}</div>` : ''); }).replace(/<\/div>\s*$/, media + '</div>');
+  const sumBtn = m.status === 'FT' && (COACH || PLAYER) ? `<div class="cal-one"><button type="button" class="btn primary" data-sum="${esc(m.id)}">📸 Match summary picture</button></div>` : '';
   const calOne = m.status === 'pre' && kot(m) && m.off !== 'cancelled' && kot(m) > Date.now() - 3*3600e3 ? `<div class="cal-one"><button type="button" class="btn" data-cal1="${esc(m.id)}">📅 Add to calendar</button></div>` : '';
   const wxBox = m.status === 'pre' && m.off !== 'cancelled' && kot(m) && kot(m) - Date.now() < 15.5*864e5 ? `<div class="box wx-big" data-wx="${esc(m.id)}" hidden></div>` : '';
-  return `<button class="back" type="button" data-home>All matches</button>${offBox}${banner}${calOne}${wxBox}
+  return `<button class="back" type="button" data-home>All matches</button>${offBox}${banner}${sumBtn}${calOne}${wxBox}
     ${coachPanel(m)}
     ${m.venue && m.status === 'pre' ? `<div class="box"><h3>Venue</h3><div>${esc(m.venue)}</div></div>` : ''}
     ${kicks.length ? `<div class="box"><h3>Goal kicking</h3>${kicks.join('')}</div>` : ''}
@@ -1718,6 +1767,7 @@ function render(){
   $$('[data-fxv]').forEach(b => b.onclick = () => { V.calJumped = false; V.fxView = b.dataset.fxv; try { localStorage.setItem('ergs.fxView', V.fxView); } catch(e){} render(); });
   $$('[data-calt]').forEach(b => b.onclick = () => { const t = b.dataset.calt; if (!t) V.calTeams.clear(); else V.calTeams.has(t) ? V.calTeams.delete(t) : V.calTeams.add(t); V.calDay = ''; try { localStorage.setItem('ergs.calTeams', JSON.stringify([...V.calTeams])); } catch(e){} render(); });
   $$('[data-cald]').forEach(b => b.onclick = () => { V.calDay = V.calDay === b.dataset.cald ? '' : b.dataset.cald; render(); const d = $('#calDay'); if (d) d.scrollIntoView({behavior:'smooth', block:'nearest'}); });
+  $$('[data-sum]').forEach(b => b.onclick = () => { const x = DATA.matches.find(y => y.id === b.dataset.sum); if (x) shareSummary(x); });
   $$('[data-cal1]').forEach(b => b.onclick = () => { const x = DATA.matches.find(y => y.id === b.dataset.cal1); if (x) calIcs([x], 'ergs-match.ics'); });
   { const ct = $('#calTeam'); if (ct) ct.onchange = () => { V.calTeam = ct.value; render(); }; }
   $$('[data-calall]').forEach(b => b.onclick = () => { const now = Date.now(), list = DATA.matches.filter(m => m.status !== 'FT' && m.off !== 'cancelled' && kot(m) > now - 3*3600e3 && haOK(m) && tmOK(m)); calIcs(list, 'ergs-fixtures.ics'); });
