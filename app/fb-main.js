@@ -24,7 +24,8 @@ const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth
     if (ROLE !== 'coach'){ const p = await look('players'); if (p){ ROLE = 'player'; PLAYER = p; } }
   }
   // not on a list yet: leave a request so the coaches see them waiting (needs the requests rule in Firebase)
-  if (EMAIL && ROLE === 'public'){ try { await setDoc(doc(fs, 'requests', EMAIL), {name:(USER.displayName || '').slice(0, 100), photo:(USER.photoURL || '').slice(0, 500), at:Date.now()}); } catch(e){} }
+  if (EMAIL && ROLE === 'public'){ try { let had = null; try { const r0 = await getDoc(doc(fs, 'requests', EMAIL)); had = r0.exists() ? r0.data() : null; } catch(x){}   // keep the name, squad and position they told us
+    await setDoc(doc(fs, 'requests', EMAIL), Object.assign({photo:(USER.photoURL || '').slice(0, 500), at:Date.now()}, had && had.sent ? {} : {name:(USER.displayName || '').slice(0, 100)}), {merge:true}); } catch(e){} }
   if (first){ first = false; res(); } else location.reload();
 }); });
 getRedirectResult(auth).catch(() => {});
