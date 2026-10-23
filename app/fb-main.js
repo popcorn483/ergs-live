@@ -17,8 +17,11 @@ const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth
   USER = u; EMAIL = u && u.email ? u.email.toLowerCase() : ''; ROLE = 'public';
   if (EMAIL){
     if (EMAIL === ADMIN) ROLE = 'coach';
-    else { try { const cs = await getDoc(doc(fs, 'coaches', EMAIL)); if (cs.exists()){ ROLE = 'coach'; COACH = cs.data() || {}; } } catch(e){} }
-    if (ROLE !== 'coach'){ try { const ps = await getDoc(doc(fs, 'players', EMAIL)); if (ps.exists()){ ROLE = 'player'; PLAYER = ps.data() || {}; } } catch(e){} }
+    // C2k accounts: @c2ken.net and @c2kni.net are the same person, so a login added under either address works for both
+    const twin = /@c2ken\.net$/.test(EMAIL) ? EMAIL.replace(/@c2ken\.net$/, '@c2kni.net') : /@c2kni\.net$/.test(EMAIL) ? EMAIL.replace(/@c2kni\.net$/, '@c2ken.net') : '';
+    const look = async col => { for (const e of [EMAIL, twin].filter(Boolean)){ try { const s = await getDoc(doc(fs, col, e)); if (s.exists()){ EMAIL = e; return s.data() || {}; } } catch(err){} } return null; };
+    if (ROLE !== 'coach'){ const c = await look('coaches'); if (c){ ROLE = 'coach'; COACH = c; } }
+    if (ROLE !== 'coach'){ const p = await look('players'); if (p){ ROLE = 'player'; PLAYER = p; } }
   }
   // not on a list yet: leave a request so the coaches see them waiting (needs the requests rule in Firebase)
   if (EMAIL && ROLE === 'public'){ try { await setDoc(doc(fs, 'requests', EMAIL), {name:(USER.displayName || '').slice(0, 100), photo:(USER.photoURL || '').slice(0, 500), at:Date.now()}); } catch(e){} }

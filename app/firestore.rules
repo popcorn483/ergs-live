@@ -4,8 +4,13 @@ service cloud.firestore {
     function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
     function me() { return request.auth.token.email.lower(); }
     function isAdmin() { return signedIn() && me() == 'ergsrugby@gmail.com'; }
-    function isCoach() { return isAdmin() || (signedIn() && exists(/databases/$(database)/documents/coaches/$(me()))); }
-    function isPlayer() { return signedIn() && exists(/databases/$(database)/documents/players/$(me())); }
+    // C2k: @c2ken.net and @c2kni.net are the same person, so either address gets the other's access
+    function twinA() { return me().replace('@c2ken[.]net$', '@c2kni.net'); }
+    function twinB() { return me().replace('@c2kni[.]net$', '@c2ken.net'); }
+    function mine(email) { return signedIn() && (me() == email || twinA() == email || twinB() == email); }
+    function onList(col) { return exists(/databases/$(database)/documents/$(col)/$(me())) || exists(/databases/$(database)/documents/$(col)/$(twinA())) || exists(/databases/$(database)/documents/$(col)/$(twinB())); }
+    function isCoach() { return isAdmin() || (signedIn() && onList('coaches')); }
+    function isPlayer() { return signedIn() && onList('players'); }
     function isSquad() { return isCoach() || isPlayer(); }
 
     // ERGS Live scoreboard: anyone can watch, only coaches can score
@@ -15,35 +20,35 @@ service cloud.firestore {
     }
     // who can sign in
     match /coaches/{email} {
-      allow read: if isCoach() || (signedIn() && me() == email);
+      allow read: if isCoach() || mine(email);
       allow write: if isCoach();
     }
     // someone who signed in but isn't on a list yet leaves a request; coaches see it and add them as a player or coach
     match /requests/{email} {
       allow read, delete: if isCoach();
-      allow create, update: if signedIn() && me() == email && request.resource.data.keys().hasOnly(['name', 'photo', 'at']) && request.resource.data.name is string && request.resource.data.name.size() < 120;
+      allow create, update: if mine(email) && request.resource.data.keys().hasOnly(['name', 'photo', 'at']) && request.resource.data.name is string && request.resource.data.name.size() < 120;
     }
     // a player sends their own headshot (once a season, unless a coach opens it again); coaches approve it
     match /headshots/{email} {
-      allow read: if isCoach() || (signedIn() && me() == email);
+      allow read: if isCoach() || mine(email);
       allow update, delete: if isCoach();
-      allow create, update: if isPlayer() && me() == email
+      allow create, update: if isPlayer() && mine(email)
         && request.resource.data.status == 'pending' && request.resource.data.photo is string && request.resource.data.photo.size() < 950000
         && request.resource.data.season is string
         && (resource == null || resource.data.status == 'open' || resource.data.season != request.resource.data.season);
       // a player can take their own headshot down (they then can't send another this season unless a coach lets them)
       // a player can mark a coach's decision as seen (only the 'seen' field changes)
-      allow update: if isPlayer() && me() == email && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']);
-      allow create, update: if isPlayer() && me() == email && request.resource.data.status == 'removed' && request.resource.data.photo == '' && request.resource.data.season is string;
+      allow update: if isPlayer() && mine(email) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seen']);
+      allow create, update: if isPlayer() && mine(email) && request.resource.data.status == 'removed' && request.resource.data.photo == '' && request.resource.data.season is string;
     }
     // a player says whether they can play each match; coaches see it when picking the team
     match /avail/{email} {
-      allow read: if isCoach() || (signedIn() && me() == email);
-      allow write: if isPlayer() && me() == email && request.resource.data.keys().hasOnly(['m', 'name', 'team', 'rid', 'at']) && request.resource.data.m.size() < 60;
+      allow read: if isCoach() || mine(email);
+      allow write: if isPlayer() && mine(email) && request.resource.data.keys().hasOnly(['m', 'name', 'team', 'rid', 'at']) && request.resource.data.m.size() < 60;
       allow delete: if isCoach();
     }
     match /players/{email} {
-      allow read: if isCoach() || (signedIn() && me() == email);
+      allow read: if isCoach() || mine(email);
       allow write: if isCoach();
     }
     // main app: plays, squads and pictures for coaches and players; everything else coaches only

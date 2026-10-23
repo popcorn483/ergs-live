@@ -1,4 +1,6 @@
 // Firebase connection for ERGS Live. Loaded as a module; exposes window.FB to app.js.
+// C2k: @c2ken.net and @c2kni.net are the same person
+const c2kTwin = e => /@c2ken\.net$/.test(e || '') ? e.replace(/@c2ken\.net$/, '@c2kni.net') : /@c2kni\.net$/.test(e || '') ? e.replace(/@c2kni\.net$/, '@c2ken.net') : '';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getFirestore, doc, onSnapshot, runTransaction, getDoc, setDoc, deleteDoc, collection, getDocs } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
@@ -13,8 +15,8 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     onAuth(cb){ return onAuthStateChanged(auth, cb); },
     async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
     signOut(){ return signOut(auth); },
-    async isCoach(email){ const s = await getDoc(doc(db, 'coaches', email)); if (!s.exists()) return false; const d = s.data() || {}; return d.perms && d.perms.scoring === false ? 'noscore' : true; },   // a coach without scoring sees ERGS Live like a player
-    async isPlayer(email){ return (await getDoc(doc(db, 'players', email))).exists(); },
+    async isCoach(email){ let s = await getDoc(doc(db, 'coaches', email)); if (!s.exists() && c2kTwin(email)) s = await getDoc(doc(db, 'coaches', c2kTwin(email))); if (!s.exists()) return false; const d = s.data() || {}; return d.perms && d.perms.scoring === false ? 'noscore' : true; },   // a coach without scoring sees ERGS Live like a player
+    async isPlayer(email){ if ((await getDoc(doc(db, 'players', email))).exists()) return true; return !!c2kTwin(email) && (await getDoc(doc(db, 'players', c2kTwin(email)))).exists(); },
     // private VEO links (team/veo, readable by coaches and players only)
     onVeo(cb){ return onSnapshot(doc(db, 'team', 'veo'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(v.byMatch || {}, v.photos || {}); }, () => cb({}, {})); },
     setVeo(id, url){ return this.setMedia('byMatch', id, url); },
