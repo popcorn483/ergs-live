@@ -26,9 +26,13 @@ service cloud.firestore {
     }
     // someone who signed in but isn't on a list yet leaves a request; coaches see it and add them as a player or coach
     match /requests/{email} {
+      function reqOK() { return request.resource.data.keys().hasOnly(['name', 'photo', 'at', 'squad', 'pos', 'sent', 'resend']) && (!('squad' in request.resource.data) || (request.resource.data.squad is string && request.resource.data.squad.size() < 20)) && (!('pos' in request.resource.data) || (request.resource.data.pos is string && request.resource.data.pos.size() < 4)) && request.resource.data.name is string && request.resource.data.name.size() < 120; }
       allow read: if isCoach() || mine(email);
       allow delete: if isCoach();
-      allow create, update: if mine(email) && request.resource.data.keys().hasOnly(['name', 'photo', 'at', 'squad', 'pos', 'sent']) && (!('squad' in request.resource.data) || (request.resource.data.squad is string && request.resource.data.squad.size() < 20)) && (!('pos' in request.resource.data) || (request.resource.data.pos is string && request.resource.data.pos.size() < 4)) && request.resource.data.name is string && request.resource.data.name.size() < 120;
+      allow update: if isCoach();   // a coach can reset the one-hour wait
+      allow create: if mine(email) && reqOK();
+      // sending again: once an hour, or straight away after a coach resets it; other updates (photo, last seen) don't touch 'sent'
+      allow update: if mine(email) && reqOK() && (!('sent' in resource.data) || request.resource.data.get('sent', 0) == resource.data.sent || resource.data.get('resend', false) == true || request.time.toMillis() - resource.data.sent > 3600000);
     }
     // a player sends their own headshot (once a season, unless a coach opens it again); coaches approve it
     match /headshots/{email} {
