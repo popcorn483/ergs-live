@@ -2373,12 +2373,27 @@ function offDialog(m){
     <div class="dlg-a"><button type="button" class="btn primary" data-close>Got it</button></div>`);
 })();
 try { if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch(e){}
-signLink.onclick = async () => { try { sessionStorage.setItem('ergs.toApp', '1'); } catch(e){} try { await FB.signIn(); } catch(e){ toast(/popup/.test(e && e.code || '') ? 'Allow pop-ups for this site, then try again.' : 'Sign-in didn’t finish. Try again.'); } };
+const googleIn = async () => { try { sessionStorage.setItem('ergs.toApp', '1'); } catch(e){} try { await FB.signIn(); } catch(e){ toast(/popup/.test(e && e.code || '') ? 'Allow pop-ups for this site, then try again.' : 'Sign-in didn’t finish. Try again.'); } };
+// sign in: Google, or an email link for school C2k accounts (their admins block Google sign-in for outside apps)
+signLink.onclick = () => { let saved = ''; try { saved = localStorage.getItem('ergs.linkEmail') || ''; } catch(e){}
+  openDialog(`<h2>Sign in</h2><p>Coaches, players and supporters. Supporters can pick the squads they follow.</p>
+    <button type="button" class="btn primary lk-g" id="lkGoogle">Sign in with Google</button>
+    <div class="lk-or"><span>or, with a school C2k account</span></div>
+    <form class="lk-form" id="lkForm"><input class="input" type="email" id="lkEmail" placeholder="you@c2ken.net" autocomplete="email" inputmode="email" value="${esc(saved)}" aria-label="Your school email"><button class="btn" type="submit" id="lkGo">Email me a link</button></form>
+    <p class="lk-msg" id="lkMsg" role="status"></p>
+    <div class="dlg-a"><button type="button" class="btn ghost" data-close>Close</button></div>`, d => {
+    d.querySelector('#lkGoogle').onclick = () => { closeDialog(); googleIn(); };
+    d.querySelector('#lkForm').onsubmit = async e => { e.preventDefault(); const go = d.querySelector('#lkGo'), msg = d.querySelector('#lkMsg'); go.disabled = true; msg.className = 'lk-msg';
+      try { const em = await FB.sendLink(d.querySelector('#lkEmail').value); msg.classList.add('ok'); msg.innerHTML = `Link sent to <b>${esc(em)}</b>. Open that email on this phone or computer and tap <b>Sign in</b>. It can take a minute or two, so check Junk or Other too.`; go.textContent = 'Send again'; }
+      catch(err){ msg.classList.add('bad'); msg.textContent = FB.linkMsg ? FB.linkMsg(err) : 'The link couldn’t be sent. Try again.'; }
+      go.disabled = false; }; }); };
 function boot(){
   const FB = window.FB;
   if (!FB){ $('#view').innerHTML = '<div class="empty">The scoreboard isn’t connected yet. (Setup: add the Firebase details to config.js.)</div>'; return; }
   FB.onState((s, exists) => { HAS_DOC = exists; applyState(s); }, err => { console.error(err); $('#view').innerHTML = '<div class="empty">Couldn’t reach the scoreboard. Check your signal; it reconnects by itself.</div>'; });
+  if (FB.linkErr) setTimeout(() => toast(FB.linkErr), 800);
   FB.onAuth(async user => {
+    if (FB.linkErr && !user) toast(FB.linkErr);
     EMAIL = user && user.email ? user.email.toLowerCase() : ''; ADMIN = !!EMAIL && EMAIL === String(CFG.admin || '').toLowerCase();
     let ok = ADMIN; if (EMAIL && !ok){ try { ok = await FB.isCoach(EMAIL); } catch(e){ ok = false; } }
     let pl = false; if (ok === 'noscore'){ ok = false; pl = true; }

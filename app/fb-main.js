@@ -2,18 +2,44 @@
 // The app asks for "db", "user", "assets" and "downloads"; this module answers with Firebase-backed versions.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, runTransaction } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const CFG = window.ERGS_CONFIG || {};
 const app = initializeApp(CFG.firebase), fs = getFirestore(app), auth = getAuth(app);
 const ADMIN = String(CFG.admin || '').toLowerCase();
 const LIVE = doc(fs, 'live', 'state');
+/* sign in with an email link: for school (C2k) accounts that can't use Google sign-in for outside apps.
+   They type their email, get a link in that inbox, and opening it signs them in here (no Google sign-in involved). */
+const LINK_KEY = 'ergs.linkEmail';
+let LINK_ERR = '';
+const linkDone = (async () => {
+  const href = location.href; if (!isSignInWithEmailLink(auth, href)) return;
+  let email = ''; try { email = localStorage.getItem(LINK_KEY) || ''; } catch(e){}
+  // opened on a different device or browser from the one that asked: confirm the address
+  if (!email) email = (window.prompt('Confirm your email address to finish signing in') || '').trim();
+  // tidy the address bar first, so the reload after signing in doesn't reuse the link
+  try { const u = new URL(href); ['apiKey', 'oobCode', 'mode', 'continueUrl', 'lang', 'tenantId'].forEach(k => u.searchParams.delete(k)); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch(e){}
+  if (!email) { LINK_ERR = 'Sign-in wasn’t finished: no email address was given. Ask for a new link.'; return; }
+  try { await signInWithEmailLink(auth, email.toLowerCase(), href); try { localStorage.removeItem(LINK_KEY); } catch(e){} }
+  catch(e){ const c = String(e && e.code || ''); LINK_ERR = /invalid-action-code|expired/.test(c) ? 'That sign-in link has expired or was already used. Ask for a new one.' : /invalid-email/.test(c) ? 'That email address doesn’t match the one the link was sent to. Ask for a new link.' : 'Signing in with the link didn’t work. Ask for a new one.'; }
+})();
+async function sendLink(email, back){
+  email = String(email || '').trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ const x = new Error('Enter your full email address.'); x.code = 'auth/invalid-email'; throw x; }
+  const url = back || (location.origin + location.pathname);
+  await sendSignInLinkToEmail(auth, email, {url, handleCodeInApp:true});
+  try { localStorage.setItem(LINK_KEY, email); } catch(e){}
+  return email;
+}
+const linkMsg = e => { const c = String(e && e.code || ''); return /operation-not-allowed|admin-restricted/.test(c) ? 'Email-link sign-in isn’t switched on yet. A coach needs to turn it on in Firebase (Authentication › Sign-in method › Email/Password › Email link).'
+  : /invalid-email/.test(c) ? 'Enter your full email address.' : /quota|too-many/.test(c) ? 'Too many links sent just now. Wait a few minutes and try again.' : /unauthorized-continue-uri|unauthorized-domain/.test(c) ? 'This site isn’t on Firebase’s authorised domains list yet. A coach needs to add it in Firebase › Authentication › Settings.' : 'The link couldn’t be sent. Check your connection and try again.'; };
+
 const enc = d => ({j: JSON.stringify(d === undefined ? null : d), u: Date.now()});
 const dec = s => { if (!s.exists()) return null; const v = s.data(); if (typeof v.j === 'string'){ try { return JSON.parse(v.j); } catch(e){ return null; } } return v; };
 const err = e => { const c = String(e && e.code || ''); const x = new Error(e && e.message || c); x.code = /permission/.test(c) ? 'not_granted' : /unavailable|network/.test(c) ? 'unavailable' : /resource-exhausted/.test(c) ? 'quota_exceeded' : 'invalid_argument'; return x; };
 
 let USER = null, EMAIL = '', ROLE = 'public', PLAYER = null, COACH = null, ACCESS_ERR = '';   // ACCESS_ERR: the access check itself was refused (usually old Firebase rules)   // COACH: this coach's record (name, scope: admin / all / a squad)   // PLAYER: this player's access (team, what they can see)
 const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth, async u => {
+  if (first){ await linkDone; if ((auth.currentUser || null) !== (u || null)) return; }   // a sign-in link being opened: let it finish, then go with the account it signed in
   USER = u; EMAIL = u && u.email ? u.email.toLowerCase() : ''; ROLE = 'public'; ACCESS_ERR = '';
   if (EMAIL){
     if (EMAIL === ADMIN) ROLE = 'coach';
@@ -146,6 +172,7 @@ window.ERGS_AUTH = {
   async setAccess(kind, email, data){ try { await setDoc(doc(fs, kind, email.toLowerCase()), data, {merge:true}); } catch(e){ throw err(e); } }, get admin(){ return EMAIL && EMAIL === ADMIN; }, adminEmail:ADMIN,
   async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
   signOut(){ return signOut(auth); },
+  sendLink, linkMsg, get linkErr(){ return LINK_ERR; }, get linkEmail(){ try { return localStorage.getItem(LINK_KEY) || ''; } catch(e){ return ''; } },
   async getOne(kind, id){ try { const s = await getDoc(doc(fs, kind, String(id).toLowerCase())); return s.exists() ? Object.assign({id:s.id}, s.data()) : null; } catch(e){ throw err(e); } },
   async list(kind){ const out = []; await new Promise((res, rej) => { const u = onSnapshot(collection(fs, kind), s => { s.docs.forEach(d => out.push(d.id)); u(); res(); }, e => { rej(err(e)); }); }); return out.sort(); },
   async add(kind, email){ try { await setDoc(doc(fs, kind, email.toLowerCase()), {added:Date.now(), by:EMAIL}); } catch(e){ throw err(e); } },
