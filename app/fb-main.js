@@ -150,6 +150,7 @@ window.ERGS_AUTH = {
   async list(kind){ const out = []; await new Promise((res, rej) => { const u = onSnapshot(collection(fs, kind), s => { s.docs.forEach(d => out.push(d.id)); u(); res(); }, e => { rej(err(e)); }); }); return out.sort(); },
   async add(kind, email){ try { await setDoc(doc(fs, kind, email.toLowerCase()), {added:Date.now(), by:EMAIL}); } catch(e){ throw err(e); } },
   async remove(kind, email){ try { await deleteDoc(doc(fs, kind, email.toLowerCase())); } catch(e){ throw err(e); } },
+  async removeDoc(kind, id){ try { await deleteDoc(doc(fs, kind, String(id))); } catch(e){ throw err(e); } },   // ids that aren't emails (members are keyed by sign-in id)
   raw:{fs, doc, setDoc, getDoc, enc}
 };
 window.__fbResolve({
