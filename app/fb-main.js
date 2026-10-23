@@ -102,7 +102,7 @@ function makeDoc(path){
         if (veo !== (MEDIA.byMatch[id] || '') || ph !== (MEDIA.photos[id] || '')){ try { await setMedia(id, veo, ph); } catch(e){ throw err(e); } } }
       if (col === 'matches') return liveTx(st => { const i = st.matches.findIndex(m => m.id === id), m = Object.assign({}, data, {id}); if (i >= 0) st.matches[i] = m; else st.matches.push(m); });
       if (col === 'schools') return liveTx(st => { st.schools[id] = data; });
-      if (col === 'members') data = Object.assign({}, data, {name:USER && USER.displayName || '', email:EMAIL, photo:USER && USER.photoURL || ''});
+      if (col === 'members') data = Object.assign({}, data, {name:USER && USER.displayName || '', email:EMAIL, login:ALIAS || EMAIL, via:ALIAS ? ALIAS_REL : '', photo:USER && USER.photoURL || ''});   // login: the email actually used (a second email or a guardian's)
       try { await setDoc(doc(fs, col, id), enc(data)); } catch(e){ throw err(e); }
     },
     async delete(){
