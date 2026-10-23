@@ -83,6 +83,18 @@ service cloud.firestore {
     }
     // approval emails to the head coach: anyone signed in reads the settings (so a new request can send one), only coaches change them
     match /notify/{doc} { allow read: if signedIn(); allow write: if isCoach(); }
+    // Team news: coaches post to a squad (or everyone); the squad reads them
+    match /posts/{id} {
+      allow read: if isSquad();
+      allow create, update: if isCoach() && request.resource.data.text is string && request.resource.data.text.size() < 4000 && request.resource.data.at is number;
+      allow delete: if isCoach();
+    }
+    // read receipts: one doc per player (p: the player's own reads, g: their parent/guardian's); coaches see them all
+    match /reads/{email} {
+      allow read: if isCoach() || mine(email);
+      allow create, update: if isSquad() && mine(email) && request.resource.data.keys().hasOnly(['p', 'g', 'name', 'at']) && request.resource.data.get('p', {}).size() < 400 && request.resource.data.get('g', {}).size() < 400;
+      allow delete: if isCoach();
+    }
     match /sponsors/{doc} { allow read, write: if isCoach(); }
     match /sheets/{doc} { allow read, write: if isCoach(); }
     match /members/{uid} {

@@ -1,7 +1,7 @@
 // ERGS Rugby on GitHub: connects the app's data layer to Firebase, with the same coach logins as ERGS Live.
 // The app asks for "db", "user", "assets" and "downloads"; this module answers with Firebase-backed versions.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, runTransaction } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, runTransaction, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const CFG = window.ERGS_CONFIG || {};
@@ -36,6 +36,7 @@ const linkMsg = e => { const c = String(e && e.code || ''); return /operation-no
 const enc = d => ({j: JSON.stringify(d === undefined ? null : d), u: Date.now()});
 const dec = s => { if (!s.exists()) return null; const v = s.data(); if (typeof v.j === 'string'){ try { return JSON.parse(v.j); } catch(e){ return null; } } return v; };
 const err = e => { const c = String(e && e.code || ''); const x = new Error(e && e.message || c); x.code = /permission/.test(c) ? 'not_granted' : /unavailable|network/.test(c) ? 'unavailable' : /resource-exhausted/.test(c) ? 'quota_exceeded' : 'invalid_argument'; return x; };
+window.__ergsErr = e => err(e);
 
 let ALIAS = '', ALIAS_REL = '', ALIAS_NAME = '';   // signed in with a player's second email (EMAIL is then their main one)
 let USER = null, EMAIL = '', ROLE = 'public', PLAYER = null, COACH = null, ACCESS_ERR = '';   // ACCESS_ERR: the access check itself was refused (usually old Firebase rules)   // COACH: this coach's record (name, scope: admin / all / a squad)   // PLAYER: this player's access (team, what they can see)
@@ -175,6 +176,9 @@ window.ERGS_AUTH = {
   // second sign-in emails live in players/ but aren't players in their own right: listFull leaves them out, aliases() lists them
   async listFull(kind){ const all = await window.ERGS_AUTH.listRaw(kind); return kind === 'players' ? all.filter(d => !d.aliasOf) : all; },
   async aliases(){ return (await window.ERGS_AUTH.listRaw("players")).filter(d => d.aliasOf); },
+  // live: the newest n docs of a collection (Team news), newest first; returns a stop function
+  watch(kind, cb, n, err){ return onSnapshot(query(collection(fs, kind), orderBy('at', 'desc'), limit(n || 100)), s => cb(s.docs.map(d => Object.assign({id:d.id}, d.data()))), e => err && err(window.__ergsErr ? window.__ergsErr(e) : e)); },
+  watchDoc(kind, id, cb){ return onSnapshot(doc(fs, kind, String(id).toLowerCase()), s => cb(s.exists() ? s.data() : null), () => cb(null)); },
   async listRaw(kind){ const out = []; await new Promise((res, rej) => { const u = onSnapshot(collection(fs, kind), s => { s.docs.forEach(d => out.push(Object.assign({id:d.id}, d.data()))); u(); res(); }, e => { rej(err(e)); }); }); return out.sort((a, b) => a.id.localeCompare(b.id)); },
   async setAccess(kind, email, data){ try { await setDoc(doc(fs, kind, email.toLowerCase()), data, {merge:true}); } catch(e){ throw err(e); } try { window.__afterSet && window.__afterSet(kind, email.toLowerCase(), data); } catch(e){} }, get admin(){ return EMAIL && EMAIL === ADMIN; }, adminEmail:ADMIN,
   async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
