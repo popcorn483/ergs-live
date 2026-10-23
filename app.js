@@ -1346,6 +1346,7 @@ document.body.insertAdjacentHTML('beforeend', `
   <header><img id="crestImg" alt="Enniskillen Royal Grammar School crest"><h1>ERGS <span>Live</span></h1><span class="sp"></span><div class="hd-r"><span class="pill live">Live scores</span><span id="installSlot"></span></div></header>
   <div class="coachbar" id="coachBar" hidden></div>
   <div class="playerbar" id="playerBar" hidden></div>
+  <div class="playerbar supbar" id="supBar" hidden></div>
   <div class="demo" id="demoBar" hidden><span><b>Preview with example matches.</b> Real scores replace these once coaches start scoring here.</span><button type="button" id="demoTry">Show a try landing</button></div>
   <nav class="tabs" id="tabs" aria-label="Sections"><button type="button" data-v="matches">Matches</button><button type="button" data-v="fixtures">Fixtures</button><button type="button" data-v="results">Results</button></nav>
   <main id="view" aria-live="polite"></main>
@@ -1645,12 +1646,45 @@ function viewMatch(m){
       ${evs.filter(e => e.k === 'note' && e.p).slice().reverse().slice(0, 12).map((e, i) => `<div class="cf${i === 0 ? ' latest' : ''}"><span class="cf-m">${e.m}′</span><p>${esc(e.p)}</p></div>`).join('')}</div>` : ''}
     <div class="box"><h3>Match timeline</h3>${evs.length ? `<ul class="tl">${evs.slice().reverse().map(e => `<li class="${e.miss ? 'miss' : ''}${canX ? ' x' : ''}"><span class="mn">${e.m}′</span><span class="ic ${e.k}">${e.k === 'note' ? '…' : EVK[e.k][1]}</span><span class="tx"><b>${esc(label(e))}</b> <span>${e.k === 'note' ? '' : esc(e.s === 'H' ? m.home : m.away)}</span></span><span class="run">${ptsOf(e) ? run.get(e) : ''}</span>${canX ? `<button type="button" class="rm" data-rm="${esc(e.id)}" aria-label="Remove this entry">×</button>` : ''}</li>`).join('')}</ul>` : `<p style="margin:0;color:var(--mute)">${m.status === 'pre' ? 'The timeline fills in once the match kicks off.' : 'Final score only.'}</p>`}</div>`;
 }
+/* supporters: anyone signed in who isn't a coach or player follows every squad, or the squads they pick (saved on their sign-in record) */
+let SUP = null, LASTS;   // SUP: {follow:[team codes]} for a signed-in supporter; an empty list means every squad
+const FOLLOW_LBL = {'1XV':'1st XV', '2XV':'2nd XV', '3XV':'3rd XV', U16:'U16', Meds:'Medallion', U14:'U14', U13:'U13', U12:'U12', SG:'Senior Girls', JG:'Junior Girls'};
+const followTxt = l => !l || !l.length ? 'all squads' : l.map(c => FOLLOW_LBL[c] || c).join(', ');
+const followOK = m => { if (SANDBOX || !SUP || !SUP.follow || !SUP.follow.length) return true; const c = teamCode(m.team);
+  return !c || SUP.follow.includes(c) || m.id === V.open || location.hash === '#m.' + m.id; };   // a shared match link always opens
+const reapply = () => { if (LASTS !== undefined && !SANDBOX) applyData(LASTS); };
+function supBar(){
+  const sb = $('#supBar'); if (!sb) return; const on = !!SUP && !COACH && !PLAYER && !SANDBOX; sb.hidden = !on; if (!on) return;
+  sb.innerHTML = `<span class="cb-msg"><span class="pb-badge sup">Supporter</span>Following <b>${esc(followTxt(SUP.follow))}</b></span><button type="button" class="btn small" id="supChange">Change squads</button>`;
+  $('#supChange').onclick = () => followDialog(false);
+}
+function followDialog(first){
+  const pick = new Set((SUP && SUP.follow) || []);
+  openDialog(`<h2>${first ? 'Which squads do you follow?' : 'Squads you follow'}</h2><p>You’ll see matches, fixtures and results for these squads. Change it any time with <b>Change squads</b> at the top.</p>
+    <div class="fl-grid"><button type="button" class="fl-chip fl-all" data-flall>All squads</button>${TEAM_CODES.map(c => `<button type="button" class="fl-chip" data-fl="${c}">${esc(FOLLOW_LBL[c] || c)}</button>`).join('')}</div>
+    <div class="dlg-a"><button type="button" class="btn ghost" data-close>${first ? 'Later' : 'Cancel'}</button><button type="button" class="btn primary" id="flSave">Save</button></div>`, d => {
+    const sync = () => { d.querySelector('[data-flall]').setAttribute('aria-pressed', !pick.size); d.querySelectorAll('[data-fl]').forEach(b => b.setAttribute('aria-pressed', pick.has(b.dataset.fl))); };
+    d.querySelector('[data-flall]').onclick = () => { pick.clear(); sync(); };
+    d.querySelectorAll('[data-fl]').forEach(b => b.onclick = () => { const c = b.dataset.fl; pick.has(c) ? pick.delete(c) : pick.add(c); if (pick.size === TEAM_CODES.length) pick.clear(); sync(); });
+    sync();
+    d.querySelector('#flSave').onclick = async () => { const list = TEAM_CODES.filter(c => pick.has(c)), btn = d.querySelector('#flSave'); btn.disabled = true;
+      try { await FB.setFollow(list); SUP = {follow:list}; closeDialog(); toast(`Following ${followTxt(list)}.`); reapply(); }
+      catch(e){ btn.disabled = false; toast(/permission/.test(e && e.code || '') ? 'That didn’t save: the coaches need to publish the latest Firebase rules.' : 'That didn’t save. Try again.'); } };
+  });
+}
+async function supLoad(){
+  const em = EMAIL; if (FB.noteSupporter) await FB.noteSupporter();
+  const r = FB.myRequest ? await FB.myRequest() : null; if (em !== EMAIL) return;
+  SUP = {follow:r && Array.isArray(r.follow) ? r.follow.filter(c => TEAM_CODES.includes(c)) : []}; reapply();
+  if (!(r && Array.isArray(r.follow))){ let asked = true; try { asked = localStorage.getItem('ergs.followAsked.' + em) === '1'; localStorage.setItem('ergs.followAsked.' + em, '1'); } catch(e){}
+    if (!asked && $('#modal').hidden) followDialog(true); }
+}
 function playerBar(){
   const pb = $('#playerBar'), on = PLAYER && !COACH; pb.hidden = !on; if (!on) return;
   pb.innerHTML = `<span class="cb-msg"><span class="pb-badge">Player</span>Signed in · videos, photos and records unlocked</span>`;
 }
 function coachBar(){
-  playerBar();
+  playerBar(); supBar();
   sbBar();
   const bar = $('#coachBar'); bar.hidden = !COACH || SANDBOX; if (!COACH || SANDBOX) return;
   bar.innerHTML = DATA.demo
@@ -2260,19 +2294,20 @@ const hm = location.hash.match(/^#m\.([A-Za-z0-9_-]+)$/); if (hm) V.open = hm[1]
 $('#view').innerHTML = '<div class="empty">Connecting to the scoreboard…</div>';
 $('#tabs').hidden = true;
 function applyState(s){
+  LASTS = s;
   if (SANDBOX){ REAL = s; return; }
   applyData(s);
 }
 function applyData(s){
   const base = {matches:[], schools:{}, crest:window.ERGS_CREST || ''};
   Object.keys(RAW).forEach(k => delete RAW[k]); Object.assign(RAW, base, s || {}, {crest:window.ERGS_CREST || (s && s.crest) || ''});
-  const d = clone(RAW); d.demo = false; (d.matches || []).forEach(m => { m.home = canonSchool(m.home); m.away = canonSchool(m.away); }); Object.keys(DATA).forEach(k => delete DATA[k]); Object.assign(DATA, d);
+  const d = clone(RAW); d.demo = false; (d.matches || []).forEach(m => { m.home = canonSchool(m.home); m.away = canonSchool(m.away); }); d.matches = (d.matches || []).filter(followOK); Object.keys(DATA).forEach(k => delete DATA[k]); Object.assign(DATA, d);
   if (V.open && !DATA.matches.some(m => m.id === V.open) && !READY) V.open = null;
   READY = true; stamp(); newSinceLastLook();
   if (!$('#modal').hidden) pendingRender = true; else render();
 }
 // footer: coach sign-in
-const signLink = document.createElement('button'); signLink.type = 'button'; signLink.className = 'signin-btn'; signLink.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Coach &amp; player sign in';
+const signLink = document.createElement('button'); signLink.type = 'button'; signLink.className = 'signin-btn'; signLink.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Sign in';
 const outLink = document.createElement('button'); outLink.type = 'button'; outLink.className = 'share-btn out-btn'; outLink.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h11"/></svg>Log out'; outLink.hidden = true;
 outLink.onclick = () => { if (SANDBOX) sbExit(); act('signout', null); };
 $('footer').appendChild(signLink);
@@ -2358,7 +2393,8 @@ function boot(){
     COACH = ok; PLAYER = pl; if (COACH) loadTeams(true); signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL;
     if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {}; PHOTOS = {};
     if (COACH || PLAYER) veoUnsub = FB.onVeo((v, ph) => { VEO = v || {}; PHOTOS = ph || {}; if (READY) render(); photoScan(); });
-    if (EMAIL && !ok && !pl){ toast(`Signed in as ${EMAIL}, which isn’t on the coaches or players list.`); if (FB.noteSupporter) FB.noteSupporter(); }
+    const hadSup = !!SUP; SUP = null; if (hadSup) reapply();
+    if (EMAIL && !ok && !pl){ toast(`Signed in as a supporter (${EMAIL}).`); supLoad().catch(() => {}); }
     else if (pl) toast('Signed in as a player. Match videos and photos are unlocked.');
     if (nomsUnsub){ nomsUnsub(); nomsUnsub = null; } NOMS = []; if (notesUnsub){ notesUnsub(); notesUnsub = null; } OPPN = {};
     if (COACH && FB.onOppNotes) notesUnsub = FB.onOppNotes(v => { OPPN = v || {}; if (READY && !$('#oppNoteIn:focus')) render(); });

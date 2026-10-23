@@ -20,6 +20,10 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     async noteSupporter(){ const u = auth.currentUser; if (!u || !u.email) return; const id = u.email.toLowerCase(), ref = doc(db, 'requests', id);
       try { const s = await getDoc(ref); if (!s.exists()) await setDoc(ref, {name:(u.displayName || id.split('@')[0]).slice(0, 100), photo:(u.photoURL || '').slice(0, 500), at:Date.now(), kind:'supporter'});
         else if ((s.data() || {}).kind === 'supporter') await setDoc(ref, {at:Date.now(), photo:(u.photoURL || '').slice(0, 500)}, {merge:true}); } catch(e){} },
+    // a supporter's own sign-in record: which squads they follow (follow: [] means every squad)
+    async myRequest(){ const u = auth.currentUser; if (!u || !u.email) return null; try { const s = await getDoc(doc(db, 'requests', u.email.toLowerCase())); return s.exists() ? s.data() : null; } catch(e){ return null; } },
+    async setFollow(list){ const u = auth.currentUser; if (!u || !u.email) throw new Error('signin'); const id = u.email.toLowerCase(), ref = doc(db, 'requests', id), s = await getDoc(ref);
+      if (s.exists()) await setDoc(ref, {follow:list}, {merge:true}); else await setDoc(ref, {name:(u.displayName || id.split('@')[0]).slice(0, 100), photo:(u.photoURL || '').slice(0, 500), at:Date.now(), kind:'supporter', follow:list}); },
     async isPlayer(email){ if ((await getDoc(doc(db, 'players', email))).exists()) return true; return !!c2kTwin(email) && (await getDoc(doc(db, 'players', c2kTwin(email)))).exists(); },
     // private VEO links (team/veo, readable by coaches and players only)
     onVeo(cb){ return onSnapshot(doc(db, 'team', 'veo'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(v.byMatch || {}, v.photos || {}); }, () => cb({}, {})); },
