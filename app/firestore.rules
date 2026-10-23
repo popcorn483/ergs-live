@@ -69,6 +69,16 @@ service cloud.firestore {
       allow write: if isCoach() && request.resource.data.d is string && request.resource.data.d.size() < 120000;
       allow delete: if isCoach();
     }
+    // Play IQ leaderboard: each person's best scores; the squad can see the board, you only write your own, coaches can remove an entry
+    match /piq/{email} {
+      allow read: if isSquad();
+      allow delete: if isCoach();
+      allow create, update: if isSquad() && mine(email)
+        && request.resource.data.keys().hasOnly(['name', 'team', 'week', 'best', 'wk', 'sd', 'sdWk', 'games', 'updated'])
+        && request.resource.data.name is string && request.resource.data.name.size() < 60
+        && request.resource.data.best is number && request.resource.data.best <= 20000 && request.resource.data.wk is number && request.resource.data.wk <= 20000
+        && request.resource.data.sd is number && request.resource.data.sd <= 1000 && request.resource.data.sdWk is number && request.resource.data.sdWk <= 1000;
+    }
     match /sponsors/{doc} { allow read, write: if isCoach(); }
     match /sheets/{doc} { allow read, write: if isCoach(); }
     match /members/{uid} {
