@@ -8,7 +8,9 @@ service cloud.firestore {
     // C2k: @c2ken.net and @c2kni.net are the same person, so either address gets the other's access
     function twinA() { return me().replace('@c2ken[.]net$', '@c2kni.net'); }
     function twinB() { return me().replace('@c2kni[.]net$', '@c2ken.net'); }
-    function mine(email) { return signedIn() && (me() == email || twinA() == email || twinB() == email); }
+    // a player's second sign-in email: players/<second> = {aliasOf: <main email>}, set by a coach; it acts as the main one
+    function aliasFor(email) { return exists(/databases/$(database)/documents/players/$(me())) && get(/databases/$(database)/documents/players/$(me())).data.get('aliasOf', '') == email; }
+    function mine(email) { return signedIn() && (me() == email || twinA() == email || twinB() == email || aliasFor(email)); }
     function onList(col) { return exists(/databases/$(database)/documents/$(col)/$(me())) || exists(/databases/$(database)/documents/$(col)/$(twinA())) || exists(/databases/$(database)/documents/$(col)/$(twinB())); }
     function isCoach() { return isAdmin() || (signedIn() && onList('coaches')); }
     function isPlayer() { return signedIn() && onList('players'); }
@@ -79,6 +81,8 @@ service cloud.firestore {
         && request.resource.data.best is number && request.resource.data.best <= 20000 && request.resource.data.wk is number && request.resource.data.wk <= 20000
         && request.resource.data.sd is number && request.resource.data.sd <= 1000 && request.resource.data.sdWk is number && request.resource.data.sdWk <= 1000;
     }
+    // approval emails to the head coach: anyone signed in reads the settings (so a new request can send one), only coaches change them
+    match /notify/{doc} { allow read: if signedIn(); allow write: if isCoach(); }
     match /sponsors/{doc} { allow read, write: if isCoach(); }
     match /sheets/{doc} { allow read, write: if isCoach(); }
     match /members/{uid} {

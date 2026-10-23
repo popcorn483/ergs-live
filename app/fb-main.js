@@ -37,6 +37,7 @@ const enc = d => ({j: JSON.stringify(d === undefined ? null : d), u: Date.now()}
 const dec = s => { if (!s.exists()) return null; const v = s.data(); if (typeof v.j === 'string'){ try { return JSON.parse(v.j); } catch(e){ return null; } } return v; };
 const err = e => { const c = String(e && e.code || ''); const x = new Error(e && e.message || c); x.code = /permission/.test(c) ? 'not_granted' : /unavailable|network/.test(c) ? 'unavailable' : /resource-exhausted/.test(c) ? 'quota_exceeded' : 'invalid_argument'; return x; };
 
+let ALIAS = '', ALIAS_REL = '', ALIAS_NAME = '';   // signed in with a player's second email (EMAIL is then their main one)
 let USER = null, EMAIL = '', ROLE = 'public', PLAYER = null, COACH = null, ACCESS_ERR = '';   // ACCESS_ERR: the access check itself was refused (usually old Firebase rules)   // COACH: this coach's record (name, scope: admin / all / a squad)   // PLAYER: this player's access (team, what they can see)
 const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth, async u => {
   if (first){ await linkDone; if ((auth.currentUser || null) !== (u || null)) return; }   // a sign-in link being opened: let it finish, then go with the account it signed in
@@ -47,7 +48,10 @@ const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth
     const twin = /@c2ken\.net$/.test(EMAIL) ? EMAIL.replace(/@c2ken\.net$/, '@c2kni.net') : /@c2kni\.net$/.test(EMAIL) ? EMAIL.replace(/@c2kni\.net$/, '@c2ken.net') : '';
     const look = async col => { for (const e of [EMAIL, twin].filter(Boolean)){ try { const s = await getDoc(doc(fs, col, e)); if (s.exists()){ EMAIL = e; return s.data() || {}; } } catch(err){ if (e === EMAIL) ACCESS_ERR = String(err && err.code || err); } } return null; };
     if (ROLE !== 'coach'){ const c = await look('coaches'); if (c){ ROLE = 'coach'; COACH = c; } }
-    if (ROLE !== 'coach'){ const p = await look('players'); if (p){ ROLE = 'player'; PLAYER = p; } }
+    if (ROLE !== 'coach'){ let p = await look('players');
+      // a second sign-in email: players/<second> just points at the player's main record, and they act as that player
+      if (p && p.aliasOf){ const main = String(p.aliasOf).toLowerCase(); ALIAS_REL = p.rel === 'guardian' ? 'guardian' : 'self'; ALIAS_NAME = String(p.gname || ''); p = null; try { const s = await getDoc(doc(fs, 'players', main)); if (s.exists()){ ALIAS = EMAIL; EMAIL = main; p = s.data() || {}; } } catch(e){} }
+      if (p){ ROLE = 'player'; PLAYER = p; } }
   }
   // not on a list yet: leave a request so the coaches see them waiting (needs the requests rule in Firebase)
   if (EMAIL && ROLE === 'public'){ try { let had = null; try { const r0 = await getDoc(doc(fs, 'requests', EMAIL)); had = r0.exists() ? r0.data() : null; } catch(x){}   // keep the name, squad and position they told us
@@ -167,16 +171,21 @@ const USERAPI = {
 const DOWNLOADS = { async save({filename, data}){ const a = document.createElement('a'); a.href = URL.createObjectURL(data); a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); } };
 
 window.ERGS_AUTH = {
-  get email(){ return EMAIL; }, get accessErr(){ return ACCESS_ERR; }, get role(){ return ROLE; }, get player(){ return PLAYER; }, get coach(){ return EMAIL === ADMIN ? Object.assign({}, COACH || {}, {scope:'admin'}) : COACH; },
-  async listFull(kind){ const out = []; await new Promise((res, rej) => { const u = onSnapshot(collection(fs, kind), s => { s.docs.forEach(d => out.push(Object.assign({id:d.id}, d.data()))); u(); res(); }, e => { rej(err(e)); }); }); return out.sort((a, b) => a.id.localeCompare(b.id)); },
-  async setAccess(kind, email, data){ try { await setDoc(doc(fs, kind, email.toLowerCase()), data, {merge:true}); } catch(e){ throw err(e); } }, get admin(){ return EMAIL && EMAIL === ADMIN; }, adminEmail:ADMIN,
+  get email(){ return EMAIL; }, get alias(){ return ALIAS; }, get aliasRel(){ return ALIAS ? ALIAS_REL : ''; }, get aliasName(){ return ALIAS_NAME; }, get accessErr(){ return ACCESS_ERR; }, get role(){ return ROLE; }, get player(){ return PLAYER; }, get coach(){ return EMAIL === ADMIN ? Object.assign({}, COACH || {}, {scope:'admin'}) : COACH; },
+  // second sign-in emails live in players/ but aren't players in their own right: listFull leaves them out, aliases() lists them
+  async listFull(kind){ const all = await window.ERGS_AUTH.listRaw(kind); return kind === 'players' ? all.filter(d => !d.aliasOf) : all; },
+  async aliases(){ return (await window.ERGS_AUTH.listRaw("players")).filter(d => d.aliasOf); },
+  async listRaw(kind){ const out = []; await new Promise((res, rej) => { const u = onSnapshot(collection(fs, kind), s => { s.docs.forEach(d => out.push(Object.assign({id:d.id}, d.data()))); u(); res(); }, e => { rej(err(e)); }); }); return out.sort((a, b) => a.id.localeCompare(b.id)); },
+  async setAccess(kind, email, data){ try { await setDoc(doc(fs, kind, email.toLowerCase()), data, {merge:true}); } catch(e){ throw err(e); } try { window.__afterSet && window.__afterSet(kind, email.toLowerCase(), data); } catch(e){} }, get admin(){ return EMAIL && EMAIL === ADMIN; }, adminEmail:ADMIN,
   async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
   signOut(){ return signOut(auth); },
   sendLink, linkMsg, get linkErr(){ return LINK_ERR; }, get linkEmail(){ try { return localStorage.getItem(LINK_KEY) || ''; } catch(e){ return ''; } },
   async getOne(kind, id){ try { const s = await getDoc(doc(fs, kind, String(id).toLowerCase())); return s.exists() ? Object.assign({id:s.id}, s.data()) : null; } catch(e){ throw err(e); } },
   async list(kind){ const out = []; await new Promise((res, rej) => { const u = onSnapshot(collection(fs, kind), s => { s.docs.forEach(d => out.push(d.id)); u(); res(); }, e => { rej(err(e)); }); }); return out.sort(); },
   async add(kind, email){ try { await setDoc(doc(fs, kind, email.toLowerCase()), {added:Date.now(), by:EMAIL}); } catch(e){ throw err(e); } },
-  async remove(kind, email){ try { await deleteDoc(doc(fs, kind, email.toLowerCase())); } catch(e){ throw err(e); } },
+  async remove(kind, email){ try { await deleteDoc(doc(fs, kind, email.toLowerCase())); } catch(e){ throw err(e); }
+    // removing a player also removes their second sign-in email
+    if (kind === 'players'){ try { for (const a of await window.ERGS_AUTH.aliases()) if (String(a.aliasOf).toLowerCase() === email.toLowerCase()) await deleteDoc(doc(fs, 'players', a.id)); } catch(e){} } },
   async removeDoc(kind, id){ try { await deleteDoc(doc(fs, kind, String(id))); } catch(e){ throw err(e); } },   // ids that aren't emails (members are keyed by sign-in id)
   raw:{fs, doc, setDoc, getDoc, enc}
 };
