@@ -2471,13 +2471,13 @@ const googleIn = async () => { try { sessionStorage.setItem('ergs.toApp', '1'); 
 signLink.onclick = () => { let saved = ''; try { saved = localStorage.getItem('ergs.linkEmail') || ''; } catch(e){}
   openDialog(`<h2>Sign in</h2><p>Coaches, players and supporters. Supporters can pick the squads they follow.</p>
     <button type="button" class="btn primary lk-g" id="lkGoogle">Sign in with Google</button>
-    <div class="lk-or"><span>or, with a school C2k account</span></div>
+    <div class="lk-or"><span>or, if your email isn’t a Google account (e.g. school C2k)</span></div>
     <form class="lk-form" id="lkForm"><input class="input" type="email" id="lkEmail" placeholder="you@c2ken.net" autocomplete="email" inputmode="email" value="${esc(saved)}" aria-label="Your school email"><button class="btn" type="submit" id="lkGo">Email me a link</button></form>
     <p class="lk-msg" id="lkMsg" role="status"></p>
     <div class="dlg-a"><button type="button" class="btn ghost" data-close>Close</button></div>`, d => {
     d.querySelector('#lkGoogle').onclick = () => { closeDialog(); googleIn(); };
     d.querySelector('#lkForm').onsubmit = async e => { e.preventDefault(); const go = d.querySelector('#lkGo'), msg = d.querySelector('#lkMsg'); go.disabled = true; msg.className = 'lk-msg';
-      try { const em = await FB.sendLink(d.querySelector('#lkEmail').value); msg.classList.add('ok'); msg.innerHTML = `Link sent to <b>${esc(em)}</b>. Open that email on this phone or computer and tap <b>Sign in</b>. It can take a minute or two, so check Junk or Other too.`; go.textContent = 'Send again'; }
+      try { const em = await FB.sendLink(d.querySelector('#lkEmail').value); msg.classList.add('ok'); msg.innerHTML = `Link sent to <b>${esc(em)}</b>. Open that email on this phone or computer and tap <b>Sign in</b>. It comes from <b>noreply@ergs-live.firebaseapp.com</b> and can take a minute or two, so check Junk or Other too.`; go.textContent = 'Send again'; }
       catch(err){ msg.classList.add('bad'); msg.textContent = FB.linkMsg ? FB.linkMsg(err) : 'The link couldn’t be sent. Try again.'; }
       go.disabled = false; }; }); };
 function boot(){
