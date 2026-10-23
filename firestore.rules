@@ -1,7 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function signedIn() { return request.auth != null && request.auth.token.email_verified == true; }
+    // signed in with a verified email; Google sign-ins always own their address (some school accounts don't mark it verified)
+    function signedIn() { return request.auth != null && request.auth.token.email is string && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com'); }
     function me() { return request.auth.token.email.lower(); }
     function isAdmin() { return signedIn() && me() == 'ergsrugby@gmail.com'; }
     // C2k: @c2ken.net and @c2kni.net are the same person, so either address gets the other's access

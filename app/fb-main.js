@@ -12,14 +12,14 @@ const enc = d => ({j: JSON.stringify(d === undefined ? null : d), u: Date.now()}
 const dec = s => { if (!s.exists()) return null; const v = s.data(); if (typeof v.j === 'string'){ try { return JSON.parse(v.j); } catch(e){ return null; } } return v; };
 const err = e => { const c = String(e && e.code || ''); const x = new Error(e && e.message || c); x.code = /permission/.test(c) ? 'not_granted' : /unavailable|network/.test(c) ? 'unavailable' : /resource-exhausted/.test(c) ? 'quota_exceeded' : 'invalid_argument'; return x; };
 
-let USER = null, EMAIL = '', ROLE = 'public', PLAYER = null, COACH = null;   // COACH: this coach's record (name, scope: admin / all / a squad)   // PLAYER: this player's access (team, what they can see)
+let USER = null, EMAIL = '', ROLE = 'public', PLAYER = null, COACH = null, ACCESS_ERR = '';   // ACCESS_ERR: the access check itself was refused (usually old Firebase rules)   // COACH: this coach's record (name, scope: admin / all / a squad)   // PLAYER: this player's access (team, what they can see)
 const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth, async u => {
-  USER = u; EMAIL = u && u.email ? u.email.toLowerCase() : ''; ROLE = 'public';
+  USER = u; EMAIL = u && u.email ? u.email.toLowerCase() : ''; ROLE = 'public'; ACCESS_ERR = '';
   if (EMAIL){
     if (EMAIL === ADMIN) ROLE = 'coach';
     // C2k accounts: @c2ken.net and @c2kni.net are the same person, so a login added under either address works for both
     const twin = /@c2ken\.net$/.test(EMAIL) ? EMAIL.replace(/@c2ken\.net$/, '@c2kni.net') : /@c2kni\.net$/.test(EMAIL) ? EMAIL.replace(/@c2kni\.net$/, '@c2ken.net') : '';
-    const look = async col => { for (const e of [EMAIL, twin].filter(Boolean)){ try { const s = await getDoc(doc(fs, col, e)); if (s.exists()){ EMAIL = e; return s.data() || {}; } } catch(err){} } return null; };
+    const look = async col => { for (const e of [EMAIL, twin].filter(Boolean)){ try { const s = await getDoc(doc(fs, col, e)); if (s.exists()){ EMAIL = e; return s.data() || {}; } } catch(err){ if (e === EMAIL) ACCESS_ERR = String(err && err.code || err); } } return null; };
     if (ROLE !== 'coach'){ const c = await look('coaches'); if (c){ ROLE = 'coach'; COACH = c; } }
     if (ROLE !== 'coach'){ const p = await look('players'); if (p){ ROLE = 'player'; PLAYER = p; } }
   }
@@ -141,7 +141,7 @@ const USERAPI = {
 const DOWNLOADS = { async save({filename, data}){ const a = document.createElement('a'); a.href = URL.createObjectURL(data); a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); } };
 
 window.ERGS_AUTH = {
-  get email(){ return EMAIL; }, get role(){ return ROLE; }, get player(){ return PLAYER; }, get coach(){ return EMAIL === ADMIN ? Object.assign({}, COACH || {}, {scope:'admin'}) : COACH; },
+  get email(){ return EMAIL; }, get accessErr(){ return ACCESS_ERR; }, get role(){ return ROLE; }, get player(){ return PLAYER; }, get coach(){ return EMAIL === ADMIN ? Object.assign({}, COACH || {}, {scope:'admin'}) : COACH; },
   async listFull(kind){ const out = []; await new Promise((res, rej) => { const u = onSnapshot(collection(fs, kind), s => { s.docs.forEach(d => out.push(Object.assign({id:d.id}, d.data()))); u(); res(); }, e => { rej(err(e)); }); }); return out.sort((a, b) => a.id.localeCompare(b.id)); },
   async setAccess(kind, email, data){ try { await setDoc(doc(fs, kind, email.toLowerCase()), data, {merge:true}); } catch(e){ throw err(e); } }, get admin(){ return EMAIL && EMAIL === ADMIN; }, adminEmail:ADMIN,
   async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
