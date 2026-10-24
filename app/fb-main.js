@@ -15,19 +15,22 @@ let LINK_ERR = '';
 const linkDone = (async () => {
   const href = location.href; if (!isSignInWithEmailLink(auth, href)) return;
   let email = ''; try { email = localStorage.getItem(LINK_KEY) || ''; } catch(e){}
+  // an invite a coach sent carries the address (le=), so opening it on any phone or computer signs straight in
+  if (!email){ try { const u = new URL(href), inner = u.searchParams.get('continueUrl'); email = u.searchParams.get('le') || (inner ? new URL(inner).searchParams.get('le') : '') || ''; } catch(e){} }
   // opened on a different device or browser from the one that asked: confirm the address
   if (!email) email = (window.prompt('Confirm your email address to finish signing in') || '').trim();
   // tidy the address bar first, so the reload after signing in doesn't reuse the link
-  try { const u = new URL(href); ['apiKey', 'oobCode', 'mode', 'continueUrl', 'lang', 'tenantId'].forEach(k => u.searchParams.delete(k)); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch(e){}
+  try { const u = new URL(href); ['apiKey', 'oobCode', 'mode', 'continueUrl', 'lang', 'tenantId', 'le', 'inv'].forEach(k => u.searchParams.delete(k)); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch(e){}
   if (!email) { LINK_ERR = 'Sign-in wasn’t finished: no email address was given. Ask for a new link.'; return; }
   try { await signInWithEmailLink(auth, email.toLowerCase(), href); try { localStorage.removeItem(LINK_KEY); } catch(e){} }
   catch(e){ const c = String(e && e.code || ''); LINK_ERR = /invalid-action-code|expired/.test(c) ? 'That sign-in link has expired or was already used. Ask for a new one.' : /invalid-email/.test(c) ? 'That email address doesn’t match the one the link was sent to. Ask for a new link.' : 'Signing in with the link didn’t work. Ask for a new one.'; }
 })();
-async function sendLink(email, back){
+async function sendLink(email, back, invite){
   email = String(email || '').trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ const x = new Error('Enter your full email address.'); x.code = 'auth/invalid-email'; throw x; }
-  const url = back || (location.origin + location.pathname);
+  let url = back || (location.origin + location.pathname);
+  if (invite) url += (url.includes('?') ? '&' : '?') + 'inv=1&le=' + encodeURIComponent(email);   // a coach inviting someone: the link carries their address, and nothing is stored on the coach's device
   await sendSignInLinkToEmail(auth, email, {url, handleCodeInApp:true});
-  try { localStorage.setItem(LINK_KEY, email); } catch(e){}
+  if (!invite){ try { localStorage.setItem(LINK_KEY, email); } catch(e){} }
   return email;
 }
 const linkMsg = e => { const c = String(e && e.code || ''); return /operation-not-allowed|admin-restricted/.test(c) ? 'Email-link sign-in isn’t switched on yet. A coach needs to turn it on in Firebase (Authentication › Sign-in method › Email/Password › Email link).'
