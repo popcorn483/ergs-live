@@ -1375,7 +1375,7 @@ function toast(t){ const el = $('#toast'); el.textContent = t; el.hidden = false
 /* ---------- helpers ---------- */
 const isLive = m => m.status === '1H' || m.status === 'HT' || m.status === '2H';
 const usOf = m => m.us || (OUR_RX.test(m.home) ? 'H' : OUR_RX.test(m.away) ? 'A' : '');
-function score(m){ let h = 0, a = 0, any = false; for (const e of m.events || []){ const p = ptsOf(e); if (p) any = true; if (e.s === 'H') h += p; else if (e.s === 'A') a += p; } return !any && Array.isArray(m.final) ? [+m.final[0], +m.final[1]] : [h, a]; }
+function score(m){ let h = 0, a = 0, any = false; for (const e of m.events || []){ const p = ptsOf(e); if (p) any = true; if (e.s === 'H') h += p; else if (e.s === 'A') a += p; } return Array.isArray(m.final) && (m.finalSet || !any) ? [+m.final[0], +m.final[1]] : [h, a]; }   // finalSet: a coach typed the final score afterwards, which wins over the timeline
 const elapsed = m => { const c = m.clock || {}; return Math.max(0, (c.base || 0) + (c.running && c.since ? (Date.now() - c.since)/1000 : 0)); };
 const mm = s => { s = Math.max(0, Math.floor(s)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
 const minuteNow = m => m.status === 'pre' ? 0 : Math.max(1, Math.ceil(elapsed(m)/60));
@@ -1705,8 +1705,10 @@ function coachPanel(m){
   const notes0 = usOf(m) ? oppNoteBox(m) : '', opp = usOf(m) === 'H' ? m.away : m.home, live = ['1H', 'HT', '2H'].includes(m.status);
   // coaches see only what the moment needs: Kick off before the game, the score pad during it; notes and match settings fold away
   const notes = notes0 ? `<details class="box coach dt"${m.status === 'pre' && /opp-notes has/.test(notes0) ? ' open' : ''}><summary>📝 Notes on ${esc(opp)}</summary>${notes0}</details>` : '';
-  const settings = `<details class="box coach dt"><summary>⚙ Match settings</summary>${veoOf(m) || photosOf(m) ? '' : '<p class="hint" style="margin:0 0 8px">Add the VEO video and photo album links in Edit details.</p>'}<div class="ctrl">${b('edit', 'Edit details')}${b('share', 'Copy match link')}${m.status === 'FT' ? b('copyres', 'Copy result') + b('reopen', 'Reopen match') : ''}${m.status === 'pre' && !m.off ? b('postpone', 'Postpone, cancel or move') : ''}${b('del', 'Delete match', 'ghost danger')}</div></details>`;
+  const settings = `<details class="box coach dt"><summary>⚙ Match settings</summary>${veoOf(m) || photosOf(m) ? '' : '<p class="hint" style="margin:0 0 8px">Add the VEO video and photo album links in Edit details.</p>'}<div class="ctrl">${b('edit', 'Edit details')}${b('share', 'Copy match link')}${m.status === 'FT' ? b('setscore', 'Change the final score') + b('copyres', 'Copy result') + b('reopen', 'Reopen match') : m.status === 'pre' ? b('setscore', 'Mark as played') : ''}${m.status === 'pre' && !m.off ? b('postpone', 'Postpone, cancel or move') : ''}${b('del', 'Delete match', 'ghost danger')}</div></details>`;
   if (m.status === 'pre' && !m.off) clock = b('ko', 'Kick off', 'primary ko-big');
+  // a match that has already happened without live scoring: type the final score and mark it played
+  if (m.status === 'pre' && kot(m) && kot(m) < now0()) clock += b('setscore', '✓ Mark as played and add the score', m.off ? 'primary' : '');
   return `${m.status !== 'FT' ? `<div class="box coach${m.status === 'pre' ? ' ko-box' : ''}"><h3>Match clock</h3><div class="ctrl">${clock}</div>${m.status === 'pre' && !m.off ? '<p class="hint">The scoring buttons appear when you press Kick off.</p>' : ''}</div>` : ''}
     ${live ? `<div class="box coach"><h3>Score</h3><div class="pad">${pad}</div></div>
     <div class="box coach"><h3>Commentary</h3><form class="inline" id="noteForm"><input class="input" id="noteIn" maxlength="140" placeholder="Big turnover at the breakdown" aria-label="Commentary line"><button class="btn" type="submit">Post</button></form></div>` : ''}
@@ -2067,6 +2069,26 @@ function matchForm(m, past){
   });
 }
 /* coach actions */
+const now0 = () => Date.now();
+/* set the final score afterwards, and mark the match played (for matches that weren't scored live, or to correct one) */
+function scoreDialog(m){
+  const us = usOf(m), nH = us === 'H' ? 'ERGS' : m.home, nA = us === 'A' ? 'ERGS' : m.away;
+  const [h0, a0] = score(m), played = m.status === 'FT', ft = Array.isArray(m.finalTries) ? m.finalTries : ['', ''], evPts = (m.events || []).some(e => ptsOf(e));
+  openDialog(`<h2>${played ? 'Change the final score' : 'Mark as played'}</h2><p>${esc((m.team ? m.team + ' · ' : '') + m.home + ' v ' + m.away)}${kot(m) ? ' · ' + esc(new Date(kot(m)).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'})) : ''}</p>
+    <div class="row2"><div class="field"><label class="label" for="ssH">${esc(nH)}</label><input class="input ss-in" id="ssH" type="number" inputmode="numeric" min="0" max="250" value="${played || evPts ? h0 : ''}"></div>
+      <div class="field"><label class="label" for="ssA">${esc(nA)}</label><input class="input ss-in" id="ssA" type="number" inputmode="numeric" min="0" max="250" value="${played || evPts ? a0 : ''}"></div></div>
+    <details class="ss-more"><summary>Tries (optional, for cup bonus points)</summary><div class="row2"><div class="field"><label class="label" for="ssHt">${esc(nH)} tries</label><input class="input" id="ssHt" type="number" min="0" max="40" value="${esc(ft[0])}"></div><div class="field"><label class="label" for="ssAt">${esc(nA)} tries</label><input class="input" id="ssAt" type="number" min="0" max="40" value="${esc(ft[1])}"></div></div></details>
+    ${evPts ? '<p class="hint">This score replaces the total from the live timeline. The timeline stays as it is.</p>' : ''}${m.off ? `<p class="hint">It’s marked ${esc(m.off)}; saving puts it back on as played.</p>` : ''}
+    <div class="dlg-a">${played && m.finalSet ? '<button type="button" class="btn ghost" id="ssClear">Use the timeline score</button>' : ''}<span style="flex:1"></span><button type="button" class="btn ghost" data-close>Cancel</button><button type="button" class="btn primary" id="ssGo">${played ? 'Save score' : 'Save as played'}</button></div>`, d => {
+    const g = s => d.querySelector(s).value.trim();
+    d.querySelector('#ssGo').onclick = () => { const hs = g('#ssH'), as = g('#ssA'); if (hs === '' || as === ''){ toast('Enter both scores.'); return; }
+      const H = Math.max(0, Math.round(+hs)), A = Math.max(0, Math.round(+as)), hT = g('#ssHt'), aT = g('#ssAt'); closeDialog();
+      save(dd => { const x = dd.matches.find(y => y.id === m.id); if (!x) return; x.final = [H, A]; x.finalSet = true; if (hT !== '' || aT !== '') x.finalTries = [+hT || 0, +aT || 0]; else delete x.finalTries;
+        if (x.status !== 'FT'){ x.status = 'FT'; x.ftAt = x.ftAt || Date.now(); x.clock = {base:(x.half || 35)*120, since:0, running:false}; } delete x.off; delete x.offWhy; }, m.id)
+        .then(() => toast(`Saved: ${m.home} ${H}–${A} ${m.away}.`)).catch(() => toast('That didn’t save. Try again.')); };
+    const cl = d.querySelector('#ssClear'); if (cl) cl.onclick = () => { closeDialog(); save(dd => { const x = dd.matches.find(y => y.id === m.id); if (x) delete x.finalSet; }, m.id).then(() => toast('Back to the timeline score.')); };
+  });
+}
 function act(a, m){
   const now = Date.now(), el = () => elapsed(m), upd = fn => save(d => fn(d.matches.find(y => y.id === m.id)), m.id);
   switch (a){
@@ -2087,6 +2109,7 @@ function act(a, m){
     case '2h': return upd(x => { x.status = '2H'; x.clock = {base:Math.max(el(), (+x.half || 35)*60), since:now, running:true}; });
     case 'ft': return ask('Blow full time?', 'The clock stops and the match moves to Results for everyone.', 'Full time', () => upd(x => { x.status = 'FT'; x.ftAt = Date.now(); x.clock = {base:el(), since:0, running:false}; }).then(() => { let n = 0; const go = () => { const x = DATA.matches.find(y => y.id === m.id); if (x && x.status === 'FT'){ if (usOf(x) && !nomsOf(x).length && $('#modal').hidden) nomsDialog(x); } else if (n++ < 30) setTimeout(go, 100); }; go(); }));
     case 'noms': return nomsDialog(m);
+    case 'setscore': return scoreDialog(m);
     case 'pause': return upd(x => { const r = x.clock && x.clock.running; x.clock = r ? {base:el(), since:0, running:false} : {base:el(), since:now, running:true}; });
     case 'minus': return upd(x => { x.clock = {base:Math.max(0, el() - 60), since:now, running:!!(x.clock && x.clock.running)}; });
     case 'plus': return upd(x => { x.clock = {base:el() + 60, since:now, running:!!(x.clock && x.clock.running)}; });
