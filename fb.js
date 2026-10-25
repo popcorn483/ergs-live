@@ -41,6 +41,8 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     sendLink, linkMsg, get linkErr(){ return LINK_ERR; },
     async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
     signOut(){ return signOut(auth); },
+    // the coach's record: scope (admin, all or a squad) and the squads they look after
+    async coachInfo(email){ for (const e of [email, c2kTwin(email)].filter(Boolean)){ try { const s = await getDoc(doc(db, 'coaches', e)); if (s.exists()) return s.data() || {}; } catch(x){} } return null; },
     async isCoach(email){ let s = await getDoc(doc(db, 'coaches', email)); if (!s.exists() && c2kTwin(email)) s = await getDoc(doc(db, 'coaches', c2kTwin(email))); if (!s.exists()) return false; const d = s.data() || {}; return d.perms && d.perms.scoring === false ? 'noscore' : true; },   // a coach without scoring sees ERGS Live like a player
     // someone signed in who isn't a coach or player: note them as a supporter so the coaches see them (a request they already made is left alone)
     async noteSupporter(){ const u = auth.currentUser; if (!u || !u.email) return; const id = u.email.toLowerCase(), ref = doc(db, 'requests', id);

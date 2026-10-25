@@ -2521,7 +2521,7 @@ function boot(){
         stay = sessionStorage.getItem('ergs.liveOK') === '1' || /\/app\//.test(document.referrer || '') || /^#m\./.test(location.hash) || /[?&]live\b/.test(location.search); } catch(e){}
       if ((ok || pl) && !SANDBOX && (go || !stay)){ location.replace(new URL('app/', location.href).href); return; }
       try { if (EMAIL) sessionStorage.setItem('ergs.liveOK', '1'); } catch(e){} }
-    COACH = ok; PLAYER = pl; if (COACH) loadTeams(true); signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL;
+    COACH = ok; PLAYER = pl; if (COACH) loadTeams(true); nomScope(); signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL;
     if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {}; PHOTOS = {};
     if (COACH || PLAYER) veoUnsub = FB.onVeo((v, ph) => { VEO = v || {}; PHOTOS = ph || {}; if (READY) render(); photoScan(); });
     const hadSup = !!SUP; SUP = null; if (hadSup) reapply();
@@ -2562,15 +2562,30 @@ setTimeout(() => { if (!window.FB) boot(); }, 8000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden && READY) render(); });
 /* ---------- Team of the Week nominations: after the final whistle, coaches pick up to 4 players; the main app collates them ---------- */
 const NOM_MAX = 4;
+// which squads this coach nominates for (null: every squad); and matches the admin marked as done (no nominations needed)
+let NOM_TEAMS = null, NOM_DONE = [];
+const NOM_SQ = t => { const x = String(t || '').toLowerCase(); if (!x) return '';
+  if (/\b(girl|girls|ladies|women|sg|jg)\b/.test(x)) return /\b(junior|jg|u1[2-5]|minis?)\b/.test(x) ? 'JG' : 'SG';
+  if (/\b(med|meds|medallion|u15)\b/.test(x)) return 'MEDS';
+  const u = x.match(/\bu(?:nder)?\s?(1[2-4])\b/); if (u) return 'U' + u[1];
+  if (/\b(1st|2nd|3rd|1|2|3)\s*xv\b|\b[123]xv\b|\bu16\b|\bsenior/.test(x)) return 'SENIOR'; return ''; };
+async function nomScope(){ NOM_TEAMS = null; if (!COACH || SANDBOX || !window.FB || !EMAIL) return;
+  if (FB.teamDoc){ const d = await FB.teamDoc('nomsDone'); NOM_DONE = d && Array.isArray(d.ids) ? d.ids : []; }
+  if (ADMIN || !FB.coachInfo){ if (READY && V.open) render(); return; } const c = await FB.coachInfo(EMAIL); if (!c) return;
+  const sc = c.scope || 'admin'; NOM_TEAMS = sc === 'admin' || sc === 'all' ? null : (Array.isArray(c.teams) && c.teams.length ? c.teams : [sc]); if (READY && V.open) render(); }
+const canNom = m => COACH && (!NOM_TEAMS || NOM_TEAMS.includes(NOM_SQ(m.team)));
+const nomBy = l => { const e = (l.find(x => x.by) || {}).by || ''; return e ? e.split('@')[0].replace(/[._]/g, ' ') : ''; };
 function nomsOf(m){ return NOMS.filter(x => x.mid === m.id); }
 function nomBox(m){
-  const l = nomsOf(m);
-  return `<div class="box coach nom-box"><h3>Team of the Week</h3><p class="hint" style="margin:0">${l.length ? 'Nominated from this match:' : `Nominate up to ${NOM_MAX} players from this match. They appear on the Team of the Week screen in the main app.`}</p>
+  const l = nomsOf(m), mine = canNom(m), done = NOM_DONE.some(x => x.mid === m.id);
+  if (!mine && !l.length) return '';   // another squad's match: their coaches nominate
+  return `<div class="box coach nom-box"><h3>Team of the Week</h3><p class="hint" style="margin:0">${l.length ? `Nominated from this match${nomBy(l) ? ' by ' + esc(nomBy(l)) : ''}:` : done ? 'Marked as done: no nominations needed for this match.' : `Nominate up to ${NOM_MAX} players from this match. One set per match: once a coach has nominated, the others don’t need to.`}</p>
     ${l.length ? `<div class="nom-chips">${l.map(x => `<span class="nom-chip">${x.n ? `<i>${esc(x.n)}</i>` : ''}<b>${esc(x.name)}</b><small>${esc(x.team || '')}</small></span>`).join('')}</div>` : ''}
-    <div class="ctrl"><button type="button" class="btn ${l.length ? '' : 'primary'}" data-act="noms">${l.length ? 'Change nominations' : 'Nominate players'}</button></div></div>`;
+    ${mine ? `<div class="ctrl"><button type="button" class="btn ${l.length || done ? '' : 'primary'}" data-act="noms">${l.length ? 'Change nominations' : 'Nominate players'}</button></div>` : ''}</div>`;
 }
 async function nomsDialog(m){
   if (!window.FB || !FB.setNoms){ toast('Nominations need the latest version. Refresh the page.'); return; }
+  if (!canNom(m)){ toast(`Only the ${m.team || 'squad'}’s coaches nominate from this match.`); return; }
   let players = Array.isArray(m.players) && m.players.length ? m.players.slice() : [];
   if (!players.length){ await loadTeams(); const x = TEAMS_CACHE && ((m.sheetId && TEAMS_CACHE.sheets.find(y => y.id === m.sheetId)) || sheetFor(m)); if (x) players = sheetPlayers(x); }
   const us = usOf(m), scorers = [...new Set(sorted(m).filter(e => e.s === us && e.p && e.k !== 'note').map(e => e.p))];
@@ -2587,6 +2602,7 @@ async function nomsDialog(m){
     d.querySelector('#nomGo').onclick = async () => {
       const team = d.querySelector('#nomTeam').value.trim(), seen = new Set(), list = [];
       for (let i = 0; i < NOM_MAX; i++){ const v = d.querySelector('#nom' + i).value.trim(); if (!v) continue; const hit = byNum(v) || players.find(p => p.name.toLowerCase() === v.toLowerCase()); const name = (hit ? hit.name : v).slice(0, 40);
+        if (players.length && !hit){ toast(`${v} isn’t in this match’s ${m.team || 'squad'} list. Pick a name from the list.`); d.querySelector('#nom' + i).focus(); return; }
         if (seen.has(name.toLowerCase())) continue; seen.add(name.toLowerCase());
         const old = cur.find(x => x.name === name);
         list.push({id:old ? old.id : uid(), mid:m.id, name, n:hit && hit.n ? +hit.n : '', team, opp, date:(m.ko || '').slice(0, 10), by:EMAIL, at:old ? old.at : Date.now()}); }
