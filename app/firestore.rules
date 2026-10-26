@@ -95,6 +95,12 @@ service cloud.firestore {
       allow create, update: if isSquad() && mine(email) && request.resource.data.keys().hasOnly(['p', 'g', 'name', 'at']) && request.resource.data.get('p', {}).size() < 400 && request.resource.data.get('g', {}).size() < 400;
       allow delete: if isCoach();
     }
+    // a player's own match record: games they played, their position and stats they counted from the VEO; coaches read them all
+    match /pstats/{email} {
+      allow read: if isCoach() || mine(email);
+      allow create, update: if isSquad() && mine(email) && request.resource.data.keys().hasOnly(['g', 'name', 'team', 'at']) && request.resource.data.g is map && request.resource.data.g.size() <= 150 && request.resource.data.name is string && request.resource.data.name.size() < 80;
+      allow delete: if isCoach();
+    }
     match /sponsors/{doc} { allow read, write: if isCoach(); }
     match /sheets/{doc} { allow read, write: if isCoach(); }
     match /members/{uid} {
