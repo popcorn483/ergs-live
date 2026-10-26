@@ -2098,6 +2098,7 @@ function act(a, m){
     case 'coaches': return coachesDialog();
     case 'seed': return fetch('seed.json', {cache:'no-store'}).then(r => r.ok ? r.json() : {matches:[], schools:{}}).catch(() => ({matches:[], schools:{}})).then(seed => save(d => { d.matches = seed.matches || []; d.schools = seed.schools || {}; d.demo = false; }, null));
     case 'past': return matchForm(null, true);
+    case 'pastbulk': return pastBulk();
     case 'import': return importDialog();
     case 'schools': return schoolsDialog();
     case 'edit': return matchForm(m);
@@ -2227,6 +2228,59 @@ async function fileToImages(file, lim, maxPages){
 }
 function canvasBlob(c, type, q){ return new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('blob')), type, q)); }
 function imageToCanvas(im, max){ return shrink(im, max); }
+/* ---------- past results in bulk: a quick table (each new row copies the date, team and competition above), or paste a list ---------- */
+function pastBulk(){
+  let last = null; try { last = JSON.parse(localStorage.getItem('ergs.lastPast') || 'null'); } catch(e){}
+  const today = ymd(new Date()), blank = p => ({date:(p && p.date) || (last && last.ko ? last.ko.slice(0, 10) : today), team:(p && p.team) || teamCode((last && last.team) || '1XV') || '1XV', opp:'', ha:'H', us:'', them:'', comp:(p && p.comp) || (last && last.comp) || ''});
+  let rows = [blank()]; for (let i = 0; i < 4; i++) rows.push(blank(rows[rows.length - 1]));
+  const opps = [...new Set(Object.values(DATA.schools || {}).map(s => s.name).filter(Boolean).concat(ULSTER))].sort();
+  const tOpts = cur => TEAM_CODES.map(t => `<option value="${t}" ${cur === t ? 'selected' : ''}>${t}</option>`).join('') + (cur && !TEAM_CODES.includes(cur) ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : '');
+  const ok = r => r.date && r.opp.trim() && r.us !== '' && r.them !== '';
+  const dup = r => r.date && r.opp && exists({date:r.date, opp:canonSchool(r.opp.trim())});
+  openDialog(`<h2>Add past results</h2><p>One row per match. Scores are <b>ERGS first</b>. New rows copy the date, team and competition from the row above, so a season goes in quickly.</p>
+    <div class="pb-wrap"><table class="pb-tbl"><thead><tr><th>Date</th><th>Team</th><th>Opponent</th><th>H/A</th><th>ERGS</th><th>Them</th><th>Competition</th><th></th></tr></thead><tbody id="pbBody"></tbody></table></div>
+    <datalist id="pbOpps">${opps.map(n => `<option value="${esc(n)}">`).join('')}</datalist><datalist id="pbComps">${COMPS.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
+    <div class="ctrl"><button type="button" class="btn" id="pbMore">＋ 5 more rows</button><button type="button" class="btn ghost" id="pbPasteT">📋 Paste a list</button><span class="hint" id="pbMsg" aria-live="polite"></span></div>
+    <div id="pbPaste" hidden><textarea class="input" id="pbText" rows="6" aria-label="Results list" placeholder="One result per line, ERGS score first, e.g.&#10;Sat 6 Sep 2025 | 1st XV | Banbridge Academy | H | 24-10 | Schools’ Cup&#10;13/09/2025, Meds, Portora, A, 12-19&#10;(or paste columns from a spreadsheet: date, team, opponent, H/A, ERGS, them, competition)"></textarea>
+      <div class="ctrl"><button type="button" class="btn primary" id="pbRead">Add these to the table</button></div></div>
+    <div class="dlg-a"><button type="button" class="btn ghost" data-close>Cancel</button><button type="button" class="btn primary" id="pbGo" disabled>Add results</button></div>`, d => {
+    const body = d.querySelector('#pbBody'), msg = t => d.querySelector('#pbMsg').textContent = t;
+    const count = () => { const good = rows.filter(r => ok(r) && !dup(r)), n = good.length, b = d.querySelector('#pbGo'); b.disabled = !n; b.textContent = n ? `Add ${n} result${n === 1 ? '' : 's'}` : 'Add results';
+      body.querySelectorAll('tr').forEach((tr, i) => { const r = rows[i]; if (!r) return; tr.classList.toggle('pb-ok', ok(r) && !dup(r)); tr.classList.toggle('pb-dup', !!dup(r)); const st = tr.querySelector('.pb-st');
+        if (st){ const us = r.us === '' ? null : +r.us, th = r.them === '' ? null : +r.them; st.textContent = dup(r) ? 'Already on ERGS Live' : us != null && th != null ? (us > th ? 'Won' : us < th ? 'Lost' : 'Drew') : ''; st.className = 'pb-st ' + (dup(r) ? 'dup' : us != null && th != null ? (us > th ? 'w' : us < th ? 'l' : 'd') : ''); } }); };
+    const draw = () => { body.innerHTML = rows.map((r, i) => `<tr data-r="${i}"><td><input class="input" type="date" data-k="date" value="${esc(r.date)}" aria-label="Date"></td><td><select class="input" data-k="team" aria-label="Team">${tOpts(r.team)}</select></td>
+        <td><input class="input" data-k="opp" list="pbOpps" value="${esc(r.opp)}" placeholder="Opponent" aria-label="Opponent"></td><td><select class="input" data-k="ha" aria-label="Home or away"><option value="H" ${r.ha === 'H' ? 'selected' : ''}>H</option><option value="A" ${r.ha === 'A' ? 'selected' : ''}>A</option></select></td>
+        <td><input class="input pb-n" type="number" min="0" max="250" inputmode="numeric" data-k="us" value="${esc(r.us)}" aria-label="ERGS score"></td><td><input class="input pb-n" type="number" min="0" max="250" inputmode="numeric" data-k="them" value="${esc(r.them)}" aria-label="Their score"></td>
+        <td><input class="input" data-k="comp" list="pbComps" value="${esc(r.comp)}" placeholder="Optional" aria-label="Competition"></td><td class="pb-end"><span class="pb-st"></span><button type="button" class="pb-x" data-x="${i}" aria-label="Remove row">✕</button></td></tr>`).join('');
+      // date, team and competition carry down to the empty rows below, so a run of matches only needs them once
+      const carry = (i, k) => { if (!['date', 'team', 'comp'].includes(k)) return; for (let j = i + 1; j < rows.length; j++){ const r = rows[j]; if (r.opp || r.us !== '' || r.them !== '') break; r[k] = rows[i][k]; const el = body.querySelector(`tr[data-r="${j}"] [data-k="${k}"]`); if (el) el.value = rows[i][k]; } };
+      body.querySelectorAll('[data-k]').forEach(el => { const i = +el.closest('tr').dataset.r, k = el.dataset.k; el.addEventListener('input', () => { rows[i][k] = el.value; carry(i, k); count(); }); el.addEventListener('change', () => { rows[i][k] = el.value; carry(i, k); count(); }); });
+      body.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { rows.splice(+b.dataset.x, 1); if (!rows.length) rows.push(blank()); draw(); });
+      // Enter in the last cell of the last row adds a row
+      count(); };
+    d.querySelector('#pbMore').onclick = () => { for (let i = 0; i < 5; i++) rows.push(blank(rows[rows.length - 1])); draw(); const ins = body.querySelectorAll('tr'); const f = ins[ins.length - 5] && ins[ins.length - 5].querySelector('[data-k="opp"]'); if (f) f.focus(); };
+    d.querySelector('#pbPasteT').onclick = () => { const p = d.querySelector('#pbPaste'); p.hidden = !p.hidden; if (!p.hidden) d.querySelector('#pbText').focus(); };
+    d.querySelector('#pbRead').onclick = () => { const lines = d.querySelector('#pbText').value.split(/\r?\n/).map(l => l.trim()).filter(Boolean); let got = 0, bad = [];
+      lines.forEach(l => { let r = null; const cols = l.split('\t');
+        if (cols.length >= 6){ const [dt, tm, op, ha, us, th, cp] = cols.map(x => (x || '').trim()); const dd = /^\d{4}-\d{2}-\d{2}$/.test(dt) ? dt : parseDate(dt); if (dd && op && us !== '' && th !== '') r = {date:dd, team:teamCode(tm) || tm || '1XV', opp:op, ha:/^a/i.test(ha) ? 'A' : 'H', us:String(parseInt(us, 10)), them:String(parseInt(th, 10)), comp:cp || ''}; }
+        if (!r){ const sc = l.match(/(\d{1,3})\s*[-–:]\s*(\d{1,3})(?!\d)/); if (sc){ const rest = (l.slice(0, sc.index) + ' ' + l.slice(sc.index + sc[0].length)).replace(/\b(won|lost|drew|win|loss|draw|W|L|D)\b/g, ' ').replace(/\|\s*\|/g, '|');
+          const f = parseFixtureText(rest)[0];
+          // the competition is usually last on the line; the list reader can miss it once the score is taken out
+          let comp = f && f.comp || ''; if (f && !comp){ const segs = rest.split(/[|,;\t]/).map(x => x.trim()).filter(Boolean), c = segs[segs.length - 1] || '';
+            if (c && c !== f.opp && !/^(h|a|home|away)$/i.test(c) && !parseDate(c) && c.toLowerCase() !== String(f.team || '').toLowerCase() && !/^\d/.test(c)) comp = c; }
+          if (f && f.date && f.opp) r = {date:f.date, team:teamCode(f.team) || f.team || rows[rows.length - 1].team, opp:f.opp, ha:f.ha || 'H', us:sc[1], them:sc[2], comp}; } }
+        if (r){ const empty = rows.findIndex(x => !x.opp && x.us === '' && x.them === ''); if (empty >= 0) rows[empty] = r; else rows.push(r); got++; } else bad.push(l); });
+      draw(); msg(`${got} result${got === 1 ? '' : 's'} added to the table${bad.length ? `. ${bad.length} line${bad.length === 1 ? '' : 's'} couldn’t be read: ${bad.slice(0, 2).join(' · ')}${bad.length > 2 ? '…' : ''}` : '.'} Check them, then press Add.`);
+      if (got){ d.querySelector('#pbText').value = bad.join('\n'); if (!bad.length) d.querySelector('#pbPaste').hidden = true; } };
+    d.querySelector('#pbGo').onclick = () => { const pick = rows.filter(r => ok(r) && !dup(r)); if (!pick.length) return; closeDialog();
+      save(dd => pick.forEach(r => { const opp = canonSchool(r.opp.trim()), us = r.ha === 'A' ? 'A' : 'H', a = +r.us, b = +r.them, sev = /7s|vii|sevens/i.test(r.team + ' ' + r.comp);
+        dd.matches.push({id:uid(), status:'FT', clock:{base:0, since:0, running:false}, events:[], created:Date.now(), home:us === 'H' ? 'ERGS' : opp, away:us === 'H' ? opp : 'ERGS', us, team:r.team, comp:r.comp.trim(), round:'',
+          venue:us === 'H' ? HOME_GROUND : opp, ko:r.date + 'T12:00', koTbc:true, code:sev ? 'sevens' : 'union', half:sev ? 7 : 35, final:us === 'H' ? [a, b] : [b, a]}); }))
+        .then(() => { toast(`${pick.length} past result${pick.length === 1 ? '' : 's'} added.`); const l = pick[pick.length - 1]; try { localStorage.setItem('ergs.lastPast', JSON.stringify({team:l.team, comp:l.comp, ko:l.date + 'T12:00'})); } catch(e){} });
+    };
+    d.classList.add('pb-dlg'); draw(); setTimeout(() => { const f = body.querySelector('[data-k="opp"]'); if (f) f.focus(); }, 50);
+  });
+}
 function importDialog(){
   openDialog(`<h2>Import fixtures</h2><p>Paste the fixtures list or upload a CSV${SAMPLE ? ', photo or PDF' : ''}. One line per fixture works best, e.g. <b>Sat 7 Feb 2026 | 1st XV | Banbridge Academy | H | 10:30 | Schools’ Bowl</b>.</p>
     <div class="ctrl"><label class="btn">Upload ${SAMPLE ? 'photo, PDF or CSV' : 'CSV'}<input type="file" id="impFile" accept="${SAMPLE ? 'image/*,application/pdf,' : ''}.csv,.txt,text/csv,text/plain" multiple hidden></label></div>
@@ -2755,7 +2809,7 @@ function menuOpen(){
     ${squad || (SANDBOX && (real.COACH || real.PLAYER)) ? `<a class="dr-app" href="${esc(MAIN_APP)}" target="_blank" rel="noopener">${ic('app')}<span><b>Open the ERGS Rugby app</b><small>Plays, drills, photos, graphics and team news</small></span><span class="dr-arrow">↗</span></a>` : ''}
     ${(V.tab === 'fixtures' || V.tab === 'results') && V.flt && V.flt.kind === V.tab ? `<div class="dr-sec">${V.tab === 'fixtures' ? 'Fixtures' : 'Results'}: what to show</div><div class="dr-flt">${V.flt.html.replace(/ data-(?!px)/g, ' data-px-').replace(/ id="/g, ' data-pxid="')}</div>` : ''}
     ${SUP && !COACH && !PLAYER && !SANDBOX ? `<div class="dr-sec">Following</div>${item('people', 'Squads you follow', esc(followTxt(SUP.follow)), 'data-mfollow')}` : ''}
-    ${COACH && !SANDBOX ? `<div class="dr-sec">Matches</div>${item('plus', 'New match', 'Add a fixture to score', 'data-mact="new"')}${item('past', 'Add a past result', 'A score from before ERGS Live', 'data-mact="past"')}${item('imp', 'Import fixtures', 'From a photo, PDF or list', 'data-mact="import"')}
+    ${COACH && !SANDBOX ? `<div class="dr-sec">Matches</div>${item('plus', 'New match', 'Add a fixture to score', 'data-mact="new"')}${item('past', 'Add a past result', 'A score from before ERGS Live', 'data-mact="past"')}${item('past', 'Add past results in bulk', 'Type a table or paste a list', 'data-mact="pastbulk"')}${item('imp', 'Import fixtures', 'From a photo, PDF or list', 'data-mact="import"')}
       <div class="dr-sec">Manage</div>${item('crest', 'School crests', 'Crests, colours, merge and delete', 'data-mact="schools"')}${item('people', 'Coaches', 'Who can score and manage', 'data-mact="coaches"')}` : ''}
     ${(real.COACH || real.PLAYER) ? `<div class="dr-sec">Learn</div>${SANDBOX ? item('demo', 'Leave the demo', 'Back to the real scoreboard', 'data-mdemo="out"') : item('demo', real.COACH ? 'Practise in the demo' : 'Try the demo', 'Score a match and see the animations. Nothing is saved', 'data-mdemo="in"')}` : ''}
     <div class="dr-sec">More</div>${item('share', 'Share the app', 'Link and QR code', 'data-mshare')}${document.querySelector('#installSlot button, #installSlot a') ? item('imp', 'Install the app', 'On your phone or computer', 'data-minst') : ''}

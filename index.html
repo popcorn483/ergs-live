@@ -302,6 +302,22 @@ header .hd-r{min-width:0}
 .mv-ic{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--rule);background:rgba(255,255,255,.04);color:var(--gold);cursor:pointer;transition:transform .15s,border-color .15s,background .15s}
 .mv-ic:hover{transform:translateY(-2px);border-color:var(--gold);background:rgba(220,192,138,.1)}
 .mv-ic:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.pb-wrap{overflow-x:auto;margin:6px 0 10px;max-height:55vh;overflow-y:auto}
+.pb-tbl{width:100%;border-collapse:separate;border-spacing:0 4px;min-width:860px}
+.pb-tbl th{position:sticky;top:0;background:var(--panel,#1b2347);z-index:1;padding:4px 6px;text-align:left;font:700 11px var(--f-cond);letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.pb-tbl td{padding:0 3px}
+.pb-tbl .input{min-height:38px;padding:4px 8px;width:100%;box-sizing:border-box}
+.pb-tbl td:nth-child(1){width:150px}.pb-tbl td:nth-child(2){width:90px}.pb-tbl td:nth-child(4){width:64px}.pb-tbl td:nth-child(5),.pb-tbl td:nth-child(6){width:70px}.pb-tbl td:nth-child(7){width:170px}
+.pb-n{text-align:center;font-weight:700}
+.pb-end{white-space:nowrap;width:100px}
+.pb-st{display:inline-block;min-width:56px;font:700 11px var(--f-cond);letter-spacing:.06em;text-transform:uppercase}
+.pb-st.w{color:#4ad08a}.pb-st.l{color:#ff8f8a}.pb-st.d{color:var(--gold)}.pb-st.dup{color:var(--mute);text-transform:none;letter-spacing:0;font-weight:500}
+.pb-x{border:0;background:none;color:var(--mute);cursor:pointer;padding:4px 6px}
+.pb-tbl tr.pb-ok td:first-child .input{box-shadow:inset 3px 0 0 #4ad08a}
+.pb-tbl tr.pb-dup{opacity:.55}
+#pbText{width:100%;box-sizing:border-box}
+#dialog:has(#pbBody){width:min(1080px,calc(100vw - 24px))!important;max-width:min(1080px,calc(100vw - 24px))!important}
+#dialog.pb-dlg{width:min(1080px,calc(100vw - 24px))!important;max-width:min(1080px,calc(100vw - 24px))!important}
 .sum-img{display:block;width:100%;max-width:420px;margin:8px auto 12px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
 .cal-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 12px;padding:10px 12px;border-radius:12px;border:1px solid var(--line,rgba(255,255,255,.12));background:rgba(220,192,138,.08)}.cal-bar span{flex:1;min-width:180px;font-weight:600}.cal-bar select{width:auto}
 .cal-one{display:flex;justify-content:center;margin:10px 0}
@@ -672,10 +688,10 @@ body.dr-lock{overflow:hidden}
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = 'e3d1ccd340';</script>
-<script src="config.js?v=e3d1ccd340"></script>
-<script src="crest.js?v=e3d1ccd340"></script>
-<script src="app.js?v=e3d1ccd340"></script>
-<script type="module" src="fb.js?v=e3d1ccd340"></script>
+<script>window.ERGS_VER = '234018357a';</script>
+<script src="config.js?v=234018357a"></script>
+<script src="crest.js?v=234018357a"></script>
+<script src="app.js?v=234018357a"></script>
+<script type="module" src="fb.js?v=234018357a"></script>
 </body>
 </html>
