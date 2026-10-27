@@ -55,6 +55,8 @@ const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth
     if (ROLE !== 'coach'){ let p = await look('players');
       // a second sign-in email: players/<second> just points at the player's main record, and they act as that player
       if (p && p.aliasOf){ const main = String(p.aliasOf).toLowerCase(); ALIAS_REL = p.rel === 'guardian' ? 'guardian' : 'self'; ALIAS_NAME = String(p.gname || ''); p = null; try { const s = await getDoc(doc(fs, 'players', main)); if (s.exists()){ ALIAS = EMAIL; EMAIL = main; p = s.data() || {}; } } catch(e){} }
+      // a parent signed in before their child, so their email is the main one: a coach marks it (mainRel) and they get the parent's view
+      if (p && !ALIAS && p.mainRel === 'guardian'){ ALIAS = EMAIL; ALIAS_REL = 'guardian'; ALIAS_NAME = String(p.gname || ''); }
       if (p){ ROLE = 'player'; PLAYER = p; } }
   }
   // not on a list yet: leave a request so the coaches see them waiting (needs the requests rule in Firebase)
