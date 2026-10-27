@@ -107,6 +107,12 @@ service cloud.firestore {
       allow create, update: if isSquad() && mine(email) && request.resource.data.keys().hasOnly(['p', 'name', 'at']) && request.resource.data.p is map && request.resource.data.p.size() <= 500 && request.resource.data.at is number;
       allow delete: if isCoach() || mine(email);
     }
+    // photo tags: a player tags themselves in match photos (p: photo id -> where they are); the squad sees them; coaches can take a tag off
+    match /phtags/{email} {
+      allow read: if isSquad();
+      allow create, update: if (isCoach() || (isPlayer() && mine(email))) && request.resource.data.keys().hasOnly(['p', 'name', 'at']) && request.resource.data.p is map && request.resource.data.p.size() <= 400 && request.resource.data.at is number;
+      allow delete: if isCoach() || mine(email);
+    }
     match /sponsors/{doc} { allow read, write: if isCoach(); }
     match /sheets/{doc} { allow read, write: if isCoach(); }
     match /members/{uid} {
