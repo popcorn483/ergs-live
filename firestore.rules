@@ -101,6 +101,12 @@ service cloud.firestore {
       allow create, update: if isSquad() && mine(email) && request.resource.data.keys().hasOnly(['g', 'name', 'team', 'at']) && request.resource.data.g is map && request.resource.data.g.size() <= 150 && request.resource.data.name is string && request.resource.data.name.size() < 80;
       allow delete: if isCoach();
     }
+    // photo likes: one doc per person (the photos they ♥); everyone in the squad sees the counts
+    match /likes/{email} {
+      allow read: if isSquad();
+      allow create, update: if isSquad() && mine(email) && request.resource.data.keys().hasOnly(['p', 'name', 'at']) && request.resource.data.p is map && request.resource.data.p.size() <= 500 && request.resource.data.at is number;
+      allow delete: if isCoach() || mine(email);
+    }
     match /sponsors/{doc} { allow read, write: if isCoach(); }
     match /sheets/{doc} { allow read, write: if isCoach(); }
     match /members/{uid} {
