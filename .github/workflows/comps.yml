@@ -22,6 +22,6 @@ jobs:
           node-version: 20
       - run: node tools/cup-import.mjs comps.json
       - run: |
-          if git diff --quiet -- comps.json; then echo "No change"; exit 0; fi
+          if [ -z "$(git status --porcelain -- comps.json)" ]; then echo "No change"; exit 0; fi
           git config user.name "ERGS Live tables"; git config user.email "ergsrugby@gmail.com"
           git add comps.json && git commit -q -m "Competition tables updated from Ulster Rugby" && git push -q
