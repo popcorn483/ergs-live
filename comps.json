@@ -1,0 +1,604 @@
+{
+ "season": "2026/27",
+ "source": "Ulster Rugby fixtures & results (SportLoMo)",
+ "comps": {
+  "cup": [
+   {
+    "name": "Danske Bank Schools Cup Group A",
+    "kind": "league",
+    "url": "https://ulsterrugby.sportlomo.com/league/216034/",
+    "table": [
+     {
+      "pos": 1,
+      "n": "Omagh Academy",
+      "P": 2,
+      "W": 2,
+      "D": 0,
+      "L": 0,
+      "Pts": 10
+     },
+     {
+      "pos": 2,
+      "n": "Bangor GS",
+      "P": 1,
+      "W": 1,
+      "D": 0,
+      "L": 0,
+      "Pts": 5
+     },
+     {
+      "pos": 3,
+      "n": "Banbridge Academy",
+      "P": 2,
+      "W": 1,
+      "D": 0,
+      "L": 1,
+      "Pts": 5
+     },
+     {
+      "pos": 4,
+      "n": "Larne GS",
+      "P": 1,
+      "W": 0,
+      "D": 0,
+      "L": 1,
+      "Pts": 0
+     },
+     {
+      "pos": 5,
+      "n": "Royal School Dungannon",
+      "P": 2,
+      "W": 0,
+      "D": 0,
+      "L": 2,
+      "Pts": 0
+     }
+    ],
+    "games": [
+     {
+      "date": "2026-10-21",
+      "time": "14:30",
+      "h": "Omagh Academy",
+      "a": "Larne GS",
+      "venue": "Omagh Academy",
+      "hs": 33,
+      "as": 21,
+      "ht": 5,
+      "at": 3
+     },
+     {
+      "date": "2026-10-17",
+      "time": "10:30",
+      "h": "Banbridge Academy",
+      "a": "Royal School Dungannon",
+      "venue": "Banbridge Academy",
+      "hs": 24,
+      "as": 10,
+      "ht": 4,
+      "at": 2
+     },
+     {
+      "date": "2026-10-10",
+      "time": "10:30",
+      "h": "Royal School Dungannon",
+      "a": "Omagh Academy",
+      "venue": "Royal School Dungannon",
+      "hs": 0,
+      "as": 24,
+      "ht": 0,
+      "at": 4
+     },
+     {
+      "date": "2026-10-10",
+      "time": "10:30",
+      "h": "Bangor GS",
+      "a": "Banbridge Academy",
+      "venue": "Bangor GS",
+      "hs": 31,
+      "as": 14,
+      "ht": 5,
+      "at": 2
+     },
+     {
+      "date": "2026-11-07",
+      "time": "10:30",
+      "h": "Larne GS",
+      "a": "Banbridge Academy",
+      "venue": "Larne GS"
+     },
+     {
+      "date": "2026-11-07",
+      "time": "10:30",
+      "h": "Royal School Dungannon",
+      "a": "Bangor GS",
+      "venue": "Royal School Dungannon"
+     },
+     {
+      "date": "2026-11-28",
+      "time": "10:30",
+      "h": "Banbridge Academy",
+      "a": "Omagh Academy",
+      "venue": "Banbridge Academy"
+     },
+     {
+      "date": "2026-11-28",
+      "time": "10:30",
+      "h": "Bangor GS",
+      "a": "Larne GS",
+      "venue": "Bangor GS"
+     },
+     {
+      "date": "2026-12-05",
+      "time": "10:30",
+      "h": "Larne GS",
+      "a": "Royal School Dungannon",
+      "venue": "Larne GS"
+     },
+     {
+      "date": "2026-12-05",
+      "time": "10:30",
+      "h": "Omagh Academy",
+      "a": "Bangor GS",
+      "venue": "Omagh Academy"
+     }
+    ]
+   },
+   {
+    "name": "Danske Bank Schools Cup Group B",
+    "kind": "league",
+    "url": "https://ulsterrugby.sportlomo.com/league/216035/",
+    "table": [
+     {
+      "pos": 1,
+      "n": "Coleraine Grammar School",
+      "P": 2,
+      "W": 2,
+      "D": 0,
+      "L": 0,
+      "Pts": 9
+     },
+     {
+      "pos": 2,
+      "n": "Enniskillen Royal GS",
+      "P": 2,
+      "W": 2,
+      "D": 0,
+      "L": 0,
+      "Pts": 9
+     },
+     {
+      "pos": 3,
+      "n": "Portadown College",
+      "P": 1,
+      "W": 0,
+      "D": 0,
+      "L": 1,
+      "Pts": 1
+     },
+     {
+      "pos": 4,
+      "n": "Friends School",
+      "P": 1,
+      "W": 0,
+      "D": 0,
+      "L": 1,
+      "Pts": 0
+     },
+     {
+      "pos": 5,
+      "n": "Belfast High School",
+      "P": 2,
+      "W": 0,
+      "D": 0,
+      "L": 2,
+      "Pts": 0
+     }
+    ],
+    "games": [
+     {
+      "date": "2026-10-17",
+      "time": "11:00",
+      "h": "Enniskillen Royal GS",
+      "a": "Belfast High School",
+      "venue": "",
+      "hs": 40,
+      "as": 19,
+      "ht": 6,
+      "at": 3
+     },
+     {
+      "date": "2026-10-17",
+      "time": "10:30",
+      "h": "Friends School",
+      "a": "Coleraine Grammar School",
+      "venue": "Friends School",
+      "hs": 7,
+      "as": 22,
+      "ht": 1,
+      "at": 3
+     },
+     {
+      "date": "2026-10-10",
+      "time": "10:30",
+      "h": "Coleraine Grammar School",
+      "a": "Belfast High School",
+      "venue": "Coleraine Grammar School",
+      "hs": 42,
+      "as": 0,
+      "ht": 6,
+      "at": 0
+     },
+     {
+      "date": "2026-10-09",
+      "time": "18:30",
+      "h": "Portadown College",
+      "a": "Enniskillen Royal GS",
+      "venue": "Chambers Park",
+      "hs": 10,
+      "as": 12,
+      "ht": 1,
+      "at": 2
+     },
+     {
+      "date": "2026-11-07",
+      "time": "10:30",
+      "h": "Coleraine Grammar School",
+      "a": "Enniskillen Royal GS",
+      "venue": "Coleraine Grammar School"
+     },
+     {
+      "date": "2026-11-07",
+      "time": "10:30",
+      "h": "Friends School",
+      "a": "Portadown College",
+      "venue": "Friends School"
+     },
+     {
+      "date": "2026-11-28",
+      "time": "10:30",
+      "h": "Belfast High School",
+      "a": "Friends School",
+      "venue": "Belfast High School"
+     },
+     {
+      "date": "2026-11-28",
+      "time": "10:30",
+      "h": "Portadown College",
+      "a": "Coleraine Grammar School",
+      "venue": "Portadown College"
+     },
+     {
+      "date": "2026-12-05",
+      "time": "10:30",
+      "h": "Belfast High School",
+      "a": "Portadown College",
+      "venue": "Belfast High School"
+     },
+     {
+      "date": "2026-12-05",
+      "time": "10:30",
+      "h": "Enniskillen Royal GS",
+      "a": "Friends School",
+      "venue": "Mullaghmeen"
+     }
+    ]
+   },
+   {
+    "name": "Danske Bank Schools Cup Group C",
+    "kind": "league",
+    "url": "https://ulsterrugby.sportlomo.com/league/216038/",
+    "table": [
+     {
+      "pos": 1,
+      "n": "Ballyclare High School",
+      "P": 2,
+      "W": 2,
+      "D": 0,
+      "L": 0,
+      "Pts": 10
+     },
+     {
+      "pos": 2,
+      "n": "Rainey Endowed School",
+      "P": 1,
+      "W": 1,
+      "D": 0,
+      "L": 0,
+      "Pts": 5
+     },
+     {
+      "pos": 3,
+      "n": "Foyle College",
+      "P": 2,
+      "W": 1,
+      "D": 0,
+      "L": 1,
+      "Pts": 4
+     },
+     {
+      "pos": 4,
+      "n": "Antrim Grammar School",
+      "P": 1,
+      "W": 0,
+      "D": 0,
+      "L": 1,
+      "Pts": 1
+     },
+     {
+      "pos": 5,
+      "n": "Limavady GS",
+      "P": 2,
+      "W": 0,
+      "D": 0,
+      "L": 2,
+      "Pts": 0
+     }
+    ],
+    "games": [
+     {
+      "date": "2026-10-17",
+      "time": "10:30",
+      "h": "Limavady GS",
+      "a": "Ballyclare High School",
+      "venue": "Limavady GS",
+      "hs": 5,
+      "as": 29,
+      "ht": 1,
+      "at": 5
+     },
+     {
+      "date": "2026-10-17",
+      "time": "10:30",
+      "h": "Foyle College",
+      "a": "Antrim Grammar School",
+      "venue": "Foyle College",
+      "hs": 20,
+      "as": 17,
+      "ht": 3,
+      "at": 3
+     },
+     {
+      "date": "2026-10-10",
+      "time": "10:30",
+      "h": "Rainey Endowed School",
+      "a": "Limavady GS",
+      "venue": "Rainey Endowed School",
+      "hs": 31,
+      "as": 0,
+      "ht": 5,
+      "at": 0
+     },
+     {
+      "date": "2026-10-07",
+      "time": "14:45",
+      "h": "Ballyclare High School",
+      "a": "Foyle College",
+      "venue": "Ballyclare High School",
+      "hs": 45,
+      "as": 5,
+      "ht": 7,
+      "at": 1
+     },
+     {
+      "date": "2026-11-07",
+      "time": "10:30",
+      "h": "Antrim Grammar School",
+      "a": "Limavady GS",
+      "venue": "Antrim Grammar School"
+     },
+     {
+      "date": "2026-11-07",
+      "time": "10:30",
+      "h": "Ballyclare High School",
+      "a": "Rainey Endowed School",
+      "venue": "Ballyclare High School"
+     },
+     {
+      "date": "2026-11-28",
+      "time": "10:30",
+      "h": "Limavady GS",
+      "a": "Foyle College",
+      "venue": "Limavady GS"
+     },
+     {
+      "date": "2026-11-28",
+      "time": "10:30",
+      "h": "Rainey Endowed School",
+      "a": "Antrim Grammar School",
+      "venue": "Rainey Endowed School"
+     },
+     {
+      "date": "2026-12-05",
+      "time": "10:30",
+      "h": "Antrim Grammar School",
+      "a": "Ballyclare High School",
+      "venue": "Antrim Grammar School"
+     },
+     {
+      "date": "2026-12-05",
+      "time": "10:30",
+      "h": "Foyle College",
+      "a": "Rainey Endowed School",
+      "venue": "Foyle College"
+     }
+    ]
+   },
+   {
+    "name": "Danske Bank Schools Cup Group D",
+    "kind": "league",
+    "url": "https://ulsterrugby.sportlomo.com/league/216039/",
+    "table": [
+     {
+      "pos": 1,
+      "n": "Regent House School",
+      "P": 2,
+      "W": 2,
+      "D": 0,
+      "L": 0,
+      "Pts": 10
+     },
+     {
+      "pos": 2,
+      "n": "Down HS",
+      "P": 2,
+      "W": 1,
+      "D": 0,
+      "L": 1,
+      "Pts": 5
+     },
+     {
+      "pos": 3,
+      "n": "Dalriada School",
+      "P": 1,
+      "W": 1,
+      "D": 0,
+      "L": 0,
+      "Pts": 4
+     },
+     {
+      "pos": 4,
+      "n": "Cambridge House GS",
+      "P": 2,
+      "W": 0,
+      "D": 0,
+      "L": 2,
+      "Pts": 2
+     },
+     {
+      "pos": 5,
+      "n": "Dromore HS",
+      "P": 1,
+      "W": 0,
+      "D": 0,
+      "L": 1,
+      "Pts": 0
+     }
+    ],
+    "games": [
+     {
+      "date": "2026-10-17",
+      "time": "10:30",
+      "h": "Dromore HS",
+      "a": "Regent House School",
+      "venue": "Barban Hill",
+      "hs": 17,
+      "as": 27,
+      "ht": 2,
+      "at": 5
+     },
+     {
+      "date": "2026-10-17",
+      "time": "10:30",
+      "h": "Down HS",
+      "a": "Cambridge House GS",
+      "venue": "Down HS",
+      "hs": 17,
+      "as": 14,
+      "ht": 3,
+      "at": 2
+     },
+     {
+      "date": "2026-10-10",
+      "time": "10:30",
+      "h": "Regent House School",
+      "a": "Cambridge House GS",
+      "venue": "Regent House School",
+      "hs": 38,
+      "as": 28,
+      "ht": 6,
+      "at": 4
+     },
+     {
+      "date": "2026-10-10",
+      "time": "10:30",
+      "h": "Dalriada School",
+      "a": "Down HS",
+      "venue": "Dalriada School",
+      "hs": 13,
+      "as": 8,
+      "ht": 1,
+      "at": 1
+     },
+     {
+      "date": "2026-11-07",
+      "time": "10:30",
+      "h": "Dalriada School",
+      "a": "Dromore HS",
+      "venue": "Dalriada School"
+     },
+     {
+      "date": "2026-11-07",
+      "time": "10:30",
+      "h": "Down HS",
+      "a": "Regent House School",
+      "venue": "Down HS"
+     },
+     {
+      "date": "2026-11-28",
+      "time": "10:30",
+      "h": "Cambridge House GS",
+      "a": "Dalriada School",
+      "venue": "Cambridge House GS"
+     },
+     {
+      "date": "2026-11-28",
+      "time": "10:30",
+      "h": "Dromore HS",
+      "a": "Down HS",
+      "venue": "Dromore HS"
+     },
+     {
+      "date": "2026-12-05",
+      "time": "10:30",
+      "h": "Cambridge House GS",
+      "a": "Dromore HS",
+      "venue": "Cambridge House GS"
+     },
+     {
+      "date": "2026-12-05",
+      "time": "10:30",
+      "h": "Regent House School",
+      "a": "Dalriada School",
+      "venue": "Regent House School"
+     }
+    ]
+   },
+   {
+    "name": "Danske Bank Schools Cup Qualifying 1 Match A Fixtures & Results",
+    "kind": "ko",
+    "url": "https://ulsterrugby.sportlomo.com/competition_fixtures_results/216036/",
+    "table": [],
+    "games": [
+     {
+      "date": "",
+      "time": "10:30",
+      "h": "Grosvenor GS",
+      "a": "Lurgan College",
+      "venue": "Grosvenor GS"
+     }
+    ]
+   },
+   {
+    "name": "Danske Bank Schools Cup Qualifying 1 Match B",
+    "kind": "ko",
+    "url": "https://ulsterrugby.sportlomo.com/competition_fixtures_results/216037/",
+    "table": [],
+    "games": [
+     {
+      "date": "2026-10-03",
+      "time": "10:00",
+      "h": "Antrim Grammar School",
+      "a": "Grosvenor GS",
+      "venue": "Antrim Grammar School",
+      "hs": 24,
+      "as": 8,
+      "ht": 3,
+      "at": 1
+     }
+    ]
+   }
+  ],
+  "meds": []
+ },
+ "updated": "2026-11-01T20:22:21.037Z"
+}
