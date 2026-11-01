@@ -1,0 +1,27 @@
+name: Competition tables
+
+# Every two hours: fetch the Schools' Cup and Medallion tables, results and fixtures from Ulster Rugby (SportLoMo)
+# and save them as comps.json, which ERGS Live reads. Commits only when something changed.
+on:
+  schedule:
+    - cron: '23 */2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: comps
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node tools/cup-import.mjs comps.json
+      - run: |
+          if git diff --quiet -- comps.json; then echo "No change"; exit 0; fi
+          git config user.name "ERGS Live tables"; git config user.email "ergsrugby@gmail.com"
+          git add comps.json && git commit -q -m "Competition tables updated from Ulster Rugby" && git push -q
