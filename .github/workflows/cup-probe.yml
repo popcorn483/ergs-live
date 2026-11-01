@@ -1,5 +1,7 @@
 name: Cup probe (temporary)
 on: workflow_dispatch
+permissions:
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -8,6 +10,5 @@ jobs:
           mkdir out; cd out
           for u in "https://ulsterrugby.sportlomo.com/results" "https://ulsterrugby.sportlomo.com/fixtures" "https://ulsterrugby.sportlomo.com/" "https://ulsterrugby.sportlomo.com/competition_fixtures_results/189412/"; do
             f=$(echo "$u" | sed 's#[^a-z0-9]#_#g'); curl -sSL -A "Mozilla/5.0 (ERGS Live cup tables)" -m 60 "$u" -o "$f.html" -w "$u %{http_code} %{size_download}\n" || true; done
-          ls -la
-      - uses: actions/upload-artifact@v4
-        with: {name: probe, path: out}
+          git init -q; git checkout -q -b probe; git add -A; git -c user.name=probe -c user.email=probe@x commit -q -m probe
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" probe
