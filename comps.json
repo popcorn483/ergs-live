@@ -521,17 +521,17 @@
      },
      {
       "date": "2026-11-07",
-      "time": "10:30",
-      "h": "Dalriada School",
-      "a": "Dromore HS",
-      "venue": "Dalriada School"
+      "time": "10:00",
+      "h": "Down HS",
+      "a": "Regent House School",
+      "venue": "Down HS"
      },
      {
       "date": "2026-11-07",
       "time": "10:30",
-      "h": "Down HS",
-      "a": "Regent House School",
-      "venue": "Down HS"
+      "h": "Dalriada School",
+      "a": "Dromore HS",
+      "venue": "Dalriada School"
      },
      {
       "date": "2026-11-28",
@@ -600,5 +600,5 @@
   ],
   "meds": []
  },
- "updated": "2026-11-01T20:22:21.037Z"
+ "updated": "2026-11-02T18:35:22.786Z"
 }
