@@ -381,7 +381,7 @@
      },
      {
       "date": "2026-11-07",
-      "time": "10:30",
+      "time": "10:00",
       "h": "Antrim Grammar School",
       "a": "Limavady GS",
       "venue": "Antrim Grammar School"
@@ -598,7 +598,23 @@
     ]
    }
   ],
-  "meds": []
+  "meds": [
+   {
+    "name": "Danske Bank Medallion Shield Fixtures & Results",
+    "kind": "ko",
+    "url": "https://ulsterrugby.sportlomo.com/competition_fixtures_results/221001/",
+    "table": [],
+    "games": [
+     {
+      "date": "",
+      "time": "13:30",
+      "h": "Rathfriland HS",
+      "a": "Wellington College",
+      "venue": "Rathfriland HS"
+     }
+    ]
+   }
+  ]
  },
- "updated": "2026-11-02T18:35:22.786Z"
+ "updated": "2026-11-03T12:07:19.605Z"
 }
