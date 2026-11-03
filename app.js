@@ -1714,8 +1714,12 @@ function coachPanel(m){
     <div class="box coach"><h3>Commentary</h3><form class="inline" id="noteForm"><input class="input" id="noteIn" maxlength="140" placeholder="Big turnover at the breakdown" aria-label="Commentary line"><button class="btn" type="submit">Post</button></form></div>` : ''}
     ${m.status === 'FT' && usOf(m) ? `<div class="box coach"><h3>After the match</h3><p class="hint" style="margin:0">Opens the main app with the score and scorers filled in, ready to download, plus a match report draft to edit.</p><div class="ctrl"><a class="btn primary" href="${MAIN_APP}#ft.${esc(m.id)}" target="_blank" rel="noopener">Full-time graphic &amp; match report</a></div></div>` : ''}
     ${m.status === 'FT' && usOf(m) ? nomBox(m) : ''}
+    ${m.status === 'FT' && usOf(m) ? injBox(m) : ''}
     ${notes}${settings}`;
 }
+/* after the match: the quick injury form (a Google Form), for coaches */
+const INJURY_FORM = 'https://forms.gle/PzsD8aBvDTn31aTG6';
+const injBox = m => `<div class="box coach inj-box"><h3>🩹 Injuries</h3><p class="hint" style="margin:0">Anyone hurt in this match? Log it while it’s fresh: who, what happened and what was done. Takes a minute.</p><div class="ctrl"><a class="btn" href="${INJURY_FORM}" target="_blank" rel="noopener">Quick injury form ↗</a></div></div>`;
 function viewMatch(m){
   const evs = sorted(m), t = [0, 0], run = new Map(); evs.forEach(e => { const p = ptsOf(e); if (e.s === 'H') t[0] += p; if (e.s === 'A') t[1] += p; run.set(e, t.join('–')); });
   const kicks = []; for (const s of ['H', 'A']){ const by = {}; evs.filter(e => e.s === s && ['con','pen','dg'].includes(e.k)).forEach(e => { const k = e.p || 'Kicker'; const r = by[k] = by[k] || [0, 0]; r[1]++; if (!e.miss) r[0]++; }); Object.entries(by).forEach(([k, r]) => kicks.push(`<div class="kick"><span>${esc(k)} <small>${esc(s === 'H' ? m.home : m.away)}</small></span><b>${r[0]}/${r[1]}</b></div>`)); }
@@ -2681,7 +2685,7 @@ async function nomsDialog(m){
     <div class="nom-rows">${[0,1,2,3].map(i => `<div class="field"><label class="label" for="nom${i}">Player ${i + 1}</label><input class="input" id="nom${i}" maxlength="40" list="nomNames" autocomplete="off" value="${esc(cur[i] ? cur[i].name : '')}"><span class="hint" id="nomH${i}" aria-live="polite"></span></div>`).join('')}</div>
     <datalist id="nomNames">${players.map(p => `<option value="${esc(p.name)}"${p.n ? ` label="#${esc(p.n)}"` : ''}>`).join('')}</datalist>
     <div class="field" style="max-width:220px"><label class="label" for="nomTeam">Team shown on the graphic</label><input class="input" id="nomTeam" maxlength="12" list="nomTeams" value="${esc((cur[0] && cur[0].team) || m.team || '')}"><datalist id="nomTeams">${TEAMS.map(t => `<option value="${esc(t)}">`).join('')}</datalist></div>
-    <div class="dlg-a"><button type="button" class="btn ghost" data-close>${cur.length ? 'Cancel' : 'Later'}</button><button type="button" class="btn primary" id="nomGo">Save nominations</button></div>`, d => {
+    <p class="hint inj-line">🩹 Any injuries? <a href="${INJURY_FORM}" target="_blank" rel="noopener">Fill in the quick injury form ↗</a></p><div class="dlg-a"><button type="button" class="btn ghost" data-close>${cur.length ? 'Cancel' : 'Later'}</button><button type="button" class="btn primary" id="nomGo">Save nominations</button></div>`, d => {
     for (let i = 0; i < NOM_MAX; i++){ const inp = d.querySelector('#nom' + i), h = d.querySelector('#nomH' + i);
       inp.oninput = () => { const p = byNum(inp.value); h.textContent = p ? `#${p.n} ${p.name}` : ''; }; }
     d.querySelector('#nomGo').onclick = async () => {
