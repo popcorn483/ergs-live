@@ -241,17 +241,17 @@
      },
      {
       "date": "2026-11-07",
-      "time": "10:30",
-      "h": "Coleraine Grammar School",
-      "a": "Enniskillen Royal GS",
-      "venue": "Coleraine Grammar School"
+      "time": "10:00",
+      "h": "Friends School",
+      "a": "Portadown College",
+      "venue": "Friends School"
      },
      {
       "date": "2026-11-07",
       "time": "10:30",
-      "h": "Friends School",
-      "a": "Portadown College",
-      "venue": "Friends School"
+      "h": "Coleraine Grammar School",
+      "a": "Enniskillen Royal GS",
+      "venue": "Coleraine Grammar School"
      },
      {
       "date": "2026-11-28",
@@ -616,5 +616,5 @@
    }
   ]
  },
- "updated": "2026-11-03T12:07:19.605Z"
+ "updated": "2026-11-03T19:39:49.113Z"
 }
