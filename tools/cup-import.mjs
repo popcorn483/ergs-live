@@ -2,7 +2,7 @@
 // Run by .github/workflows/comps.yml every couple of hours; the app reads comps.json from the same site, so supporters
 // see official tables, results and fixtures without anyone typing them in.
 // Picks up, for the current season: the Danske Bank Schools Cup (groups, qualifiers, knockout rounds) and the
-// Medallion Shield / Plate / Bowl / Trophy (groups or knockout). Friendlies are ignored.
+// Medallion Shield / Plate / Bowl / Trophy (groups or knockout), plus every school's 1st XV and Medallion A XV friendlies.
 import fs from 'node:fs';
 const SITE = 'https://ulsterrugby.sportlomo.com', UA = 'Mozilla/5.0 (ERGS Live competition tables; +https://popcorn483.github.io/ergs-live/)', OUT = process.argv[2] || 'comps.json';
 const LOCAL = process.env.COMPS_LOCAL || '';   // testing: read saved pages from this folder instead of the web
@@ -37,7 +37,7 @@ function parseComp(html, url, kind){
   }
   return {name:title, kind, url, table, games};
 }
-const which = name => /friendl/i.test(name) ? '' : /\b3XV\b|\bU1[2-8]\b|girls/i.test(name) ? '' : /medallion/i.test(name) ? 'meds' : /schools cup/i.test(name) ? 'cup' : '';
+const which = name => /\b1st XV Friendl/i.test(name) ? 'fr' : /Medallion A XV Friendl/i.test(name) ? 'frmeds' : /friendl/i.test(name) ? '' : /\b3XV\b|\bU1[2-8]\b|girls/i.test(name) ? '' : /medallion/i.test(name) ? 'meds' : /schools cup/i.test(name) ? 'cup' : '';
 async function main(){
   const home = await get('/');
   const season = (home.match(/<option value="(\d+)"\s*selected>([^<]*)<\/option>/) || []);
@@ -46,13 +46,13 @@ async function main(){
   const boys = ((groupsJson.data || [])[0] || []).find(g => /schools boys/i.test(g.group_name || '')); if (!boys) throw new Error('No Schools Boys group');
   const listJson = JSON.parse(await get('/wp-admin/admin-ajax.php?action=competitions', `resetgroup=&group=${boys.group_id}&groups=${boys.group_id}&action=competitions&userid=6941&season=${season[1]}`) || '{}');
   const links = [...String(listJson.competitions || '').matchAll(/href="https:\/\/ulsterrugby\.sportlomo\.com(\/(league|competition_fixtures_results)\/\d+\/)"[^>]*>([\s\S]*?)<\/a>/g)].map(x => ({path:x[1], kind:x[2] === 'league' ? 'league' : 'ko', name:dec(x[3])})).filter(x => which(x.name));
-  const comps = {cup:[], meds:[]};
+  const comps = {cup:[], meds:[], fr:[], frmeds:[]};
   for (const l of links){ await sleep(LOCAL ? 0 : 700); try { const c = parseComp(await get(l.path), SITE + l.path, l.kind); c.name = c.name || l.name; comps[which(l.name)].push(c); } catch(e){ console.error('skipped', l.name, e.message); } }
   for (const k of Object.keys(comps)) comps[k].sort((a, b) => a.name.localeCompare(b.name, undefined, {numeric:true}));
   const y = +(season[2].match(/20\d\d/) || [0])[0], out = {season:`${y}/${String((y + 1) % 100).padStart(2, '0')}`, source:'Ulster Rugby fixtures & results (SportLoMo)', comps};
   let old = null; try { old = JSON.parse(fs.readFileSync(OUT, 'utf8')); } catch(e){}
   if (old && JSON.stringify(Object.assign({}, old, {updated:0})) === JSON.stringify(Object.assign({}, out, {updated:0}))){ console.log('No change.'); return; }
   out.updated = new Date().toISOString(); fs.writeFileSync(OUT, JSON.stringify(out, null, 1) + '\n');
-  console.log(`Written: ${comps.cup.length} Schools Cup and ${comps.meds.length} Medallion competitions, season ${out.season}.`);
+  console.log(`Written: ${comps.cup.length} Schools Cup and ${comps.meds.length} Medallion competitions, ${comps.fr.concat(comps.frmeds).reduce((n, c) => n + c.games.length, 0)} friendlies, season ${out.season}.`);
 }
 main().catch(e => { console.error(e.message); process.exit(1); });

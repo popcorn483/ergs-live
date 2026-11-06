@@ -3110,34 +3110,55 @@ function frGames(tab){
     if (/cup|shield|plate|bowl|trophy|league|medallion|subsidiary|final/i.test(c)) return false;
     return !frOfficial(m, F.key); });
 }
-function frView(tab){
-  const F = FR[tab], all = frGames(tab), now = Date.now();
-  const up = all.filter(m => m.status !== 'FT' && (!kot(m) || kot(m) > now - 6*3600e3)).sort((a, b) => (kot(a) || 9e15) - (kot(b) || 9e15));
-  const done = all.filter(m => m.status === 'FT' && resultOf(m)).sort((a, b) => kot(b) - kot(a)), live = all.filter(isLive);
-  const sub = V.frSub && V.frSub[tab] || (up.length || !done.length ? 'fx' : 'res');
-  const rec = done.map(resultOf), w = rec.filter(r => r.r === 'W').length, d = rec.filter(r => r.r === 'D').length, l = rec.filter(r => r.r === 'L').length,
-    pf = rec.reduce((s, r) => s + r.f, 0), pa = rec.reduce((s, r) => s + r.g, 0);
-  const tog = `<div class="fx-view fr-sub" role="tablist" aria-label="Friendlies"><button type="button" data-frsub="fx" aria-pressed="${sub === 'fx'}">Fixtures${up.length ? ` <small>${up.length}</small>` : ''}</button><button type="button" data-frsub="res" aria-pressed="${sub === 'res'}">Results${done.length ? ` <small>${done.length}</small>` : ''}</button></div>`;
-  const recBox = done.length ? `<div class="fr-rec"><div><b>${done.length}</b><span>Played</span></div><div class="w"><b>${w}</b><span>Won</span></div><div><b>${d}</b><span>Drawn</span></div><div class="l"><b>${l}</b><span>Lost</span></div><div><b>${pf}–${pa}</b><span>Points</span></div></div>` : '';
-  const liveBox = live.length ? `<div class="month">Live now</div><div class="list">${live.map(row).join('')}</div>` : '';
-  let body = '';
-  if (sub === 'fx'){
-    const notLive = up.filter(m => !isLive(m));
-    if (!notLive.length) body = `<div class="empty">No ${esc(TEAM_NAMES[F.team])} friendlies to come${done.length ? '. <button type="button" class="lnk" data-frsub="res">See the results</button>' : ' yet this season.'}</div>`;
-    else { let cur = ''; for (const m of notLive){ const k = kot(m) ? new Date(kot(m)).toLocaleDateString('en-GB', {month:'long', year:'numeric'}) : 'Date to be confirmed'; if (k !== cur){ if (cur) body += '</div>'; body += `<div class="month">${esc(k)}</div><div class="list">`; cur = k; } body += row(m); } body += '</div>'; }
-  } else body = recBox + (done.length ? `<div class="list">${done.map(row).join('')}</div>` : `<div class="empty">No ${esc(TEAM_NAMES[F.team])} friendly results yet this season.</div>`);
-  return `<p class="hint fr-note">${esc(TEAM_NAMES[F.team])} friendlies, ${esc(seasonLabel(frSeason()))}. Tap a game for the full match.</p>${tog}${liveBox}${body}`;
+const frOff = tab => compSeasonOK() ? (OFFICIAL.comps[tab === 'meds' ? 'frmeds' : 'fr'] || []).flatMap(c => c.games || []) : [];
+const frDay = d => new Date(d + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'});
+const frYMD = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+// every school's friendlies from Ulster Rugby, with ERGS's own games from this scoreboard laid over them (live scores, tap to open, results not posted yet)
+function frAll(tab){
+  const F = FR[tab], ours = frGames(tab), used = new Set();
+  const list = frOff(tab).map(g0 => { const g = Object.assign({}, g0, {h:compSchool(g0.h), a:compSchool(g0.a)}), us = cupOurs(g.h) || cupOurs(g.a);
+    if (us){ const opp = cupOurs(g.h) ? g.a : g.h, m = ours.find(x => !used.has(x.id) && cupSame(usOf(x) === 'A' ? x.home : x.away, opp) && (!g.date || !kot(x) || Math.abs(kot(x) - Date.parse(g.date + 'T12:00')) < 3*864e5));
+      if (m){ used.add(m.id); g.m = m; } }
+    return g; });
+  ours.filter(m => !used.has(m.id)).forEach(m => list.push({h:usOf(m) === 'A' ? m.home : 'ERGS', a:usOf(m) === 'A' ? 'ERGS' : m.away, date:kot(m) ? frYMD(kot(m)) : '', time:kot(m) && !m.koTbc ? new Date(kot(m)).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '', m}));
+  list.forEach(g => { g.us = cupOurs(g.h) || cupOurs(g.a); g.live = !!(g.m && isLive(g.m));
+    if (g.m && (g.live || g.m.status === 'FT')){ const [h, a] = score(g.m), swap = usOf(g.m) === 'A' ? !cupOurs(g.a) : !cupOurs(g.h); [g.hs, g.as] = swap ? [a, h] : [h, a]; }
+    else if (g.m && g.m.status !== 'FT' && g.hs == null && kot(g.m)){ g.date = frYMD(kot(g.m)); } });
+  return list;
 }
-function frSwitch(tab){ const F = FR[tab], n = frGames(tab).length, v = (V.frOn || {})[tab] ? 'fr' : 'comp';
+function frView(tab){
+  const F = FR[tab], all = frAll(tab), today = frYMD(Date.now());
+  const done = all.filter(g => g.hs != null && !g.live), up = all.filter(g => g.hs == null && !g.live && (!g.date || g.date >= today)), live = all.filter(g => g.live);
+  const sub = V.frSub && V.frSub[tab] || (up.some(g => g.us) || !done.length ? 'fx' : 'res'), mine = !!(V.frMine && V.frMine[tab]);
+  const rec = done.filter(g => g.us).map(g => { const f = cupOurs(g.h) ? g.hs : g.as, a = cupOurs(g.h) ? g.as : g.hs; return {r:f > a ? 'W' : f < a ? 'L' : 'D', f, g:a}; });
+  const w = rec.filter(r => r.r === 'W').length, d = rec.filter(r => r.r === 'D').length, l = rec.filter(r => r.r === 'L').length, pf = rec.reduce((s, r) => s + r.f, 0), pa = rec.reduce((s, r) => s + r.g, 0);
+  const tog = `<div class="fr-bar"><div class="fx-view fr-sub" role="tablist" aria-label="Friendlies"><button type="button" data-frsub="fx" aria-pressed="${sub === 'fx'}">Fixtures${up.length ? ` <small>${up.length}</small>` : ''}</button><button type="button" data-frsub="res" aria-pressed="${sub === 'res'}">Results${done.length ? ` <small>${done.length}</small>` : ''}</button></div>
+    <div class="fx-view fr-who" role="tablist" aria-label="Schools"><button type="button" data-frmine="0" aria-pressed="${!mine}">All schools</button><button type="button" data-frmine="1" aria-pressed="${mine}">ERGS</button></div></div>`;
+  const recBox = rec.length ? `<div class="fr-rec" aria-label="ERGS friendlies record"><div><b>${rec.length}</b><span>ERGS played</span></div><div class="w"><b>${w}</b><span>Won</span></div><div><b>${d}</b><span>Drawn</span></div><div class="l"><b>${l}</b><span>Lost</span></div><div><b>${pf}–${pa}</b><span>Points</span></div></div>` : '';
+  const row = g => { const fin = g.hs != null, win = fin && (g.hs > g.as ? 'h' : g.as > g.hs ? 'a' : '');
+    return `<div class="ko-r${g.us ? ' us' : ''}${g.live ? ' live' : ''}"${g.m ? ` data-open="${esc(g.m.id)}" role="button" tabindex="0"` : ''}><span class="ko-t${win === 'h' ? ' w' : ''}">${crest(g.h)}<span>${esc(cupShort(g.h))}</span></span><b class="ko-s">${fin ? `${g.hs}–${g.as}` : esc(g.time || 'v')}</b><span class="ko-t a${win === 'a' ? ' w' : ''}"><span>${esc(cupShort(g.a))}</span>${crest(g.a)}</span>${g.live ? '<span class="pill live">Live</span>' : g.ht != null && fin ? `<small class="ko-tr">Tries ${g.ht}–${g.at}</small>` : g.venue && !fin ? `<small class="ko-tr">${esc(g.venue)}</small>` : ''}</div>`; };
+  const days = (gs, desc) => { const by = new Map(); gs.filter(g => !mine || g.us).sort((x, y) => (x.date || '9').localeCompare(y.date || '9') * (desc ? -1 : 1) || (y.us - x.us) || (x.time || '').localeCompare(y.time || ''))
+      .forEach(g => { const k = g.date || ''; if (!by.has(k)) by.set(k, []); by.get(k).push(g); });
+    const ds = [...by], cut = V.frAllDays ? ds.length : 6;
+    return ds.slice(0, cut).map(([k, x]) => `<div class="ko-d">${k ? esc(frDay(k)) : 'Date to be confirmed'}</div>${x.map(row).join('')}`).join('') + (ds.length > cut ? `<button type="button" class="btn ghost fr-more" data-frmore>Show ${ds.length - cut} more ${ds.length - cut === 1 ? 'day' : 'days'}</button>` : ''); };
+  const pool = sub === 'fx' ? up : done, shown = pool.filter(g => !mine || g.us);
+  const body = shown.length ? `<div class="cup-g ko">${days(pool, sub === 'res')}</div>` : `<div class="empty">No ${mine ? 'ERGS ' : ''}${esc(TEAM_NAMES[F.team])} friendly ${sub === 'fx' ? 'fixtures to come' : 'results yet'} this season.</div>`;
+  const src = frOff(tab).length ? `<p class="hint fr-note">Every school’s ${esc(TEAM_NAMES[F.team])} friendlies from <a href="https://ulsterrugby.sportlomo.com/" target="_blank" rel="noopener">Ulster Rugby</a>, ${esc(seasonLabel(frSeason()))}. ERGS games update live from this scoreboard; tap one for the full match.</p>`
+    : `<p class="hint fr-note">${esc(TEAM_NAMES[F.team])} friendlies, ${esc(seasonLabel(frSeason()))}. Other schools’ friendlies appear here once Ulster Rugby lists them.</p>`;
+  return `${src}${tog}${sub === 'res' ? recBox : ''}${live.length ? `<div class="cup-g ko"><div class="ko-d">Live now</div>${live.map(row).join('')}</div>` : ''}${body}`;
+}
+function frSwitch(tab){ const F = FR[tab], n = frOff(tab).length || frGames(tab).length, v = (V.frOn || {})[tab] ? 'fr' : 'comp';
   return `<div class="fx-view fr-main" role="tablist" aria-label="Show"><button type="button" data-frmain="comp" aria-pressed="${v === 'comp'}">${esc(F.label)}</button><button type="button" data-frmain="fr" aria-pressed="${v === 'fr'}">Friendlies${n ? ` <small>${n}</small>` : ''}</button></div>`; }
 (() => {
-  const wrap = (tab, base) => function(){ const n = frGames(tab).length; if (!n){ if (V.frOn) V.frOn[tab] = false; return base.apply(this, arguments); }
+  const wrap = (tab, base) => function(){ const n = frGames(tab).length || frOff(tab).length; if (!n){ if (V.frOn) V.frOn[tab] = false; return base.apply(this, arguments); }
     const out = (V.frOn || {})[tab] ? `<div class="cup-head"><div><div class="sec" style="margin:0 0 4px">${esc(TEAM_NAMES[FR[tab].team])} · Friendlies</div></div></div>${frView(tab)}` : base.apply(this, arguments);
     return frSwitch(tab) + out; };
   viewCup = wrap('cup', viewCup); viewMeds = wrap('meds', viewMeds);
-  document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-frmain], [data-frsub]'); if (!t || !FR[V.tab]) return;
+  document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-frmain], [data-frsub], [data-frmine], [data-frmore]'); if (!t || !FR[V.tab]) return;
     if (t.dataset.frmain){ V.frOn = V.frOn || {}; V.frOn[V.tab] = t.dataset.frmain === 'fr'; }
-    else { V.frSub = V.frSub || {}; V.frSub[V.tab] = t.dataset.frsub; }
+    else if (t.dataset.frmine){ V.frMine = V.frMine || {}; V.frMine[V.tab] = t.dataset.frmine === '1'; }
+    else if (t.hasAttribute('data-frmore')) V.frAllDays = true;
+    else { V.frSub = V.frSub || {}; V.frSub[V.tab] = t.dataset.frsub; V.frAllDays = false; }
     render(); });
 })();
 /* the Schools' Cup tab: shown to everyone once the groups are set (coaches always) */
@@ -3146,8 +3167,8 @@ function frSwitch(tab){ const F = FR[tab], n = frGames(tab).length, v = (V.frOn 
   const b = document.createElement('button'); b.type = 'button'; b.dataset.v = 'cup'; b.textContent = 'Schools’ Cup'; b.hidden = true; tabs.appendChild(b);
   b.onclick = () => { V.tab = 'cup'; render(); };
   const md = document.createElement('button'); md.type = 'button'; md.dataset.v = 'meds'; md.textContent = 'Medallion'; md.hidden = true; tabs.appendChild(md); md.onclick = () => { V.tab = 'meds'; render(); };
-  setInterval(() => { md.hidden = !(compSeasonOK() && (OFFICIAL.comps.meds || []).length) && !frGames('meds').length && !COACH && !PLAYER; if (md.hidden && V.tab === 'meds'){ V.tab = 'matches'; render(); } }, 700);
-  setInterval(() => { b.hidden = !(cupOf() && cupOf().groups.length) && !frGames('cup').length && !COACH; if (b.hidden && V.tab === 'cup'){ V.tab = 'matches'; render(); } }, 700);
+  setInterval(() => { md.hidden = !(compSeasonOK() && (OFFICIAL.comps.meds || []).length) && !frGames('meds').length && !frOff('meds').length && !COACH && !PLAYER; if (md.hidden && V.tab === 'meds'){ V.tab = 'matches'; render(); } }, 700);
+  setInterval(() => { b.hidden = !(cupOf() && cupOf().groups.length) && !frGames('cup').length && !frOff('cup').length && !COACH; if (b.hidden && V.tab === 'cup'){ V.tab = 'matches'; render(); } }, 700);
   document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-cup], [data-cupres]'); if (!t) return; if (t.dataset.cup === 'setup') cupSetup(); else if (t.dataset.cup === 'paste') cupPaste(); else if (t.dataset.cup === 'edit'){ V.cupEdit = !V.cupEdit; render(); } else if (t.dataset.cupres) cupResults(t.dataset.cupres); });
 })();
 
