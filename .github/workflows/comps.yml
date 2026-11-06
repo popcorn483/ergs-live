@@ -6,6 +6,9 @@ on:
   schedule:
     - cron: '23 */2 * * *'
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['tools/cup-import.mjs', '.github/workflows/comps.yml']
 
 permissions:
   contents: write
