@@ -2461,19 +2461,38 @@ function playFullTime(m){
   const close = () => { fx.classList.remove('on'); fx.classList.add('off'); setTimeout(() => { fx.hidden = true; fx.classList.remove('off'); playFx(); }, 420); };
   clearTimeout(playFx.t); playFx.t = setTimeout(close, win ? 6500 : 4000); fx.onclick = () => { clearTimeout(playFx.t); close(); };
 }
+// Animations are for things that happen while you're watching. Opening the app (or coming back to it) after missing a few scores
+// doesn't replay them one after another: you get the most recent one if it's only just happened, and a line saying what you missed.
+let LOOK_LIVE = false, LOOK_AT = 0;   // true once this page has caught up while on screen; false again when it's hidden
+document.addEventListener('visibilitychange', () => { if (document.hidden) LOOK_LIVE = false; else if (READY) newSinceLastLook(); });
 function newSinceLastLook(){
-  const SK = SANDBOX ? '.demo' : ''; let seen = null; try { seen = JSON.parse(localStorage.getItem('ergsLive.seen' + SK) || 'null'); } catch(e){}
-  const now = {};
-  for (const m of DATA.matches.filter(isLive)){ now[m.id] = (m.events || []).map(e => e.id);
-    if (seen && seen[m.id]) for (const e of sorted(m)) if (!seen[m.id].includes(e.id) && e.k === 'note' && e.p && Date.now() - (e.ts || 0) < 10*60e3) CQ.push([m, e]);
-    if (seen && seen[m.id]) for (const e of sorted(m)) if (!seen[m.id].includes(e.id) && e.k !== 'note' && (!e.miss || ['con','pen','dg'].includes(e.k)) && Date.now() - (e.ts || 0) < 15*60e3) Q.push([m, e]); }
-  try { localStorage.setItem('ergsLive.seen' + SK, JSON.stringify(now)); } catch(e){}
-  // full time: once per match, for matches that finished in the last 15 minutes while someone was following
+  if (document.hidden) return;   // nothing is marked as seen while the page is in the background
+  const SK = SANDBOX ? '.demo' : '', catchUp = !LOOK_LIVE || Date.now() - LOOK_AT < 4000; if (!LOOK_LIVE){ LOOK_LIVE = true; LOOK_AT = Date.now(); }
+  let seen = null; try { seen = JSON.parse(localStorage.getItem('ergsLive.seen' + SK) || 'null'); } catch(e){}
+  const now = {}, missed = [], ftQ = [];
   let ftSeen = []; try { ftSeen = JSON.parse(localStorage.getItem('ergsLive.ft' + SK) || '[]'); } catch(e){}
-  // keyed by when the whistle went, so a reopened match that finishes again celebrates again
+  // full time: once per match, for matches that finished in the last 15 minutes while someone was following (keyed by when the whistle went)
   for (const m of DATA.matches) if (m.status === 'FT' && m.ftAt && Date.now() - m.ftAt < 15*60e3 && !ftSeen.includes(m.id + ':' + m.ftAt)){
-    ftSeen.push(m.id + ':' + m.ftAt); if (seen && seen[m.id] && usOf(m)) Q.push([m, {id:'ft-' + m.id, k:'ft', s:usOf(m), ts:m.ftAt}]); }
+    ftSeen.push(m.id + ':' + m.ftAt); if (seen && seen[m.id] && usOf(m)) ftQ.push([m, {id:'ft-' + m.id, k:'ft', s:usOf(m), ts:m.ftAt}]); }
   try { localStorage.setItem('ergsLive.ft' + SK, JSON.stringify(ftSeen.slice(-40))); } catch(e){}
+  for (const m of DATA.matches.filter(x => isLive(x) || ftQ.some(f => f[0].id === x.id))){ now[m.id] = (m.events || []).map(e => e.id);
+    if (!(seen && seen[m.id])) continue;
+    const fresh = sorted(m).filter(e => !seen[m.id].includes(e.id)), notes = fresh.filter(e => e.k === 'note' && e.p && Date.now() - (e.ts || 0) < 10*60e3),
+      evs = fresh.filter(e => e.k !== 'note' && (!e.miss || ['con','pen','dg'].includes(e.k)) && Date.now() - (e.ts || 0) < 15*60e3);
+    if (!catchUp){ notes.forEach(e => CQ.push([m, e])); evs.forEach(e => Q.push([m, e])); continue; }
+    if (ftQ.some(f => f[0].id === m.id)) continue;   // the full-time card says it all
+    const last = evs[evs.length - 1], recent = last && Date.now() - (last.ts || 0) < 90e3;
+    if (recent) Q.push([m, last]);
+    const rest = evs.filter(e => e !== (recent ? last : null) && !e.miss);
+    if (rest.length) missed.push([m, rest]);
+    const ln = notes[notes.length - 1]; if (ln && Date.now() - (ln.ts || 0) < 3*60e3) CQ.push([m, ln]);
+  }
+  try { localStorage.setItem('ergsLive.seen' + SK, JSON.stringify(now)); } catch(e){}
+  ftQ.forEach(f => Q.push(f));
+  if (missed.length){ const nm = n => cupOurs(n) ? 'ERGS' : n, pl = (w, n) => n > 1 ? `${n} ${w === 'Try' ? 'tries' : w === 'Penalty try' ? 'penalty tries' : w.toLowerCase() + 's'}` : w.toLowerCase();
+    const txt = missed.map(([m, es]) => { const by = new Map(); es.forEach(e => { const k = nm(e.s === 'H' ? m.home : m.away) + '|' + EVK[e.k][0]; by.set(k, (by.get(k) || 0) + 1); });
+      const [h, a] = score(m); return `${nm(m.home)} ${h}–${a} ${nm(m.away)} (${[...by].map(([k, n]) => { const [who, what] = k.split('|'); return `${pl(what, n)} for ${who}`; }).join(', ')})`; }).join(' · ');
+    setTimeout(() => toast('While you were away · ' + txt), Q.length ? 4500 : 700); }
   if (Q.length && !busy){ busy = true; setTimeout(playFx, 500); }
   if (CQ.length && !cbusy) setTimeout(playComm, Q.length ? 4200 : 600);
 }
