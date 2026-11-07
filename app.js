@@ -1333,7 +1333,7 @@ let SANDBOX = false, REAL = null, SB = null, SB_ROLE = null, SB_FB = null, SB_ST
 const MAIN_APP = CFG.mainApp || 'https://claude.ai/artifact/5Xp2Q4mof4rU3NYuzrAhsK';
 const OUR_RX = /\b(ergs|enniskillen)\b/i;
 const HOME_GROUND = 'Eisenhower Playing Fields';
-const SCHOOL_NICKNAMES = {'methody':'Methodist College Belfast','mcb':'Methodist College Belfast','inst':'RBAI','rbai':'RBAI','royal belfast academical inst':'RBAI','royal belfast academical institution':'RBAI','royal belfast academical institute':'RBAI','royal belfast academical':'RBAI','belfast inst':'RBAI','bra':'Belfast Royal Academy','rsd':'Royal School Dungannon','rsa':'Royal School Armagh','friends':'Friends’ School Lisburn','portora':'Portora Royal School','sullivan':'Sullivan Upper School','sullivan upper':'Sullivan Upper School'};
+const SCHOOL_NICKNAMES = {'methody':'Methodist College Belfast','mcb':'Methodist College Belfast','inst':'RBAI','rbai':'RBAI','royal belfast academical inst':'RBAI','royal belfast academical institution':'RBAI','royal belfast academical institute':'RBAI','royal belfast academical':'RBAI','belfast inst':'RBAI','bra':'BRA','belfast royal academy':'BRA','belfast royal acad':'BRA','belfast royal':'BRA','rsd':'Royal School Dungannon','rsa':'Royal School Armagh','friends':'Friends’ School Lisburn','portora':'Portora Royal School','sullivan':'Sullivan Upper School','sullivan upper':'Sullivan Upper School'};
 /* one name per school, so "Belfast High" and "Belfast High School" (or "Wallace" and "Wallace High School") count as the same opponent */
 function canonSchool(n){
   n = String(n || '').trim(); if (!n || OUR_RX.test(n)) return n;
@@ -1345,7 +1345,7 @@ function canonSchool(n){
   const others = Object.values((typeof DATA !== 'undefined' && DATA.schools) || {}).map(x => x && x.name).filter(Boolean).filter(x => !ULSTER.includes(x));
   return match(ULSTER) || match(others) || n;
 }
-const ULSTER = ['Antrim Grammar School','Ballyclare High School','Ballymena Academy','Banbridge Academy','Bangor Grammar School','Belfast High School','Belfast Royal Academy','Cambridge House Grammar School','Campbell College','Coleraine Grammar School','Dalriada School','Down High School','Foyle College','Friends’ School Lisburn','Grosvenor Grammar School','Larne Grammar School','Limavady Grammar School','Lurgan College','Methodist College Belfast','Omagh Academy','Portadown College','Portora Royal School','Rainey Endowed School','Regent House School','RBAI','Royal School Armagh','Royal School Dungannon','Sullivan Upper School','Wallace High School'];
+const ULSTER = ['Antrim Grammar School','Ballyclare High School','Ballymena Academy','Banbridge Academy','Bangor Grammar School','Belfast High School','BRA','Cambridge House Grammar School','Campbell College','Coleraine Grammar School','Dalriada School','Down High School','Foyle College','Friends’ School Lisburn','Grosvenor Grammar School','Larne Grammar School','Limavady Grammar School','Lurgan College','Methodist College Belfast','Omagh Academy','Portadown College','Portora Royal School','Rainey Endowed School','Regent House School','RBAI','Royal School Armagh','Royal School Dungannon','Sullivan Upper School','Wallace High School'];
 const PTS = {try:5, con:2, pen:3, dg:3, pt:7};
 const EVK = {try:['Try','T'], con:['Conversion','C'], pen:['Penalty goal','P'], dg:['Drop goal','DG'], pt:['Penalty try','PT'], yc:['Yellow card','YC'], rc:['Red card','RC'], note:['','']};
 const ptsOf = e => e.miss ? 0 : (PTS[e.k] || 0);

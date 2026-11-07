@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '6b070635c2';</script>
+<script>window.ERGS_VER = '18ed630886';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -5497,7 +5497,8 @@ const Cloud = (() => {
     const o = readLocal(), d = o.docs || {}; C.docs = {}; const cols = {}; COLS.forEach(k => cols[k] = []);
     for (const k in d){ const parts = k.split('/'); if (parts.length === 2 && cols[parts[0]]) cols[parts[0]].push(Object.assign({}, d[k], {id:parts[1]})); else C.docs[k] = d[k]; }
     const rbai = n => /^\s*(royal\s+belfast\s+academical(\s+inst(itut(e|ion))?\.?)?|inst|rbai)\s*$/i.test(String(n || '')) ? 'RBAI' : n;   // Inst reads RBAI everywhere
-    cols.matches.forEach(m => { if (m.home) m.home = rbai(m.home); if (m.away) m.away = rbai(m.away); if (m.opp) m.opp = rbai(m.opp); });
+    const bra = n => /^\s*(belfast\s+royal\s+acad(emy)?\.?|bra)\s*$/i.test(String(n || '')) ? 'BRA' : n, nm = n => bra(rbai(n));
+    cols.matches.forEach(m => { if (m.home) m.home = nm(m.home); if (m.away) m.away = nm(m.away); if (m.opp) m.opp = nm(m.opp); });
     C.matches = cols.matches.sort((a, b) => (b.created||0) - (a.created||0)); C.plays = cols.plays; C.sponsors = cols.sponsors; C.schools = cols.schools; C.sheets = cols.sheets; C.drills = cols.drills; C.members = [];
     C.loaded = {all:true}; emit();
   }
@@ -6351,7 +6352,7 @@ function knockOutBackground(src){
 }
 
 /* =============================== SCHOOLS (crests, colours) =============================== */
-const ULSTER_SCHOOLS = ['Antrim Grammar School','Ballyclare High School','Ballymena Academy','Banbridge Academy','Bangor Grammar School','Belfast High School','Belfast Royal Academy','Cambridge House Grammar School','Campbell College','Coleraine Grammar School','Dalriada School','Down High School','Foyle College','Friends’ School Lisburn','Grosvenor Grammar School','Larne Grammar School','Limavady Grammar School','Lurgan College','Methodist College Belfast','Omagh Academy','Portadown College','Rainey Endowed School','Regent House School','RBAI','Royal School Armagh','Royal School Dungannon','Sullivan Upper School','Wallace High School'];
+const ULSTER_SCHOOLS = ['Antrim Grammar School','Ballyclare High School','Ballymena Academy','Banbridge Academy','Bangor Grammar School','Belfast High School','BRA','Cambridge House Grammar School','Campbell College','Coleraine Grammar School','Dalriada School','Down High School','Foyle College','Friends’ School Lisburn','Grosvenor Grammar School','Larne Grammar School','Limavady Grammar School','Lurgan College','Methodist College Belfast','Omagh Academy','Portadown College','Rainey Endowed School','Regent House School','RBAI','Royal School Armagh','Royal School Dungannon','Sullivan Upper School','Wallace High School'];
 const OUR_RX = /\b(ergs|enniskillen)\b/i;
 const OUR_COLOR = '#1C2342';
 const schoolKey = s => normName(s).replace(/\bgs\b/g, 'grammar school').replace(/\bhs\b/g, 'high school').replace(/\bes\b/g, 'endowed school').replace(/\brs\b/g, 'royal school').replace(/\bcoll\b/g, 'college').replace(/\bacad\b/g, 'academy').replace(/\bsch\b/g, 'school').replace(/\bint\b/g, 'integrated').replace(/\bst\b/g, 'saint').replace(/\b(1st|2nd|3rd|4th|first|second|third|xv|vii|7s|xv's|u1\d|u\d\d|medallion|girls|boys|seconds|thirds|school|college|grammar|academy|high|rfc|rugby|the|and|&)\b/g, ' ').replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
