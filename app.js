@@ -1317,7 +1317,7 @@ window.ERGSShare = (function(){
     ov.addEventListener('click', e => { if (e.target === ov) close(); }); document.addEventListener('keydown', key);
     document.body.appendChild(ov); render();
   }
-  return {open};
+  return {open, draw, soc, style};
 })();
 
 (() => {
@@ -1477,7 +1477,7 @@ function viewMatches(){
       <select class="input lr-team" id="lrTeam" aria-label="Team"><option value="">All teams</option>${lTeams.map(c => `<option value="${c}" ${V.lTeam === c ? 'selected' : ''}>${c} · ${TEAM_NAMES[c]}</option>`).join('')}</select>${V.lPeriod || V.lTeam ? '<button type="button" class="clr-f" data-clear="latest">✕ Clear filters</button>' : ''}</div>` : '';
   const offSoon = DATA.matches.filter(m => ((m.off && kot(m) < now + 8*864e5) || movedRecent(m) || (m.moved && m.status === 'pre' && m.moved.from && Date.parse(m.moved.from) < now + 8*864e5 && Date.parse(m.moved.from) > now - 12*3600e3)) && m.status === 'pre' && kot(m) > now - 12*3600e3).sort((a, b) => kot(a) - kot(b));
   const offBan = offSoon.length ? `<div class="off-ban" role="alert"><b>${offSoon.length === 1 ? 'Fixture change' : 'Fixture changes'}</b>${offSoon.map(m => { const d = new Date(kot(m)); return `<button type="button" data-open="${esc(m.id)}"><span class="off-tag${m.off ? '' : ' moved'}">${m.off === 'cancelled' ? 'Cancelled' : m.off ? 'Postponed' : 'New date'}</span>${esc(d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}) + (m.off ? '' : m.koTbc ? ', time TBC' : ', ' + d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})) + ' · ' + (m.team ? m.team + ' ' : '') + (usOf(m) === 'A' ? '@ ' : 'v ') + (usOf(m) === 'A' ? m.home : m.away))}${m.off ? (m.offWhy ? `<small>${esc(m.offWhy)}</small>` : '') : `<small>${esc(['Was ' + wasText(m), m.moved.why].filter(Boolean).join(' · '))}</small>`}</button>`; }).join('')}</div>` : '';
-  return offBan + `<div class="sec">${live.length ? 'Live now' : 'No match in play'}</div>${live.length ? `<div class="board">${live.map(m => board(m)).join('')}</div>` : `<div class="empty">No ERGS match is in play right now. The score appears here the moment one kicks off.${COACH ? ' Open a fixture below and press Kick off.' : ''}</div>`}
+  return offBan + `<div class="sec">${live.length ? 'Live now' : 'No match in play'}</div>${live.length ? `<div class="board">${live.map(m => `<div class="sb-wrap">${board(m)}${DATA.demo ? '' : `<button type="button" class="sb-share" data-shm="${esc(m.id)}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx=\"18\" cy=\"5\" r=\"3\"/><circle cx=\"6\" cy=\"12\" r=\"3\"/><circle cx=\"18\" cy=\"19\" r=\"3\"/><path d=\"M8.6 13.5l6.8 4M15.4 6.5l-6.8 4\"/></svg>Share this match</button>`}</div>`).join('')}</div>` : `<div class="empty">No ERGS match is in play right now. The score appears here the moment one kicks off.${COACH ? ' Open a fixture below and press Kick off.' : ''}</div>`}
     <div class="sec">${wk.length ? 'Coming up this week' : 'Next fixture'}</div>${next.length ? `<div class="list">${next.map(row).join('')}</div>${later ? `<button type="button" class="more" data-tabgo="fixtures">See all fixtures <small>${later} more</small> →</button>` : ''}` : `<div class="empty">No fixtures announced yet.${COACH ? ' Add a match or import the fixtures list.' : ''}</div>`}
     <div class="sec">Latest results</div>${lFilters}${done.length ? `<div class="list">${done.map(row).join('')}</div>${allDone.length > 5 ? `<button type="button" class="more" data-more="Done">${V.moreDone ? 'Show fewer' : `Show ${allDone.length - 5} more`}</button>` : ''}` : `<div class="empty">${ftDone.length ? `No ${V.lTeam ? esc(TEAM_NAMES[V.lTeam]) + ' ' : ''}results${V.lPeriod === 'week' ? ' in the past week' : V.lPeriod === 'month' ? ' in the past month' : ''}.` : 'No results yet.'}</div>`}`;
 }
@@ -1678,9 +1678,40 @@ function matchShareText(m){
   const t = kot(m), d = t ? new Date(t) : null;
   return `ERGS ${tm}${usOf(m) === 'A' ? '@ ' + m.home : 'v ' + m.away}${d ? ' · ' + d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}) + (m.koTbc ? ', time TBC' : ', ' + d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})) : ''}. Follow it live on ERGS Live 🏉`;
 }
+/* coaches: pick a match (live first, then today's and the next few days) and share its link */
+function shareMatchPick(){
+  const now = Date.now(), live = DATA.matches.filter(isLive), soon = DATA.matches.filter(m => m.status === 'pre' && !m.off && kot(m) && kot(m) > now - 6*3600e3 && kot(m) < now + 8*864e5).sort((a, b) => kot(a) - kot(b)),
+    done = DATA.matches.filter(m => m.status === 'FT' && kot(m) > now - 2*864e5).sort((a, b) => kot(b) - kot(a)), list = live.concat(soon, done);
+  if (!list.length){ toast('No live, recent or upcoming matches to share.'); return; }
+  if (list.length === 1){ shareMatch(list[0]); return; }
+  const when2 = m => isLive(m) ? 'Live now' : m.status === 'FT' ? 'Full time' : new Date(kot(m)).toLocaleString('en-GB', {weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+  openDialog(`<h2>Share a match</h2><p>Supporters land straight on the match. No sign-in needed.</p><div class="shp-list">${list.map(m => `<button type="button" class="shp${isLive(m) ? ' live' : ''}" data-shp="${esc(m.id)}">${crest(usOf(m) === 'A' ? m.home : m.away)}<span><b>${esc((m.team || 'ERGS') + (usOf(m) === 'A' ? ' @ ' + m.home : ' v ' + (usOf(m) ? m.away : m.home + ' v ' + m.away)))}</b><small>${isLive(m) ? '<i class="shp-dot"></i>' : ''}${esc(when2(m))}</small></span><svg class="shp-go" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></button>`).join('')}</div><div class="dlg-a"><span style="flex:1"></span><button class="btn ghost" type="button" data-close>Close</button></div>`,
+    d => d.querySelectorAll('[data-shp]').forEach(b => b.onclick = () => { const m = DATA.matches.find(x => x.id === b.dataset.shp); closeDialog(); if (m) setTimeout(() => shareMatch(m), 60); }));
+}
 function shareMatch(m){
-  const opp = usOf(m) === 'A' ? m.home : m.away, text = matchShareText(m), label = `${m.team ? m.team + ' ' : 'ERGS '}v ${opp || 'opposition'}`;
-  window.ERGSShare.open({title:'Share this match', crest:DATA.crest, items:[{label, url:LIVE_URL + '#m.' + m.id, file:'ergs-match-qr', desc:text + ' The link opens straight onto this match.', shareText:text}]});
+  const S = window.ERGSShare; S.style();
+  const url = LIVE_URL + '#m.' + m.id, text = matchShareText(m), opp = usOf(m) === 'A' ? m.home : m.away, label = `${m.team ? m.team + ' ' : 'ERGS '}v ${opp || 'opposition'}`;
+  const [h, a] = score(m), nm = n => cupOurs(n) ? 'ERGS' : cupShort(n);
+  const status = isLive(m) ? `<span class="msh-live"><i></i>${m.status === 'HT' ? 'Half-time' : 'Live ' + minuteNow(m) + '′'}</span>` : m.status === 'FT' ? 'Full time'
+    : kot(m) ? esc(new Date(kot(m)).toLocaleString('en-GB', {weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})) : 'Date to be confirmed';
+  const apps = S.soc({url, label, shareText:text}), short = url.replace(/^https?:\/\//, '');
+  const ov = document.createElement('div'); ov.className = 'es-ov msh-ov'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', 'Share ' + label);
+  ov.innerHTML = `<div class="msh"><span class="msh-grab" aria-hidden="true"></span><button type="button" class="msh-x" aria-label="Close">✕</button>
+    <div class="msh-m"><div class="msh-t">${crest(m.home)}<b>${esc(nm(m.home))}</b></div><div class="msh-s">${m.status === 'pre' ? '<span class="msh-v">v</span>' : `${h}<span>–</span>${a}`}</div><div class="msh-t">${crest(m.away)}<b>${esc(nm(m.away))}</b></div></div>
+    <p class="msh-sub">${m.team ? esc(m.team) + ' · ' : ''}${status}</p>
+    <button type="button" class="msh-go" data-a="go">${navigator.share ? 'Share' : 'Copy link'}</button>
+    <button type="button" class="msh-link" data-a="copy" title="Copy the link"><span>${esc(short)}</span>${navigator.share ? '<b>Copy</b>' : ''}</button>
+    <div class="msh-apps">${apps.map(([k, t, href, svg]) => `<a class="msh-app" href="${esc(href)}" target="_blank" rel="noopener"><span class="es-${k}">${svg}</span><small>${t}</small></a>`).join('')}<button type="button" class="msh-app" data-a="qr" aria-expanded="false"><span class="msh-qri"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></span><small>QR code</small></button></div>
+    <div class="msh-qr" hidden><div class="es-qr"></div><button type="button" class="msh-dl" data-a="dl">Save QR code</button></div></div>`;
+  const close = () => { ov.remove(); document.removeEventListener('keydown', key); }, key = e => { if (e.key === 'Escape') close(); };
+  const copied = async () => { const lk = ov.querySelector('.msh-link b') || ov.querySelector('.msh-go'), was = lk.dataset.t || (lk.dataset.t = lk.textContent); try { await navigator.clipboard.writeText(url); lk.textContent = 'Copied ✓'; } catch(e){ lk.textContent = 'Press and hold the link to copy'; } clearTimeout(lk._t); lk._t = setTimeout(() => lk.textContent = was, 1800); };
+  ov.querySelector('.msh-x').onclick = close; ov.addEventListener('click', e => { if (e.target === ov) close(); }); document.addEventListener('keydown', key);
+  ov.querySelector('[data-a="copy"]').onclick = copied;
+  ov.querySelector('[data-a="go"]').onclick = async () => { if (navigator.share){ try { await navigator.share({title:label, text, url}); close(); } catch(e){} } else copied(); };
+  let cv = null; ov.querySelector('[data-a="qr"]').onclick = e => { const q = ov.querySelector('.msh-qr'), b = e.currentTarget; q.hidden = !q.hidden; b.setAttribute('aria-expanded', String(!q.hidden));
+    if (!cv){ cv = S.draw(url, DATA.crest); q.querySelector('.es-qr').appendChild(cv); } if (!q.hidden) q.scrollIntoView({block:'nearest', behavior:'smooth'}); };
+  ov.querySelector('[data-a="dl"]').onclick = () => cv && cv.toBlob(bl => { if (!bl) return; const x = document.createElement('a'); x.href = URL.createObjectURL(bl); x.download = 'ergs-match-qr.png'; document.body.appendChild(x); x.click(); x.remove(); });
+  document.body.appendChild(ov); ov.querySelector('.msh-go').focus();
 }
 async function shareSummary(m){
   toast('Making the summary…'); let c; try { c = await summaryCanvas(m); } catch(e){ toast('That didn’t work on this device.'); return; }
@@ -1728,7 +1759,7 @@ function viewMatch(m){
   const offBox = !m.off && movedRecent(m) ? `<div class="off-ban big moved" role="status"><b>New date: ${esc(new Date(kot(m)).toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'}))}${m.koTbc ? ', kick-off TBC' : ', ' + esc(new Date(kot(m)).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}))}</b><p>${esc(['Was ' + wasText(m), m.moved.why].filter(Boolean).join(' · '))}</p></div>`
     : m.off && m.status === 'pre' ? `<div class="off-ban big" role="alert"><b>This match is ${m.off === 'cancelled' ? 'cancelled' : 'postponed'}</b>${m.offWhy ? `<p>${esc(m.offWhy)}</p>` : ''}${m.off === 'postponed' ? '<p>A new date will appear here when it is arranged.</p>' : ''}</div>` : '';
   const tc = teamCode(m.team), teamBig = m.team ? `<div class="mv-team"><span class="mv-code">${esc(TEAM_CODES.includes(tc) ? tc : m.team)}</span>${TEAM_CODES.includes(tc) ? `<span class="mv-name">${esc(TEAM_NAMES[tc])}</span>` : ''}${m.comp ? `<span class="mv-comp">${esc([m.comp, m.round].filter(Boolean).join(' · '))}</span>` : ''}</div>` : '';
-  const vidAdd = COACH && !DATA.demo && !veoOf(m) && (m.status === 'FT' || isLive(m)) ? vidForm(m) : '';
+  const vidAdd = COACH && !DATA.demo && !veoOf(m) && m.status === 'FT' ? vidForm(m) : '';
   const media = (veoOf(m) || photosOf(m) ? `<div class="mv-media">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ ${esc(vidLabel(veoOf(m)))}</a>${COACH && !DATA.demo ? `<button type="button" class="ph-x" data-vidx="${esc(m.id)}" title="Change or remove the video link">✎ Video</button>` : ''}` : ''}${photosOf(m) ? `<a class="veo photos" href="${esc(photosOf(m))}" target="_blank" rel="noopener">${ic('photo')}Match photos</a>${COACH && !DATA.demo ? `<button type="button" class="ph-x" data-phx="${esc(m.id)}" title="Not the photos from this match? Remove the link">✕ Not this match</button>` : ''}` : ''}</div>` : '') + vidAdd;
   const banner = (isLive(m) || m.status === 'FT' ? board(m, true) : `<div class="sb quiet"><div class="sb-meta">${esc(compLine(m))}</div><div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b></div><div class="score" style="font-size:40px;color:var(--dim)">v</div><div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b></div></div><span class="clock" style="border-color:var(--rule)">${esc(when(m, true) || 'Date to be confirmed')}</span></div>`).replace(/<div class="sb-meta">[^<]*<\/div>/, s0 => { if (!teamBig) return s0; const t = [m.status === '1H' ? '1st half' : m.status === '2H' ? '2nd half' : '', isLive(m) || m.status === 'FT' ? m.venue : ''].filter(Boolean).join(' · '); return teamBig + (t ? `<div class="sb-meta">${esc(t)}</div>` : ''); }).replace(/<\/div>\s*$/, media + '</div>');
   // share, calendar and summary picture: a row of small round icons under the scoreboard
@@ -1736,7 +1767,7 @@ function viewMatch(m){
   const sumBtn = m.status === 'FT' && (COACH || PLAYER) ? IB(`data-sum="${esc(m.id)}"`, 'Match summary picture', '<rect x="3" y="6" width="18" height="14" rx="2"/><circle cx="12" cy="13" r="3.5"/><path d="M8 6l1.5-2h5L16 6"/>') : '';
   const calOne = m.status === 'pre' && kot(m) && m.off !== 'cancelled' && kot(m) > Date.now() - 3*3600e3 ? IB(`data-cal1="${esc(m.id)}"`, 'Add to calendar', '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/>') : '';
   const wxBox = m.status === 'pre' && m.off !== 'cancelled' && kot(m) && kot(m) - Date.now() < 15.5*864e5 ? `<div class="box wx-big" data-wx="${esc(m.id)}" hidden></div>` : '';
-  const shareOne = DATA.demo ? '' : IB(`data-shm="${esc(m.id)}"`, isLive(m) ? 'Share this match live' : 'Share this match', '<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>');
+  const shareOne = DATA.demo ? '' : `<button type="button" class="sh-pill${isLive(m) ? ' live' : ''}" data-shm="${esc(m.id)}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>${isLive(m) ? 'Share live link' : 'Share match link'}</button>`;
   return `<button class="back" type="button" data-home>All matches</button>${offBox}${banner}${shareOne || calOne || sumBtn ? `<div class="mv-icons">${shareOne}${calOne}${sumBtn}</div>` : ''}${wxBox}
     ${coachPanel(m)}
     ${m.venue && m.status === 'pre' ? `<div class="box"><h3>Venue</h3><div>${esc(m.venue)}</div></div>` : ''}
@@ -2202,11 +2233,12 @@ function act(a, m){
     case 'import': return importDialog();
     case 'schools': return schoolsDialog();
     case 'videos': return vidBulk();
+    case 'sharem': return shareMatchPick();
     case 'edit': return matchForm(m);
     case 'postpone': return offDialog(m);
     case 'offedit': return offDialog(m);
     case 'reinstate': return ask('Match back on?', 'The postponed or cancelled notice comes off for everyone.', 'Back on', () => upd(x => { delete x.off; delete x.offWhy; delete x.offAt; }));
-    case 'ko': if (m.off){ toast('This match is marked ' + m.off + '. Press Match back on first.'); return; } return upd(x => { x.status = '1H'; x.clock = {base:0, since:now, running:true}; });
+    case 'ko': if (m.off){ toast('This match is marked ' + m.off + '. Press Match back on first.'); return; } { const r = upd(x => { x.status = '1H'; x.clock = {base:0, since:now, running:true}; }); setTimeout(() => toast('Kicked off. Press Share live link to send supporters straight to this match.'), 900); return r; }
     case 'ht': return upd(x => { x.status = 'HT'; x.clock = {base:el(), since:0, running:false}; });
     case '2h': return upd(x => { x.status = '2H'; x.clock = {base:Math.max(el(), (+x.half || 35)*60), since:now, running:true}; });
     case 'ft': return ask('Blow full time?', 'The clock stops and the match moves to Results for everyone.', 'Full time', () => upd(x => { x.status = 'FT'; x.ftAt = Date.now(); x.clock = {base:el(), since:0, running:false}; }).then(() => { let n = 0; const go = () => { const x = DATA.matches.find(y => y.id === m.id); if (x && x.status === 'FT'){ if (usOf(x) && !nomsOf(x).length && $('#modal').hidden) nomsDialog(x); } else if (n++ < 30) setTimeout(go, 100); }; go(); }));
@@ -2960,7 +2992,7 @@ function menuOpen(){
     ${squad || (SANDBOX && (real.COACH || real.PLAYER)) ? `<a class="dr-app" href="${esc(MAIN_APP)}" target="_blank" rel="noopener">${ic('app')}<span><b>Open the ERGS Rugby app</b><small>Plays, drills, photos, graphics and team news</small></span><span class="dr-arrow">↗</span></a>` : ''}
     ${(V.tab === 'fixtures' || V.tab === 'results') && V.flt && V.flt.kind === V.tab ? `<div class="dr-sec">${V.tab === 'fixtures' ? 'Fixtures' : 'Results'}: what to show</div><div class="dr-flt">${V.flt.html.replace(/ data-(?!px)/g, ' data-px-').replace(/ id="/g, ' data-pxid="')}</div>` : ''}
     ${SUP && !COACH && !PLAYER && !SANDBOX ? `<div class="dr-sec">Following</div>${item('people', 'Squads you follow', esc(followTxt(SUP.follow)), 'data-mfollow')}` : ''}
-    ${COACH && !SANDBOX ? `<div class="dr-sec">Matches</div>${item('plus', 'New match', 'Add a fixture to score', 'data-mact="new"')}${item('past', 'Add a past result', 'A score from before ERGS Live', 'data-mact="past"')}${item('video', 'Match videos', 'Add VEO or other links to recent matches', 'data-mact="videos"')}${item('past', 'Add past results in bulk', 'Type a table or paste a list', 'data-mact="pastbulk"')}${item('imp', 'Import fixtures', 'From a photo, PDF or list', 'data-mact="import"')}
+    ${COACH && !SANDBOX ? `<div class="dr-sec">Matches</div>${item('plus', 'New match', 'Add a fixture to score', 'data-mact="new"')}${item('past', 'Add a past result', 'A score from before ERGS Live', 'data-mact="past"')}${item('share', 'Share a match link', 'Send supporters straight to a match', 'data-mact="sharem"')}${item('video', 'Match videos', 'Add VEO or other links to recent matches', 'data-mact="videos"')}${item('past', 'Add past results in bulk', 'Type a table or paste a list', 'data-mact="pastbulk"')}${item('imp', 'Import fixtures', 'From a photo, PDF or list', 'data-mact="import"')}
       <div class="dr-sec">Manage</div>${item('crest', 'School crests', 'Crests, colours, merge and delete', 'data-mact="schools"')}${item('people', 'Coaches', 'Who can score and manage', 'data-mact="coaches"')}` : ''}
     ${(real.COACH || real.PLAYER) ? `<div class="dr-sec">Learn</div>${SANDBOX ? item('demo', 'Leave the demo', 'Back to the real scoreboard', 'data-mdemo="out"') : item('demo', real.COACH ? 'Practise in the demo' : 'Try the demo', 'Score a match and see the animations. Nothing is saved', 'data-mdemo="in"')}` : ''}
     <div class="dr-sec">More</div>${item('share', 'Share the app', 'Link and QR code', 'data-mshare')}${document.querySelector('#installSlot button, #installSlot a') ? item('imp', 'Install the app', 'On your phone or computer', 'data-minst') : ''}
