@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = 'd83e5a1c74';</script>
+<script>window.ERGS_VER = 'ffdadf38e7';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -13181,7 +13181,7 @@ function sqLogin(p, acc){
 const CO_SCOPES = [['admin', 'Full access'], ['all', 'All squads']].concat(PA_TEAMS.map(([k, t]) => [k, (k === 'MEDS' ? 'Meds' : t) + ' coach']));
 const coScope = () => { if (Cloud.role !== 'coach') return null; const c = window.ERGS_AUTH && ERGS_AUTH.coach; return (c && c.scope) || 'admin'; };
 // what a coach can do: ticked one by one in Access (perms, teams); a coach with none ticked yet gets their role's defaults
-const CO_PERMS = [['library', 'Playbook'], ['drills', 'Training drills'], ['photos', 'Photos'], ['graphics', 'Graphics'], ['squads', 'Squads'], ['scoring', 'ERGS Live scoring'], ['access', 'Access & sign-ins']];
+const CO_PERMS = [['library', 'Playbook'], ['drills', 'Training drills'], ['photos', 'Photos'], ['graphics', 'Graphics'], ['squads', 'Squads'], ['access', 'Access & sign-ins']];
 function coDefaults(scope){ const all = Object.fromEntries(CO_PERMS.map(([k]) => [k, true]));
   if (scope === 'admin') return {perms:all, teams:PA_TEAMS.map(x => x[0])};
   if (scope === 'all') return {perms:Object.assign(all, {access:false}), teams:PA_TEAMS.map(x => x[0])};
