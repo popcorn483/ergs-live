@@ -1728,7 +1728,8 @@ function viewMatch(m){
   const offBox = !m.off && movedRecent(m) ? `<div class="off-ban big moved" role="status"><b>New date: ${esc(new Date(kot(m)).toLocaleDateString('en-GB', {weekday:'long', day:'numeric', month:'long'}))}${m.koTbc ? ', kick-off TBC' : ', ' + esc(new Date(kot(m)).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}))}</b><p>${esc(['Was ' + wasText(m), m.moved.why].filter(Boolean).join(' · '))}</p></div>`
     : m.off && m.status === 'pre' ? `<div class="off-ban big" role="alert"><b>This match is ${m.off === 'cancelled' ? 'cancelled' : 'postponed'}</b>${m.offWhy ? `<p>${esc(m.offWhy)}</p>` : ''}${m.off === 'postponed' ? '<p>A new date will appear here when it is arranged.</p>' : ''}</div>` : '';
   const tc = teamCode(m.team), teamBig = m.team ? `<div class="mv-team"><span class="mv-code">${esc(TEAM_CODES.includes(tc) ? tc : m.team)}</span>${TEAM_CODES.includes(tc) ? `<span class="mv-name">${esc(TEAM_NAMES[tc])}</span>` : ''}${m.comp ? `<span class="mv-comp">${esc([m.comp, m.round].filter(Boolean).join(' · '))}</span>` : ''}</div>` : '';
-  const media = veoOf(m) || photosOf(m) ? `<div class="mv-media">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ View on VEO</a>` : ''}${photosOf(m) ? `<a class="veo photos" href="${esc(photosOf(m))}" target="_blank" rel="noopener">${ic('photo')}Match photos</a>${COACH && !DATA.demo ? `<button type="button" class="ph-x" data-phx="${esc(m.id)}" title="Not the photos from this match? Remove the link">✕ Not this match</button>` : ''}` : ''}</div>` : '';
+  const vidAdd = COACH && !DATA.demo && !veoOf(m) && (m.status === 'FT' || isLive(m)) ? vidForm(m) : '';
+  const media = (veoOf(m) || photosOf(m) ? `<div class="mv-media">${veoOf(m) ? `<a class="veo" href="${esc(veoOf(m))}" target="_blank" rel="noopener">▶ ${esc(vidLabel(veoOf(m)))}</a>${COACH && !DATA.demo ? `<button type="button" class="ph-x" data-vidx="${esc(m.id)}" title="Change or remove the video link">✎ Video</button>` : ''}` : ''}${photosOf(m) ? `<a class="veo photos" href="${esc(photosOf(m))}" target="_blank" rel="noopener">${ic('photo')}Match photos</a>${COACH && !DATA.demo ? `<button type="button" class="ph-x" data-phx="${esc(m.id)}" title="Not the photos from this match? Remove the link">✕ Not this match</button>` : ''}` : ''}</div>` : '') + vidAdd;
   const banner = (isLive(m) || m.status === 'FT' ? board(m, true) : `<div class="sb quiet"><div class="sb-meta">${esc(compLine(m))}</div><div class="sb-main"><div class="side">${crest(m.home, 'big')}<b>${esc(m.home)}</b></div><div class="score" style="font-size:40px;color:var(--dim)">v</div><div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b></div></div><span class="clock" style="border-color:var(--rule)">${esc(when(m, true) || 'Date to be confirmed')}</span></div>`).replace(/<div class="sb-meta">[^<]*<\/div>/, s0 => { if (!teamBig) return s0; const t = [m.status === '1H' ? '1st half' : m.status === '2H' ? '2nd half' : '', isLive(m) || m.status === 'FT' ? m.venue : ''].filter(Boolean).join(' · '); return teamBig + (t ? `<div class="sb-meta">${esc(t)}</div>` : ''); }).replace(/<\/div>\s*$/, media + '</div>');
   // share, calendar and summary picture: a row of small round icons under the scoreboard
   const IB = (attr, label, path) => `<button type="button" class="mv-ic" ${attr} aria-label="${label}" title="${label}"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg></button>`;
@@ -1856,8 +1857,7 @@ function render(){
   const nf = $('#noteForm'); if (nf) nf.onsubmit = ev => { ev.preventDefault(); const t = $('#noteIn').value.trim(); if (!t) return; save(d => { const x = d.matches.find(y => y.id === m.id); x.events.push({id:uid(), k:'note', s:'', p:t.slice(0, 140), m:minuteNow(m), at:Math.round(elapsed(m)), ts:Date.now()}); }, m.id); };
   const onf = $('#oppNoteForm'); if (onf) onf.onsubmit = async ev => { ev.preventDefault(); const opp = onf.dataset.opp, k = oppKey(opp), t = $('#oppNoteIn').value.trim();
     try { await FB.setOppNote(k, t ? {name:opp, text:t.slice(0, 4000), u:Date.now(), by:EMAIL} : null); toast(t ? `Notes on ${opp} saved. Only coaches can see them.` : `Notes on ${opp} removed.`); } catch(e){ toast(/permission/.test(e && e.code || '') ? 'The database refused the save: your account isn’t on the coaches list.' : 'That didn’t save. Try again.'); } };
-  const vf = $('#veoForm'); if (vf) vf.onsubmit = async ev => { ev.preventDefault(); const v = $('#veoIn').value.trim(); if (v && !/^https:\/\//i.test(v)){ toast('Paste the full link, starting with https://'); return; }
-    try { await FB.setVeo(m.id, v); if (m.veo) await save(d => { delete d.matches.find(y => y.id === m.id).veo; }, m.id); toast(v ? 'VEO link saved. Coaches and players can watch it.' : 'VEO link removed.'); } catch(e){ toast('That didn’t save. Try again.'); } };
+  vidWire(m);
   const pf = $('#photoForm'); if (pf) pf.onsubmit = ev => { ev.preventDefault(); const v = $('#photoIn').value.trim(); if (v && !/^https:\/\//i.test(v)){ toast('Paste the full link, starting with https://'); return; } FB.setPhotos(m.id, v).then(async () => { if (m.photos) await save(d => { delete d.matches.find(y => y.id === m.id).photos; }, m.id); toast(v ? 'Photos link saved. Coaches and players can open it.' : 'Photos link removed.'); }).catch(() => toast('That didn’t save. Try again.')); };
 }
 $$('#tabs button').forEach(b => b.onclick = () => { V.tab = b.dataset.v; render(); });
@@ -1933,6 +1933,76 @@ async function save(fn, keepOpen){
 }
 
 /* ---------- dialogs ---------- */
+/* ---------- match videos: VEO usually, but YouTube, Hudl, Drive, Facebook or any link works ---------- */
+const VID_SITES = [[/veo\.co|veo\.tv/i, 'VEO'], [/youtu\.?be/i, 'YouTube'], [/hudl\.com/i, 'Hudl'], [/drive\.google|docs\.google/i, 'Google Drive'], [/facebook\.com|fb\.watch/i, 'Facebook'], [/vimeo\.com/i, 'Vimeo'], [/onedrive|sharepoint|1drv\.ms/i, 'OneDrive'], [/dropbox\.com/i, 'Dropbox'], [/pixellot/i, 'Pixellot'], [/instagram\.com/i, 'Instagram']];
+const vidSite = u => (VID_SITES.find(([r]) => r.test(u || '')) || [0, ''])[1];
+const vidLabel = u => vidSite(u) ? 'Watch on ' + vidSite(u) : 'Watch the video';
+// whatever was pasted (a whole share message, a link without https://), the first link in it
+function vidClean(t){ t = String(t || '').trim(); if (!t) return '';
+  const m = t.match(/https?:\/\/[^\s<>"']+/i) || t.match(/\b(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+\/[^\s<>"']*/i) || t.match(/\b(?:www\.)?[a-z0-9-]+\.(?:co|com|tv|be|ms|net|org)(?:\.[a-z]{2})?\b[^\s<>"']*/i);
+  if (!m) return null; let u = m[0].replace(/[).,;!?]+$/, ''); if (!/^https?:\/\//i.test(u)) u = 'https://' + u; u = u.replace(/^http:\/\//i, 'https://');
+  try { new URL(u); } catch(e){ return null; } return u.slice(0, 300); }
+async function vidSave(m, raw, quiet){ const v = raw === '' ? '' : vidClean(raw);
+  if (v === null){ toast('That doesn’t look like a link. Copy the share link from VEO (or YouTube, Hudl…) and paste it.'); return false; }
+  try { await FB.setVeo(m.id, v); if (m.veo) await save(d => { delete d.matches.find(y => y.id === m.id).veo; }, m.id);
+    if (!quiet) toast(v ? `Video saved${vidSite(v) ? ' (' + vidSite(v) + ')' : ''}. Signed-in coaches and players can watch it.` : 'Video link removed.'); return true; }
+  catch(e){ toast(/permission/.test(e && e.code || '') ? 'The database refused the save: your account isn’t on the coaches list.' : 'That didn’t save. Try again.'); return false; } }
+const vidPasteBtn = () => navigator.clipboard && navigator.clipboard.readText ? '<button type="button" class="btn ghost vid-paste" data-vidpaste>Paste</button>' : '';
+async function vidPaste(inp){ try { const t = await navigator.clipboard.readText(); const u = vidClean(t); if (!u){ toast('There’s no link on your clipboard. Copy the video’s share link first.'); return; } inp.value = u; inp.dispatchEvent(new Event('input')); } catch(e){ toast('Your browser didn’t allow pasting. Press and hold in the box, then Paste.'); inp.focus(); } }
+function vidForm(m){ return `<form class="vid-add" id="vidForm" data-vid="${esc(m.id)}"><label for="vidIn">${ic('video')}<span>Match video</span><small id="vidSite"></small></label><div class="vid-row"><input class="input" id="vidIn" inputmode="url" autocomplete="off" placeholder="Paste the VEO, YouTube or other link"><span class="vid-btns">${vidPasteBtn()}<button class="btn primary" type="submit">Save</button></span></div></form>`; }
+function vidWire(m){
+  const f = $('#vidForm'); if (f){ const inp = f.querySelector('#vidIn'), site = f.querySelector('#vidSite');
+    inp.oninput = () => { const u = vidClean(inp.value); site.textContent = u ? (vidSite(u) || 'Link') + ' ✓' : ''; };
+    inp.onpaste = () => setTimeout(async () => { const u = vidClean(inp.value); if (u){ inp.value = u; inp.oninput(); if (await vidSave(m, u)) render(); } }, 0);   // pasting a link saves it straight away
+    const pb = f.querySelector('[data-vidpaste]'); if (pb) pb.onclick = async () => { await vidPaste(inp); const u = vidClean(inp.value); if (u && await vidSave(m, u)) render(); };
+    f.onsubmit = async ev => { ev.preventDefault(); if (!inp.value.trim()){ inp.focus(); return; } if (await vidSave(m, inp.value)) render(); }; }
+  $$('[data-vidx]').forEach(b => b.onclick = () => vidEdit(m));
+}
+function vidEdit(m){ const cur = veoOf(m);
+  openDialog(`<h2>Match video</h2><p>${esc(m.home)} v ${esc(m.away)}${kot(m) ? ' · ' + esc(new Date(kot(m)).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'})) : ''}. Only signed-in coaches and players see it.</p>
+    <div class="field"><label class="label" for="vidE">Link <small id="vidES">${esc(vidSite(cur))}</small></label><div class="vid-row"><input class="input" id="vidE" inputmode="url" autocomplete="off" value="${esc(cur)}" placeholder="Paste the VEO, YouTube or other link"><span class="vid-btns">${vidPasteBtn()}</span></div></div>
+    <div class="dlg-a">${cur ? '<button class="btn ghost danger" type="button" id="vidRm">Remove</button>' : ''}<span style="flex:1"></span><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" id="vidOk">Save</button></div>`, d => {
+    const inp = d.querySelector('#vidE'), st = d.querySelector('#vidES'); inp.oninput = () => { const u = vidClean(inp.value); st.textContent = u ? vidSite(u) || 'Link' : ''; };
+    const pb = d.querySelector('[data-vidpaste]'); if (pb) pb.onclick = () => vidPaste(inp);
+    d.querySelector('#vidOk').onclick = async () => { if (await vidSave(m, inp.value.trim())){ closeDialog(); render(); } };
+    const rm = d.querySelector('#vidRm'); if (rm) rm.onclick = async () => { if (await vidSave(m, '')){ closeDialog(); render(); } }; inp.select(); });
+}
+/* all at once: recent finished matches with a box each; paste several links and each goes to its match (VEO links carry the date) */
+const vidRecent = () => DATA.matches.filter(m => usOf(m) && m.status === 'FT' && kot(m) && kot(m) > Date.now() - 120*864e5).sort((a, b) => kot(b) - kot(a));
+function vidGuess(u, list){
+  const d = (u.match(/(20\d{2})[-_]?(\d{2})[-_]?(\d{2})/) || []).slice(1).join('-'), slug = decodeURIComponent(u).toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+  const words = m => schoolKey(usOf(m) === 'A' ? m.home : m.away).split(' ').filter(w => w.length > 2 && !/^(school|college|grammar|academy|high|royal|the|and|saint)$/.test(w)).concat(String(usOf(m) === 'A' ? m.home : m.away).toLowerCase().match(/\b[a-z]{2,5}\b/g) || []);
+  const day = m => frYMD(kot(m)), hit = m => words(m).filter(w => new RegExp('\\b' + w + '\\b').test(slug)).length, tm = m => { const c = (teamCode(m.team) || '').toLowerCase(); return c && slug.includes(c.replace(/st|nd|rd|th/, '')) ? 1 : 0; };
+  let c = d ? list.filter(m => day(m) === d) : [];
+  if (c.length > 1) c = c.slice().sort((a, b) => (hit(b) + tm(b)) - (hit(a) + tm(a)));
+  if (!c.length) c = list.filter(m => hit(m)).sort((a, b) => hit(b) - hit(a));
+  return c[0] || null; }
+function vidBulk(){
+  const list = vidRecent(); if (!list.length){ toast('No finished matches in the last few months.'); return; }
+  const dt = m => new Date(kot(m)).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'});
+  openDialog(`<h2>Match videos</h2><p>Paste a link in a match’s box, or paste several links in the big box and each one finds its match (VEO links include the date). Only signed-in coaches and players see videos.</p>
+    <div class="field"><label class="label" for="vidMany">Paste one or more links</label><textarea class="input" id="vidMany" rows="2" placeholder="https://app.veo.co/matches/20261107-…"></textarea><small class="hint" id="vidManyH"></small></div>
+    <div class="vid-list">${list.map(m => { const [h, a] = score(m), r = resultOf(m); return `<div class="vid-it${veoOf(m) ? ' has' : ''}" data-vm="${esc(m.id)}"><div class="vid-m"><b>${esc((m.team ? m.team + ' ' : '') + (usOf(m) === 'A' ? '@ ' : 'v ') + (usOf(m) === 'A' ? m.home : m.away))}</b><small>${esc(dt(m))}${r ? ` · ${r.r} ${r.f}–${r.g}` : ''}</small></div><div class="vid-row"><input class="input" inputmode="url" autocomplete="off" value="${esc(veoOf(m))}" placeholder="No video yet" aria-label="Video link for ${esc(m.team || '')} v ${esc(usOf(m) === 'A' ? m.home : m.away)}"><span class="vid-st"></span></div></div>`; }).join('')}</div>
+    <div class="dlg-a"><span class="hint" id="vidN" style="flex:1"></span><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" id="vidAll">Save videos</button></div>`, d => {
+    const rows = [...d.querySelectorAll('.vid-it')], orig = new Map(rows.map(r => [r.dataset.vm, r.querySelector('input').value]));
+    const sync = () => { let n = 0; rows.forEach(r => { const v = r.querySelector('input').value.trim(), u = v ? vidClean(v) : '', st = r.querySelector('.vid-st'), ch = v !== orig.get(r.dataset.vm);
+      st.textContent = v ? (u ? vidSite(u) || 'Link' : '✕ not a link') : ''; st.className = 'vid-st' + (v && !u ? ' bad' : ''); r.classList.toggle('ch', ch); if (ch) n++; });
+      d.querySelector('#vidN').textContent = n ? `${n} ${n === 1 ? 'change' : 'changes'} to save` : ''; };
+    rows.forEach(r => { const i = r.querySelector('input'); i.oninput = sync; i.onpaste = () => setTimeout(() => { const u = vidClean(i.value); if (u) i.value = u; sync(); }, 0); });
+    const many = d.querySelector('#vidMany'), mh = d.querySelector('#vidManyH');
+    let placedN = 0;
+    many.oninput = () => { const links = (many.value.match(/https?:\/\/[^\s<>"']+/gi) || []).map(vidClean).filter(Boolean); if (!links.length){ mh.textContent = ''; return; }
+      const left = list.filter(m => !links.includes(veoOf(m))), placed = [], lost = [];
+      links.forEach(u => { if (list.some(m => veoOf(m) === u)) return; const m = vidGuess(u, left.filter(x => !placed.includes(x))); if (!m){ lost.push(u); return; } placed.push(m); const r = rows.find(x => x.dataset.vm === m.id); r.querySelector('input').value = u; });
+      placedN += placed.length; sync(); mh.textContent = `${placedN ? `${placedN} placed by date and opponent. Check them below.` : ''}${lost.length ? ` ${lost.length} couldn’t be matched: paste ${lost.length === 1 ? 'it' : 'them'} into the right box.` : ''}`.trim();
+      if (!lost.length) many.value = ''; else many.value = lost.join('\n'); const f = rows.find(r => r.classList.contains('ch')); if (f) f.scrollIntoView({block:'nearest'}); };
+    d.querySelector('#vidAll').onclick = async () => { const ch = rows.filter(r => r.classList.contains('ch')); if (!ch.length){ closeDialog(); return; }
+      if (ch.some(r => { const v = r.querySelector('input').value.trim(); return v && !vidClean(v); })){ toast('One of the links isn’t a link. Fix or clear it.'); return; }
+      const b = d.querySelector('#vidAll'); b.disabled = true; let ok = 0;
+      for (const r of ch){ const m = list.find(x => x.id === r.dataset.vm), v = r.querySelector('input').value.trim(); if (await vidSave(m, v ? vidClean(v) : '', true)) ok++; }
+      closeDialog(); render(); toast(`${ok} ${ok === 1 ? 'video' : 'videos'} saved.`); };
+    sync(); });
+}
 function openDialog(html, onOpen){ $('#dialog').innerHTML = html; $('#modal').hidden = false; $$('#dialog [data-close]').forEach(b => b.onclick = closeDialog); if (onOpen) onOpen($('#dialog')); const f = $('#dialog input, #dialog button.btn.primary'); f && f.focus(); }
 function closeDialog(){ $('#modal').hidden = true; $('#dialog').innerHTML = ''; if (pendingRender){ pendingRender = false; render(); } }
 let pendingRender = false;
@@ -2033,7 +2103,7 @@ function matchForm(m, past){
     ${past ? '' : `<div class="field"><label class="label" for="fSheet">Players</label><select class="input" id="fSheet"><option value="">${(m.players || []).length ? 'Current list (' + m.players.length + ' players)' : 'No team sheet'}</option></select><span class="hint" id="fSheetMsg"></span> <button type="button" class="linkish" id="fListBtn">Edit list</button>
       <textarea class="input" id="fPlayers" rows="5" hidden aria-label="Players, one per line with shirt number">${esc((m.players || []).map(p => (p.n ? p.n + ' ' : '') + p.name).join('\n'))}</textarea></div>`}
     <details class="links-x"${veoOf(m) || photosOf(m) ? ' open' : ''}><summary>Video and photos <small>(only signed-in coaches and players see these)</small></summary>
-    <div class="field"><label class="label" for="fVeo">VEO link</label><input class="input" id="fVeo" type="url" maxlength="300" value="${esc(veoOf(m))}" placeholder="https://app.veo.co/matches/…"></div>
+    <div class="field"><label class="label" for="fVeo">Video link <small>(VEO, YouTube or any link)</small></label><input class="input" id="fVeo" inputmode="url" maxlength="300" value="${esc(veoOf(m))}" placeholder="https://app.veo.co/matches/…"></div>
     <div class="field"><label class="label" for="fPh">Match photos link</label><input class="input" id="fPh" type="url" maxlength="500" value="${esc(photosOf(m))}" placeholder="Google Drive or Google Photos album"><span class="hint">${m.id && PHOTO_AUTO[m.id] && !PHOTOS[m.id] ? 'Found automatically in the photos Drive. Clear it if the photos aren’t from this match.' : ''}</span></div></details>
     <div class="dlg-a"><button type="button" class="btn ghost" data-close>Cancel</button><button type="button" class="btn primary" id="fGo">${isNew ? (past ? 'Add result' : 'Create match') : 'Save'}</button></div>`, d => {
     wireSegs(d);
@@ -2081,7 +2151,7 @@ function matchForm(m, past){
       const f = {home:g('#fHome'), away:g('#fAway'), us:d.querySelector('[data-seg="us"]').dataset.val, team:g('#fTeam'), comp:g('#fComp'), round:g('#fRound'), venue:g('#fVenue'), ko:g('#fKo') ? g('#fKo') + 'T' + (tbc.checked ? '12:00' : g('#fKoT') || '12:00') : '', koTbc:!!(g('#fKo') && tbc.checked), code:d.querySelector('[data-seg="code"]').dataset.val, half:Math.max(3, Math.min(45, +g('#fHalf') || 35)), veo:g('#fVeo')};
       if (!f.home || !f.away){ toast('Enter both team names.'); return; }
       f.home = canonSchool(f.home); f.away = canonSchool(f.away);
-      if (f.veo && !/^https:\/\//i.test(f.veo)){ toast('The VEO link must start with https://'); return; }
+      if (f.veo){ const u = vidClean(f.veo); if (!u){ toast('The video link doesn’t look like a link.'); return; } f.veo = u; }
       const phv = g('#fPh'); if (phv && !/^https:\/\//i.test(phv)){ toast('The photos link must start with https://'); return; }
       const veo = f.veo; delete f.veo;
       if (sel) f.sheetId = sel.value.startsWith('s:') ? sel.value.slice(2) : '';
@@ -2131,6 +2201,7 @@ function act(a, m){
     case 'pastbulk': return pastBulk();
     case 'import': return importDialog();
     case 'schools': return schoolsDialog();
+    case 'videos': return vidBulk();
     case 'edit': return matchForm(m);
     case 'postpone': return offDialog(m);
     case 'offedit': return offDialog(m);
@@ -2878,7 +2949,7 @@ function schDeleteDialog(n){
 }
 
 /* ---------- the ☰ menu: the team app first, then everything else, so the coach view stays clean ---------- */
-const ICON = {photo:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>', app:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/>', plus:'<path d="M12 5v14M5 12h14"/>', past:'<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/>', imp:'<path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v3h16v-3"/>', crest:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>', people:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5c2.6.2 4.6 1.9 5.3 5"/>', demo:'<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/>', share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>', out:'<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h11"/>', in:'<path d="M9 4H5v16h4"/><path d="M14 8l4 4-4 4M18 12H7"/>'};
+const ICON = {video:'<rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/>', photo:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>', app:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/>', plus:'<path d="M12 5v14M5 12h14"/>', past:'<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/>', imp:'<path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v3h16v-3"/>', crest:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>', people:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5c2.6.2 4.6 1.9 5.3 5"/>', demo:'<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/>', share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>', out:'<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h11"/>', in:'<path d="M9 4H5v16h4"/><path d="M14 8l4 4-4 4M18 12H7"/>'};
 const ic = k => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
 function menuOpen(){
   let dr = $('#drawer'); if (!dr){ dr = document.createElement('div'); dr.id = 'drawer'; dr.className = 'drawer'; dr.hidden = true; document.body.appendChild(dr);
@@ -2889,7 +2960,7 @@ function menuOpen(){
     ${squad || (SANDBOX && (real.COACH || real.PLAYER)) ? `<a class="dr-app" href="${esc(MAIN_APP)}" target="_blank" rel="noopener">${ic('app')}<span><b>Open the ERGS Rugby app</b><small>Plays, drills, photos, graphics and team news</small></span><span class="dr-arrow">↗</span></a>` : ''}
     ${(V.tab === 'fixtures' || V.tab === 'results') && V.flt && V.flt.kind === V.tab ? `<div class="dr-sec">${V.tab === 'fixtures' ? 'Fixtures' : 'Results'}: what to show</div><div class="dr-flt">${V.flt.html.replace(/ data-(?!px)/g, ' data-px-').replace(/ id="/g, ' data-pxid="')}</div>` : ''}
     ${SUP && !COACH && !PLAYER && !SANDBOX ? `<div class="dr-sec">Following</div>${item('people', 'Squads you follow', esc(followTxt(SUP.follow)), 'data-mfollow')}` : ''}
-    ${COACH && !SANDBOX ? `<div class="dr-sec">Matches</div>${item('plus', 'New match', 'Add a fixture to score', 'data-mact="new"')}${item('past', 'Add a past result', 'A score from before ERGS Live', 'data-mact="past"')}${item('past', 'Add past results in bulk', 'Type a table or paste a list', 'data-mact="pastbulk"')}${item('imp', 'Import fixtures', 'From a photo, PDF or list', 'data-mact="import"')}
+    ${COACH && !SANDBOX ? `<div class="dr-sec">Matches</div>${item('plus', 'New match', 'Add a fixture to score', 'data-mact="new"')}${item('past', 'Add a past result', 'A score from before ERGS Live', 'data-mact="past"')}${item('video', 'Match videos', 'Add VEO or other links to recent matches', 'data-mact="videos"')}${item('past', 'Add past results in bulk', 'Type a table or paste a list', 'data-mact="pastbulk"')}${item('imp', 'Import fixtures', 'From a photo, PDF or list', 'data-mact="import"')}
       <div class="dr-sec">Manage</div>${item('crest', 'School crests', 'Crests, colours, merge and delete', 'data-mact="schools"')}${item('people', 'Coaches', 'Who can score and manage', 'data-mact="coaches"')}` : ''}
     ${(real.COACH || real.PLAYER) ? `<div class="dr-sec">Learn</div>${SANDBOX ? item('demo', 'Leave the demo', 'Back to the real scoreboard', 'data-mdemo="out"') : item('demo', real.COACH ? 'Practise in the demo' : 'Try the demo', 'Score a match and see the animations. Nothing is saved', 'data-mdemo="in"')}` : ''}
     <div class="dr-sec">More</div>${item('share', 'Share the app', 'Link and QR code', 'data-mshare')}${document.querySelector('#installSlot button, #installSlot a') ? item('imp', 'Install the app', 'On your phone or computer', 'data-minst') : ''}
