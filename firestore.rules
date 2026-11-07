@@ -21,6 +21,12 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isCoach() && request.resource.data.json is string && request.resource.data.json.size() < 900000;
     }
+    // live viewers count: each open page checks in while a match is live (no sign-in needed); only the time can be written
+    match /viewers/{mid}/s/{sid} {
+      allow read: if true;
+      allow create, update: if mid.size() < 80 && sid.size() < 40 && request.resource.data.keys().hasOnly(['at', 'exp']) && request.resource.data.at == request.time && request.resource.data.exp is timestamp;
+      allow delete: if true;
+    }
     // who can sign in
     match /coaches/{email} {
       allow read: if isCoach() || mine(email);

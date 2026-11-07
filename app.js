@@ -1416,6 +1416,7 @@ function board(m, full){
       <div class="score"><span class="${h > a ? 'lead' : ''}${p && p[0] !== h ? ' bump' : ''}">${h}</span><span class="dash">–</span><span class="${a > h ? 'lead' : ''}${p && p[1] !== a ? ' bump' : ''}">${a}</span></div>
       <div class="side">${crest(m.away, 'big')}<b>${esc(m.away)}</b><div class="bins">${bins(m, 'A', full)}</div></div></div>
     <span class="clock">${run ? '<span class="dot"></span>' : ''}<span data-clock="${esc(m.id)}">${esc(clockText(m))}</span>${m.status === 'FT' ? ' ' + resPill(resultOf(m)) : ''}</span>
+    ${isLive(m) ? `<span class="vw" data-vw="${esc(m.id)}"${VW.n[m.id] ? '' : ' hidden'}>${vwText(VW.n[m.id])}</span>` : ''}
     ${!full && last.length ? `<div class="last3">${last.map(e => `<div><span>${e.m}′</span><span>${esc(label(e))}${e.k !== 'note' ? ' (' + esc(e.s === 'H' ? m.home : m.away) + ')' : ''}</span></div>`).join('')}</div><span class="tap">Tap for the full timeline</span>` : ''}
   </${full ? 'div' : 'button'}>`;
 }
@@ -1789,6 +1790,30 @@ function coachBar(){
     : `<span class="cb-msg"><span class="cb-dot"></span><b>Coach view</b> · changes go live for everyone</span><div class="ctrl"><button type="button" class="btn primary" data-act="new">New match</button></div>`;
   if (READY && !HAS_DOC) bar.innerHTML = `<span><b>Coach view.</b> The scoreboard is empty. Bring across the matches from the Claude page to start.</span><button type="button" class="btn primary" data-act="seed">Set up the scoreboard</button><button type="button" class="btn ghost" data-act="signout">Sign out</button>`;
 }
+
+/* ---------- live viewers: "👁 12 watching" on a live match ---------- */
+// While a match is live and this page is on screen, it checks in every minute (viewers/<match>/s/<this tab>), for the match open
+// or, on the board, every live match shown. Anyone checked in within the last 2½ minutes counts. Leaving or hiding the page checks out.
+const VW = {n:{}, sid:'', on:new Set(), t:0};
+const VW_BEAT = 60e3, VW_WINDOW = 150e3;
+const vwText = n => n ? `<span aria-hidden="true">👁</span> ${n} watching` : '';
+function vwSid(){ if (VW.sid) return VW.sid; try { VW.sid = sessionStorage.getItem('ergs.vwSid') || ''; } catch(e){}
+  if (!VW.sid){ VW.sid = Date.now().toString(36) + Math.random().toString(36).slice(2, 10); try { sessionStorage.setItem('ergs.vwSid', VW.sid); } catch(e){} } return VW.sid; }
+function vwWatching(){ if (SANDBOX || DATA.demo || !window.FB || !FB.viewBeat || document.visibilityState !== 'visible') return [];
+  const m = V.open && DATA.matches.find(x => x.id === V.open); if (m) return isLive(m) ? [m.id] : [];
+  return (V.tab === 'matches' || !V.tab) ? DATA.matches.filter(isLive).map(x => x.id).slice(0, 4) : []; }
+function vwFill(){ $$('[data-vw]').forEach(el => { const n = VW.n[el.dataset.vw]; el.innerHTML = vwText(n); el.hidden = !n; el.title = n ? `${n} ${n === 1 ? 'person is' : 'people are'} watching this match on ERGS Live right now` : ''; }); }
+async function vwTick(){
+  const want = new Set(vwWatching()), sid = vwSid();
+  for (const id of VW.on) if (!want.has(id)){ VW.on.delete(id); try { await FB.viewGone(id, sid); } catch(e){} }
+  if (!want.size) return;
+  await Promise.all([...want].map(async id => { VW.on.add(id); try { await FB.viewBeat(id, sid); } catch(e){}
+    try { VW.n[id] = Math.max(1, await FB.viewCount(id, VW_WINDOW)); } catch(e){ VW.n[id] = VW.n[id] || 0; } }));
+  vwFill();
+}
+function vwKick(){ clearTimeout(VW.t); VW.t = setTimeout(async function loop(){ await vwTick(); VW.t = setTimeout(loop, VW_BEAT); }, 400); }
+document.addEventListener('visibilitychange', vwKick);
+addEventListener('pagehide', () => { const sid = vwSid(); VW.on.forEach(id => { try { FB.viewGone(id, sid); } catch(e){} }); VW.on.clear(); });
 function render(){
   const m = V.open && DATA.matches.find(x => x.id === V.open);
   if (V.open && !m && !(Date.now() - (V.openAt || 0) < 6000)) V.open = null;
@@ -1810,6 +1835,7 @@ function render(){
   $$('[data-clear]').forEach(b => b.onclick = () => { if (b.dataset.clear === 'latest'){ V.lPeriod = ''; V.lTeam = ''; } else { V.team = ''; V.season = 0; V.period = ''; V.res = ''; } render(); });
   { const nm = $('.cal-m.now'); if (nm && !V.calJumped && innerWidth < 760){ V.calJumped = true; setTimeout(() => nm.scrollIntoView({block:'start', behavior:'smooth'}), 60); } }   // phones open on this month
   wxFill();
+  vwFill(); { const k = vwWatching().join(); if (k !== VW.k){ VW.k = k; vwKick(); } }
   $$('[data-fxclear]').forEach(b => b.onclick = () => { V.ha = ''; V.calTeams.clear(); try { localStorage.setItem('ergs.calTeams', '[]'); } catch(e){} render(); });
   $$('[data-ha]').forEach(b => b.onclick = () => { V.ha = b.dataset.ha; V.calDay = ''; render(); });
   $$('[data-fxv]').forEach(b => b.onclick = () => { V.calJumped = false; V.fxView = b.dataset.fxv; try { localStorage.setItem('ergs.fxView', V.fxView); } catch(e){} render(); });

@@ -2,7 +2,7 @@
 // C2k: @c2ken.net and @c2kni.net are the same person
 const c2kTwin = e => /@c2ken\.net$/.test(e || '') ? e.replace(/@c2ken\.net$/, '@c2kni.net') : /@c2kni\.net$/.test(e || '') ? e.replace(/@c2kni\.net$/, '@c2ken.net') : '';
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore, doc, onSnapshot, runTransaction, getDoc, setDoc, deleteDoc, collection, getDocs } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, doc, onSnapshot, runTransaction, getDoc, setDoc, deleteDoc, collection, getDocs, query, where, getCountFromServer, serverTimestamp, Timestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 const cfg = (window.ERGS_CONFIG || {}).firebase;
 if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
@@ -35,6 +35,10 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
   
   const parse = snap => { if (!snap.exists()) return null; const d = snap.data(); try { return JSON.parse(d.json); } catch(e){ return null; } };
   window.FB = {
+    // live viewers: each open page keeps viewers/<match>/s/<session> = {at, exp} fresh while a match is live; a count query says how many are recent
+    viewBeat(mid, sid){ return setDoc(doc(db, 'viewers', mid, 's', sid), {at:serverTimestamp(), exp:Timestamp.fromMillis(Date.now() + 864e5)}); },
+    viewGone(mid, sid){ return deleteDoc(doc(db, 'viewers', mid, 's', sid)); },
+    async viewCount(mid, sinceMs){ const q = query(collection(db, 'viewers', mid, 's'), where('at', '>', Timestamp.fromMillis(Date.now() - sinceMs))); return (await getCountFromServer(q)).data().count; },
     onState(cb, err){ return onSnapshot(ref, s => cb(parse(s), s.exists()), err); },
     save(fn){ return runTransaction(db, async tx => { const s = await tx.get(ref); const next = fn(parse(s)); tx.set(ref, {json:JSON.stringify(next), updated:next.updated || Date.now()}); }); },
     onAuth(cb){ let first = true; return onAuthStateChanged(auth, async u => { if (first){ first = false; await linkDone; if (u === null && auth.currentUser) return; } cb(u); }); },
