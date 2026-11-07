@@ -107,7 +107,7 @@ th{text-align:left;font-family:var(--f-cond);font-weight:600;font-size:12px;lett
 td{padding:10px 12px;border-bottom:1px solid #1d2747}
 tr:last-child td{border-bottom:0}
 .who{display:flex;align-items:center;gap:10px;font-weight:600;min-width:150px}
-@media (max-width:520px){ .hide-s{display:none} .row{grid-template-columns:42px 28px minmax(0,1fr)} .row .rr{grid-column:2/-1} }
+@media (max-width:520px){ .hide-s{display:none} .row{grid-template-columns:38px 28px minmax(0,1fr) auto;gap:10px;padding:10px} .row .rr{gap:6px} .row .rr .wx-chip{display:none} .cd b{font-size:22px} }
 /* match detail */
 .back{border:0;background:transparent;color:var(--gold);font-family:var(--f-cond);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:14px;padding:8px 0;margin-bottom:8px}
 .back::before{content:"← "}
@@ -244,7 +244,7 @@ textarea.input{resize:vertical;line-height:1.4}
 .team-tabs button[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
 .team-tabs button[aria-pressed="true"] small{color:var(--gold-ink)}
 .row{position:relative}
-.row.home{background:linear-gradient(90deg,rgba(220,192,138,.20),rgba(220,192,138,.07) 60%,var(--panel));border-color:rgba(220,192,138,.55);box-shadow:inset 4px 0 0 var(--gold)}
+.row.home{box-shadow:inset 3px 0 0 var(--gold)}
 .row.away{background:var(--deck)}
 .ha-tag{font-family:var(--f-cond);font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase;padding:1px 7px;border-radius:5px;background:var(--raise);color:var(--mute)}
 .row.home .ha-tag{background:var(--gold);color:var(--gold-ink)}
@@ -616,7 +616,6 @@ body.dr-lock{overflow:hidden}
 .vid-row{display:flex;gap:8px;align-items:center}.vid-row .input{flex:1;min-width:0}.vid-btns{display:flex;gap:6px;flex:none}
 .vid-list{display:grid;gap:8px;max-height:52vh;overflow:auto;margin:6px 0 4px;padding-right:2px}.vid-it{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--rule);border-radius:12px}.vid-it.has{opacity:.8}.vid-it.ch{border-color:var(--gold);opacity:1}
 .vid-m{display:flex;justify-content:space-between;gap:10px;align-items:baseline}.vid-m small{color:var(--dim);white-space:nowrap}.vid-st{flex:none;font-size:12px;font-weight:700;color:var(--gold);min-width:0}.vid-st.bad{color:#ff8a80}
-@media (max-width:480px){.vid-add .vid-row{flex-wrap:wrap}.vid-add .vid-btns{width:100%}.vid-add .vid-btns .btn{flex:1}}
 .sh-pill{display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 16px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--chalk);font-weight:700;font-size:14px;cursor:pointer}.sh-pill:hover{border-color:var(--gold)}.sh-pill.live{background:var(--gold);color:var(--gold-ink);border-color:var(--gold)}
 .sb-wrap{display:grid;gap:6px}.sb-share{justify-self:center;display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 14px;border:0;border-radius:999px;background:transparent;color:var(--mute);font-weight:600;font-size:13px;cursor:pointer}.sb-share:hover,.sb-share:focus-visible{color:var(--gold);background:rgba(255,255,255,.04)}
 .shp-list{display:grid;gap:2px;margin:10px 0 6px}.shp{display:flex;align-items:center;gap:12px;text-align:left;padding:10px 8px;border-radius:12px;border:0;background:transparent;color:inherit;cursor:pointer}.shp:hover,.shp:focus-visible{background:rgba(255,255,255,.05)}.shp>span:not(.crest){flex:1;display:grid;gap:2px;min-width:0}.shp b{font-weight:700}.shp small{color:var(--dim);display:flex;align-items:center;gap:6px}.shp.live small{color:var(--chalk)}.shp-dot{width:7px;height:7px;border-radius:50%;background:#ff4d4d;box-shadow:0 0 0 3px rgba(255,77,77,.2)}.shp-go{color:var(--mute);flex:none}.shp:hover .shp-go{color:var(--gold)}
@@ -717,10 +716,33 @@ body.dr-lock{overflow:hidden}
 .cup-er.auto{opacity:.9}
 @media (max-width:520px){ .cup-now{grid-template-columns:repeat(2,minmax(0,1fr))} .tabs button{font-size:13px;letter-spacing:.03em} }
 
+
+/* ---------- clean pass ---------- */
+.t-s{display:none}
+@media (max-width:560px){
+  .tabs{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs button{flex:1 0 auto;padding:0 14px;font-size:14px;white-space:nowrap;scroll-snap-align:start}
+  .t-l{display:none}.t-s{display:inline}
+  .tabs button[data-v="cup"]{font-size:0}.tabs button[data-v="cup"] .t-s{font-size:14px}
+}
+.aft{display:grid;gap:2px}.aft h3{margin-bottom:6px}
+.aft-r{display:flex;align-items:center;gap:12px;width:100%;padding:10px 6px;border:0;border-radius:12px;background:transparent;color:inherit;text-decoration:none;text-align:left;font:inherit;cursor:pointer}
+.aft-r+.aft-r{border-top:1px solid var(--rule);border-radius:0}.aft-r:hover{background:rgba(255,255,255,.03)}
+.aft-r>span:nth-child(2){flex:1;display:grid;gap:2px;min-width:0}.aft-r b{font-weight:700;font-size:15px}.aft-r small{color:var(--mute);font-size:13px}
+.aft-i{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:10px;background:var(--raise);font-size:18px}
+.aft-r.todo .aft-i{background:var(--gold)}.aft-r.todo small{color:var(--gold)}
+.aft-go{color:var(--dim);flex:none}.aft-r:hover .aft-go{color:var(--gold)}
+.aft .nom-chips{margin-top:6px}
+.cup-gh{flex-wrap:wrap;row-gap:4px}.cup-gh>b{flex:1;min-width:0}.cup-gh>a.lnk{margin-left:auto;white-space:nowrap;font-family:system-ui,sans-serif;font-size:12px;letter-spacing:0;text-transform:none;text-decoration:none;color:var(--gold)}
+@media (max-width:560px){.ko-r{gap:6px;padding:8px 6px}.ko-t{font-size:13px;line-height:1.2}.ko-t span{white-space:normal;overflow:visible;overflow-wrap:anywhere}.ko-t .crest{width:22px;height:22px;flex:none;font-size:9px}.ko-s{font-size:14px}}
+.aft-v{cursor:default;align-items:flex-start}.aft-v:hover{background:transparent}.aft-v .vid-add{flex:1;margin:0;max-width:none;gap:6px}.aft-v .vid-add label{color:var(--chalk);font-size:15px}.aft-v .vid-add label small{font-size:12px}.aft-v .input{height:38px;font-size:14px}.aft-v .btn{height:38px;padding:0 14px}
+@media (max-width:560px){.tabs{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}.tabs.end{-webkit-mask-image:none;mask-image:none}}
+.last3 div span:last-child{color:var(--chalk)}
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = '1f358c77a5';</script>
+<script>window.ERGS_VER = '281e305556';</script>
 <script src="config.js?v=b61c3e8a59"></script>
 <script src="crest.js?v=b61c3e8a59"></script>
 <script src="app.js?v=b61c3e8a59"></script>
