@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '25e0224cc1';</script>
+<script>window.ERGS_VER = '839a7e440d';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -3856,7 +3856,7 @@ function renderMenu(){
   if (squad) items.push({t:'Play library', d: coach ? 'Coached moves, the ERGS playbook and saved plays' : 'The ERGS playbook and coached moves', act:()=>go('library'), main:true});
   if (squad) items.push({t:'Photos', d:'Match day photos from every season, ready to save to your phone', act:()=>go('photos')});
   if (squad && (coach || (typeof anVisible === 'function' && (anSub(), anVisible().length)))) items.push({t:'Video analysis', d: coach ? 'Match video from VEO or YouTube: draw on it, follow players, tag every big moment' : 'Match video your coaches have broken down for your squad', act:()=>go('anl')});
-  if (squad) items.push({t:'Training drills', d: coach ? 'Drills with cones in 2D and 3D, tagged by skill, plus the rugby terms guide' : 'Training drills and the rugby terms guide, with animations', act:()=>go('drills')});
+  if (coach) items.push({t:'Training drills', d: coach ? 'Drills with cones in 2D and 3D, tagged by skill, plus the rugby terms guide' : 'Training drills and the rugby terms guide, with animations', act:()=>go('drills')});
   if (coach){
     items.push({t:'Graphics', d:'Team of the week, cup team graphic and matchday graphics', act:()=>go('graphics')});
     items.push({t:'Squads', d:'Squads, positions, the matchday team, team sheets and access', act:()=>go('squads')});
@@ -5607,7 +5607,7 @@ const Cloud = (() => {
 
 /* ---------- who can go where ---------- */
 /* Only coaches and players get past the door. Everyone else sees live scores and nothing more. */
-const NEEDS = {anl:'squad', menu:'squad', library:'squad', editor:'squad', drills:'squad', terms:'squad', photos:'squad', graphics:'coach', totw:'coach', squads:'coach', people:'coach', sheets:'coach', xv:'coach', fxg:'coach', rsg:'coach', mdg:'coach', noms:'coach'};
+const NEEDS = {anl:'squad', menu:'squad', library:'squad', editor:'squad', drills:'coach', terms:'squad', photos:'squad', graphics:'coach', totw:'coach', squads:'coach', people:'coach', sheets:'coach', xv:'coach', fxg:'coach', rsg:'coach', mdg:'coach', noms:'coach'};
 function allowed(screen){
   if (screen === 'gate') return true;
   if (Cloud.role === 'pending' || Cloud.role === 'elsewhere') return false;
@@ -19445,11 +19445,11 @@ function joinGate(){
 // Everyone's things stay as the big list (library, photos, video, drills, Play IQ, scores). For coaches, everything only coaches
 // can open (graphics, squads, the toolkit and any tools they've pinned) goes into one Coach access group: a single row that opens
 // into a tidy grid. Open or closed is remembered on this device.
-const CG_IDS = ['mpMenu', 'rgMenu', 'rpMenu', 'setMenu', 'ctMenu'], CG_T = ['Graphics', 'Squads', 'Coach toolkit'];
-const CG_IC = {'Graphics':'<path d="M4 5h16v14H4z"/><path d="M4 15l4-4 4 4 3-3 5 5"/><circle cx="15.5" cy="9" r="1.5"/>', 'Squads':'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2A5 5 0 0 1 21 19"/>',
+const CG_IDS = ['mpMenu', 'rgMenu', 'rpMenu', 'setMenu', 'ctMenu'], CG_T = ['Training drills', 'Graphics', 'Squads', 'Coach toolkit'];
+const CG_IC = {'Training drills':'<circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M12 4l2 4h-4z"/><path d="M7.5 16.5c3-1 4-4 5.5-7.5" stroke-dasharray="2 2.5"/>', 'Graphics':'<path d="M4 5h16v14H4z"/><path d="M4 15l4-4 4 4 3-3 5 5"/><circle cx="15.5" cy="9" r="1.5"/>', 'Squads':'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2A5 5 0 0 1 21 19"/>',
   'Coach toolkit':'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>', 'Match-day plans':'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/>',
   'Training register':'<path d="M4 6h16M4 12h16M4 18h10"/><path d="M17 17l2 2 3-4"/>', 'Match reports':'<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>', 'Settings':'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'};
-const CG_D = {'Graphics':'Team of the week, cup team, matchday', 'Squads':'Players, positions, team sheets, access', 'Coach toolkit':'Analytics, scouting, depth chart', 'Match-day plans':'Plans and team talks', 'Training register':'Who was at training', 'Match reports':'Write up and post', 'Settings':'Features and options'};
+const CG_D = {'Training drills':'2D/3D drills and the terms guide', 'Graphics':'Team of the week, cup team, matchday', 'Squads':'Players, positions, team sheets, access', 'Coach toolkit':'Analytics, scouting, depth chart', 'Match-day plans':'Plans and team talks', 'Training register':'Who was at training', 'Match reports':'Write up and post', 'Settings':'Features and options'};
 let cgOpen = false; try { cgOpen = localStorage.getItem('ergs.coachGrp') === '1'; } catch(e){}
 function cgHome(){
   const ul = $('#menuList'); if (!ul) return; const old = $('#coachGrp');
