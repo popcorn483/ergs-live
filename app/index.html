@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '839a7e440d';</script>
+<script>window.ERGS_VER = '7d16600fce';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -2065,6 +2065,16 @@ body.va-guardian .va-bar{border-color:#8fd3a6}
 .jc-sq{border:0;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:6px}.jc-sq legend{padding:0;margin-bottom:6px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
 .jc-c{display:flex!important;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--rule);border-radius:10px;cursor:pointer}.jc-c input{accent-color:var(--flood);width:18px;height:18px}.jc-c span{font-size:14px}
 .jc-tag{color:var(--flood)}
+
+/* one Squads page */
+#squads .sq-tabs.in-head{flex-basis:100%;width:100%;margin:4px 0 6px}
+#squads .sq-tabs,#people .sq-tabs{display:grid;grid-template-columns:repeat(3,1fr);margin:4px 0 14px}#squads .sq-tabs button,#people .sq-tabs button{white-space:nowrap;padding:0 8px}
+.rq-box.rq-mini{padding:0;border:0;background:none}
+.rq-line{width:100%;display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;border:1px solid rgba(220,192,138,.5);background:rgba(220,192,138,.08);color:inherit;font:inherit;text-align:left;cursor:pointer}.rq-line b{flex:1;font-weight:700}.rq-go{color:var(--flood);font-weight:700;font-size:14px;white-space:nowrap}
+@media (max-width:520px){#nomRemind .nr-row{grid-auto-flow:row;grid-template-columns:1fr auto auto auto;row-gap:8px}#nomRemind .nr-row .nr-m{grid-column:1/-1}#nomRemind .nr-row .nr-go{grid-column:2}.nr-row .nr-m{grid-column:1/-1}.nr-row .nr-m b{white-space:normal}.nr-row .nr-go{grid-column:2}}
+.card-a .dr-extra{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;padding-top:6px;border-top:1px solid var(--rule);margin-top:4px}.card-a .dr-extra[hidden]{display:none}
+#sqSqUse{white-space:normal;height:auto;min-height:40px;padding-block:8px;text-align:left;max-width:100%}
+.gd-hub{min-width:0;max-width:min(560px,100%);box-sizing:border-box}.gd-hub *{min-width:0}.gd-stats{grid-template-columns:repeat(4,minmax(0,1fr))!important}.gd-h b,.gd-h h2{overflow-wrap:anywhere}
 /* Coach access group on the home screen */
 #menuList > li.cg{margin:14px 0 6px;border:1px solid var(--rule);border-radius:16px;background:rgba(255,255,255,.025);overflow:hidden}
 .cg-h{width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit}
@@ -3861,7 +3871,7 @@ function renderMenu(){
     items.push({t:'Graphics', d:'Team of the week, cup team graphic and matchday graphics', act:()=>go('graphics')});
     items.push({t:'Squads', d:'Squads, positions, the matchday team, team sheets and access', act:()=>go('squads')});
   }
-  if (squad) items.push({t:'Scores & fixtures', d:'Live scores, results and the Schools’ Cup tables, on ERGS Live', href:'https://popcorn483.github.io/ergs-live/?live', cls:'mi-scores'});   // phones: a button in the top-right corner instead
+  if (false) items.push({t:'Scores & fixtures', d:'Live scores, results and the Schools’ Cup tables, on ERGS Live', href:'https://popcorn483.github.io/ergs-live/?live', cls:'mi-scores'});   // phones: a button in the top-right corner instead
   const ul = $('#menuList'); ul.innerHTML = '';
   items.forEach((it,i) => {
     const li = document.createElement('li'); li.style.animationDelay = (0.9+i*0.09)+'s'; if (it.cls) li.className = it.cls;
@@ -5621,7 +5631,8 @@ const roleWaiters = [];
 function whenRole(fn){ if (Cloud.role !== 'pending') fn(); else roleWaiters.push(fn); }
 function roleLine(){
   const r = Cloud.role, el = $('#whoChip');
-  const tag = {coach:'Coach', player:'Player', public:'Supporter', signedout:'Not signed in', pending:'Checking access…', elsewhere:'Not signed in'}[r] || '';
+  const par = r === 'player' && window.ERGS_AUTH && ERGS_AUTH.aliasRel === 'guardian';
+  const tag = par ? 'Parent' : {coach:'Coach', player:'Player', public:'Supporter', signedout:'Not signed in', pending:'Checking access…', elsewhere:'Not signed in'}[r] || '';
   if (el){
     el.innerHTML = `<span class="pill ${r === 'coach' ? 'gold' : r === 'player' ? '' : 'live'}">${esc(tag)}</span><span class="nm"></span>`;
     el.hidden = Cloud.mode === 'local';
@@ -9432,7 +9443,7 @@ function renderPhotos(){
   $('#phSeasonTabs').hidden = seasons.length < 2;
   $$('#phSeasonTabs [data-ps]').forEach(b => b.onclick = () => { PH.season = b.dataset.ps; PH.path = []; renderPhotos(); });
   body.innerHTML = ''; $('#phCrumbs').innerHTML = ''; $('#phState').textContent = '';
-  if (!seasons.length){ body.innerHTML = `<div class="empty">${coach ? 'No photo seasons yet. Press <b>Seasons</b> and paste the link to a Google Drive folder for this season. Inside it, make one folder per match day.' : 'No photos yet.'}</div>`; return; }
+  if (!seasons.length){ body.innerHTML = `<div class="empty">${coach ? 'No photo seasons yet. Press <b>Seasons</b> and paste the link to a Google Drive folder for this season. Inside it, make one folder per match day.' : 'No photos yet. Your coaches add match day photos here after games: check back after the next match.'}</div>`; return; }
   if (typeof inArtifact === 'function' && inArtifact()){
     body.innerHTML = `<div class="empty">Photos open in the ERGS Rugby app on GitHub. ${seasons.map(s => `<a class="btn" href="https://drive.google.com/drive/folders/${esc(s.folder)}" target="_blank" rel="noopener">${esc(s.label)} in Google Drive</a>`).join(' ')}</div>`; return; }
   const season = seasons.find(s => s.folder === PH.season), here = PH.path.length ? PH.path[PH.path.length - 1] : {id:season.folder, name:season.label};
@@ -12385,12 +12396,14 @@ function sqMark(){ SQ.dirty = true; const b = $('#sqSqSave'); if (b) b.disabled 
   const page = $('#squads .page'); if (!page) return;
   // top tabs on both pages: Squads · Matchday team & team sheets · Access
   const mkTabs = () => { const d = document.createElement('div'); d.className = 'seg sq-tabs'; d.setAttribute('role', 'tablist'); d.setAttribute('aria-label', 'Squads');
-    d.innerHTML = `<button type="button" data-sqv="squads">Squads</button><button type="button" data-sqv="match">Matchday team &amp; team sheets</button><button type="button" data-sqv="access">Access</button>`;
+    d.innerHTML = `<button type="button" data-sqv="squads">Squads</button><button type="button" data-sqv="match">Team sheets</button><button type="button" data-sqv="access">Access</button>`;
     d.querySelectorAll('[data-sqv]').forEach(b => b.onclick = () => { const v = b.dataset.sqv; if (v === 'access'){ go('people'); return; } SQ.view = v; sqKeep(); if (S.screen !== 'squads') go('squads'); else sqViewUI(); });
     return d; };
   $$('.sq-tabs').forEach(t => t.replaceWith(mkTabs()));
-  const ppl = $('#people .page'); if (ppl && !ppl.querySelector('.sq-tabs')) ppl.insertBefore(mkTabs(), ppl.firstChild);
-  if (!page.querySelector('.sq-tabs')) page.insertBefore(mkTabs(), page.firstChild);
+  // one Squads page: the same title and the tabs under it, whether you're on Squads, Team sheets or Access
+  const putTabs = pg => { if (!pg) return; const h = [...pg.querySelectorAll('.page-head')].find(x => x.querySelector('h1')), t = pg.querySelector('.sq-tabs') || mkTabs(); h ? h.after(t) : pg.insertBefore(t, pg.firstChild); };
+  const ppl = $('#people .page'); if (ppl){ const h1 = ppl.querySelector('.page-head h1'); if (h1) h1.textContent = 'Squads'; } putTabs(ppl); putTabs(page);
+  $$('#squads .page-head [data-go="menu"], #people .page-head [data-go="menu"], #squads .page-head .btn.ghost').forEach(b => { const sv = b.querySelector('svg'); if (sv && /back/i.test(b.textContent)){ b.textContent = ''; b.append(sv, 'Menu'); } });
   // the existing matchday 23 and team sheets move into their own view
   const head = page.querySelector('.page-head'), mv = document.createElement('div'); mv.id = 'sqMatchView';
   [...page.children].filter(el => !el.classList.contains('sq-tabs') && el !== head).forEach(el => mv.appendChild(el));
@@ -12448,14 +12461,15 @@ function sqViewUI(){
   $$('#squads .sq-tabs [data-sqv], #people .sq-tabs [data-sqv]').forEach(b => b.setAttribute('aria-pressed', S.screen === 'people' ? b.dataset.sqv === 'access' : b.dataset.sqv === v));
   $('#sqSquadView').hidden = v !== 'squads'; $('#sqMatchView').hidden = v !== 'match';
   ['#sqFilesBtn', '#sqNew'].forEach(q => { const el = $(q); if (el) el.hidden = v !== 'match'; });
-  const h = $('#squads .page-head h1'); if (h) h.textContent = v === 'match' ? 'Matchday team' : 'Squads';
+  const h = $('#squads .page-head h1'); if (h) h.textContent = 'Squads';
   if (v === 'squads') sqUI();
 }
 function sqUI(){
   const rows = sqRows(), teams = sqTeams(); if (SQ.team !== '*' && !teams.includes(SQ.team)) SQ.team = 'SENIOR';
+  if (!SQ.picked && SQ.team !== '*' && rows.length && !rows.some(r => (r.f || r.l) && (r.t === SQ.team || (typeof sqToTeam === 'function' && sqToTeam(r.t) === SQ.team)))) SQ.team = '*';   // don't open on an empty squad
   const n = (t, xv) => sqPlayers(t, xv).filter(sqFilled).length;
   $('#sqTeamTabs').innerHTML = ['*'].concat(teams).map(t => `<button type="button" role="tab" data-sqt="${esc(t)}" aria-pressed="${SQ.team === t}">${esc(sqName(t))} <small>${n(t)}</small></button>`).join('') + '<button type="button" class="sq-newt" id="sqNewTeam">+ New squad</button>';
-  $$('#sqTeamTabs [data-sqt]').forEach(b => b.onclick = () => { SQ.team = b.dataset.sqt; if (SQ.team !== 'SENIOR') SQ.xv = ''; sqKeep(); sqUI(); });
+  $$('#sqTeamTabs [data-sqt]').forEach(b => b.onclick = () => { SQ.picked = true; SQ.team = b.dataset.sqt; if (SQ.team !== 'SENIOR') SQ.xv = ''; sqKeep(); sqUI(); });
   $('#sqNewTeam').onclick = () => sqNewTeam();
   const xvt = $('#sqXvTabs'); xvt.hidden = SQ.team !== 'SENIOR';
   if (!xvt.hidden){ xvt.innerHTML = [['', 'All seniors']].concat(SQ_XV).map(([k, t]) => `<button type="button" role="tab" data-sqx="${k}" aria-pressed="${(SQ.xv || '') === k}">${t} <small>${n('SENIOR', k)}</small></button>`).join('');
@@ -12707,7 +12721,9 @@ function callManager(){
       const vis = [...grid.querySelectorAll('.card')].some(c => !c.hidden), hide = filtering && !vis; grid.hidden = hide; if (sec && sec.classList.contains('lib-sec')) sec.hidden = hide; if (extra && $('#' + extra)) $('#' + extra).hidden = hide; });
     const shown = $$('#library .card[data-tk]').filter(c => !c.hidden).length, total = $$('#library .card[data-tk]').length;
     const st = $('#libFilterState'); if (st) st.textContent = filtering ? `Showing ${shown} of ${total} plays${CALL.tab ? ' in ' + CALL.tab : ''}` : '';
+    if (filtering && !shown && CALL.tab && !LF.tags.size && !LF.q && !isCoach() && !CALL.fell){ CALL.fell = true; CALL.tab = ''; libApply(); return; }   // a player's own calls are empty: show the whole playbook instead
     let none = $('#callNone'); if (filtering && !shown){ if (!none){ none = document.createElement('div'); none.id = 'callNone'; none.className = 'empty'; ($('#callTabs') || $('#library .page-head')).after(none); } none.hidden = false; none.textContent = CALL.tab && !LF.tags.size && !LF.q ? `No plays in ${CALL.tab} yet.${isCoach() ? ' Use + Calls on a play (under All calls) to add it.' : ''}` : 'No plays match these filters.'; } else if (none) none.hidden = true;
+    if (none && !none.hidden && filtering && !shown && !none.querySelector('button')){ const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.style.marginTop = '10px'; b.textContent = 'Show every play'; b.onclick = () => { CALL.tab = ''; LF.tags.clear(); LF.q = ''; const q = $('#lbQ'); if (q) q.value = ''; try { localStorage.setItem('ergs.callTab', ''); } catch(e){} if (typeof libFilterUI === 'function') libFilterUI(true); libApply(); }; none.append(document.createElement('br'), b); }
     callTabsUI();
   };
 })();
@@ -13526,12 +13542,13 @@ async function inviteLink(email, name, quiet){
   try { await A.sendLink(email, APP_LINK, true); if (!quiet) toast(`Sign-in link emailed to ${email}. One tap signs ${name ? name.split(' ')[0] : 'them'} in, and the app remembers them.`); return true; }
   catch(e){ if (!quiet) toast(A.linkMsg ? A.linkMsg(e) : 'The sign-in link didn’t send.'); return false; }
 }
+const WQUIET = {on:false};
 async function welcome(o){
   if (RQ_ACC[o.email]){ o.accepted = RQ_ACC[o.email]; delete RQ_ACC[o.email]; }
   // a C2k address: the sign-in link is the welcome (a "sign in with Google" email would only hit the school's block)
   if (isC2k(o.email) && !o.accepted){ if (await inviteLink(o.email, o.name)) return; toast('The sign-in link didn’t send (see the message above). Sending the usual welcome instead.'); }
   o.from = o.from || ((window.ERGS_AUTH && (ERGS_AUTH.coach || {}).name) || '');
-  if (!mailReady()){ welcomeFallback(o); return; }
+  if (!mailReady()){ if (WQUIET.on) return; welcomeFallback(o); return; }   // automatic linking doesn't pop up the manual email
   try { await sendWelcome(o); toast(`Welcome email sent to ${o.email}.`); } catch(e){ toast('The welcome email didn’t send. Check Welcome emails in Access.'); welcomeFallback(o); }
 }
 /* settings: EmailJS, step by step */
@@ -16229,6 +16246,27 @@ async function gdSquadBox(){
   box.querySelectorAll('.rq2[data-rq]').forEach(el => gdWire(el, rs.find(x => x.id === el.dataset.rq), pls));
 }
 (() => { const su = sqUI; sqUI = function(){ su.apply(this, arguments); gdSquadBox(); }; })();
+/* ---------- the Squads tabs sit under the page title on Squads, Team sheets and Access ---------- */
+function sqTabsPlace(){ ['#squads .page', '#people .page'].forEach(sel => { const pg = $(sel); if (!pg) return; const t = pg.querySelector(':scope > .sq-tabs'), h = [...pg.querySelectorAll(':scope > .page-head')].find(x => x.querySelector('h1')) || pg.querySelector(':scope > .page-head');
+  if (!t || !h) return;
+  // a title row with buttons under it (Team sheets): the tabs go between the title and the buttons
+  const btns = [...h.children].filter(x => x.matches('.btn:not(.ghost):not(.icon), .btn.primary') && !x.closest('[hidden]') && x.offsetParent);
+  if (btns.length){ if (t.parentElement !== h || t.nextElementSibling !== btns[0]) btns[0].before(t); t.classList.add('in-head'); }
+  else { t.classList.remove('in-head'); if (h.nextElementSibling !== t) h.after(t); } }); }
+(() => { const g = go; go = function(){ const r = g.apply(this, arguments); if (S.screen === 'squads' || S.screen === 'people'){ sqTabsPlace(); setTimeout(sqTabsPlace, 0); setTimeout(sqTabsPlace, 400); } return r; }; setTimeout(sqTabsPlace, 0); const sv = sqViewUI; sqViewUI = function(){ const r = sv.apply(this, arguments); sqTabsPlace(); setTimeout(sqTabsPlace, 0); return r; }; })();
+/* ---------- drill cards: Open, then everything else behind More ---------- */
+(() => { const dc = drillCard; drillCard = function(){ const el = dc.apply(this, arguments), a = el && el.querySelector('.card-a'); if (!a || a.querySelector('.dr-more')) return el;
+  const bs = [...a.children].filter(x => x.tagName === 'BUTTON' || x.tagName === 'A'); if (bs.length < 3) return el;
+  const keep = bs[0], rest = bs.slice(1), box = document.createElement('div'); box.className = 'dr-extra'; box.hidden = true; rest.forEach(x => box.appendChild(x));
+  const m = document.createElement('button'); m.type = 'button'; m.className = 'btn ghost dr-more'; m.setAttribute('aria-expanded', 'false'); m.textContent = 'More'; m.title = rest.map(x => x.textContent.trim()).join(', ');
+  m.onclick = e => { e.stopPropagation(); box.hidden = !box.hidden; m.setAttribute('aria-expanded', String(!box.hidden)); m.textContent = box.hidden ? 'More' : 'Less'; };
+  keep.after(m); a.appendChild(box); return el; }; })();
+/* ---------- one Squads page: the waiting list lives in Access; Squads shows a one-line link to it ---------- */
+(() => { const rb = reqBox; reqBox = async function(host){ await rb.apply(this, arguments);
+  if (!host || host.id !== 'sqReqs' || host.hidden || !(typeof isAdminCoach === 'function' && isAdminCoach())) return;
+  const n = host.querySelectorAll('.rq2[data-rq]').length; if (!n) return;
+  host.classList.add('rq-mini'); host.innerHTML = `<button type="button" class="rq-line"><span class="rq-dot"></span><b>${n === 1 ? '1 person is' : n + ' people are'} waiting for access</b><span class="rq-go">Review in Access ›</span></button>`;
+  host.querySelector('.rq-line').onclick = () => { go('people'); setTimeout(() => typeof accGo === 'function' && accGo('wait', true), 150); }; }; })();
 /* ---------- parents who sign up before their child ---------- */
 // A parent's request whose child is in the squad list but has no login yet: their email becomes that player's main login, marked as a
 // parent/guardian's (mainRel), so they're in straight away with the parent's view. When the child signs up later, their email is
@@ -16247,7 +16285,7 @@ async function gdMainNew(rp, r){
 let GDA = 0;
 async function gdAuto(){
   if (Cloud.role !== 'coach' || Date.now() - GDA < 8000) return false; GDA = Date.now();
-  const L = await lgLoad(true); let did = false; await accAliases();
+  const L = await lgLoad(true); let did = false; await accAliases(); WQUIET.on = true; try {
   const pls = (L.players || []).filter(p => !p.aliasOf), free = gdRosterFree(L), T = typeof coTeams === 'function' ? coTeams() : [], mayTeam = t => !T.length || (typeof isAdminCoach === 'function' && isAdminCoach()) || T.includes(t);
   for (const r of L.requests){
     if (r.kind === 'guardian' && r.child){ const n = gdNm(r.child), sq = r.squad && r.squad !== '?' ? r.squad : '';
@@ -16262,6 +16300,7 @@ async function gdAuto(){
       if (hits.length === 1 && mayTeam(hits[0].team) && await accSetAlt(hits[0].id, r.id, 'self', '', hits[0])) did = true;
     }
   }
+  } finally { setTimeout(() => WQUIET.on = false, 1500); }
   if (did){ LG.at = 0; if (typeof lgRefresh === 'function') lgRefresh(); if (S.screen === 'squads') gdSquadBox(); }
   return did;
 }
