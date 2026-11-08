@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = 'adbf132334';</script>
+<script>window.ERGS_VER = 'fcb05a50a5';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -2042,6 +2042,29 @@ body.va-guardian .va-bar{border-color:#8fd3a6}
 .set-num small{color:var(--mute);font-weight:500}.set-txt .input{width:100%}
 .set-lbl{font-weight:600;color:var(--chalk);font-size:14px;margin-top:4px}
 
+
+/* sign-in: Who are you? */
+.gate.jn{gap:14px;padding-block:28px;width:min(520px,100%);margin-inline:auto}.gate.jn #gateCrest{width:96px;height:auto}.gate.jn h1{font-size:clamp(30px,7vw,44px)}
+.jn-q{display:block;font-family:var(--f-cond);font-size:20px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--flood);margin-top:6px}
+.gate.jn .gate-acts{width:100%;align-items:stretch}
+.jn-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.jn-tile{display:grid;justify-items:center;align-content:center;gap:6px;min-height:132px;padding:16px 10px;border-radius:18px;border:1px solid var(--rule);background:rgba(255,255,255,.04);color:var(--ink,#fff);cursor:pointer;font:inherit;text-align:center;transition:border-color .2s,background .2s,transform .15s}
+.jn-tile:hover,.jn-tile:focus-visible{border-color:var(--flood);background:rgba(220,192,138,.08)}.jn-tile:active{transform:scale(.98)}
+.jn-tile b{font-size:16px;font-weight:800;line-height:1.15}.jn-tile small{color:var(--mute);font-size:12.5px;line-height:1.3}
+.jn-ic{width:48px;height:48px;display:grid;place-items:center;border-radius:14px;background:rgba(220,192,138,.14);color:var(--flood)}.jn-ic.big{width:60px;height:60px;border-radius:18px;justify-self:center}
+.gate .jn-grid a.jn-tile{display:grid!important;grid-template-columns:1fr!important;grid-auto-flow:row!important;flex-direction:initial;text-decoration:none!important;color:inherit}.gate .jn-grid a.jn-tile *{text-decoration:none}
+.jn-tile.sup .jn-ic{background:rgba(255,255,255,.08);color:#fff}
+.jn-foot{margin:4px 0 0;color:var(--mute);font-size:13px;line-height:1.4}
+.jn-card{display:grid;gap:14px;justify-items:center;padding:22px 18px;border-radius:18px;border:1px solid var(--rule);background:rgba(255,255,255,.035);width:100%;box-sizing:border-box}.jn-card p{margin:0;color:var(--mute);line-height:1.45}
+.jn-g{display:inline-flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:320px;height:52px;border-radius:999px;border:0;background:#fff;color:#1f1f1f;font-weight:700;font-size:16px;cursor:pointer;box-shadow:0 4px 18px rgba(0,0,0,.25)}.jn-g:disabled{opacity:.6}
+.jn-go{display:inline-flex;align-items:center;justify-content:center;width:100%;max-width:320px;height:52px;border-radius:999px;background:var(--flood);color:#141b33;font-weight:800;font-size:16px;text-decoration:none}
+.jn-lnk{border:0;background:none;color:var(--flood);font:inherit;font-size:14px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;line-height:1.4}
+.jn-lkf{display:grid;gap:8px;width:100%;max-width:320px}.jn-note{font-size:13px}
+.jn-back{align-self:center;margin-top:4px;border:0;background:none;color:var(--mute);font:inherit;font-size:14px;cursor:pointer;padding:8px 14px}.jn-back:hover{color:#fff}
+.jn-sw{display:grid;grid-template-columns:repeat(3,1fr);margin-bottom:6px}.jn-sw button{white-space:nowrap}
+.jc-sq{border:0;padding:0;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:6px}.jc-sq legend{padding:0;margin-bottom:6px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.jc-c{display:flex!important;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--rule);border-radius:10px;cursor:pointer}.jc-c input{accent-color:var(--flood);width:18px;height:18px}.jc-c span{font-size:14px}
+.jc-tag{color:var(--flood)}
 /* Coach access group on the home screen */
 #menuList > li.cg{margin:14px 0 6px;border:1px solid var(--rule);border-radius:16px;background:rgba(255,255,255,.025);overflow:hidden}
 .cg-h{width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit}
@@ -19281,6 +19304,86 @@ function routeHash(){
 }
 routeHash(); addEventListener('hashchange', routeHash);
 if (/^#[pj]\./.test(location.hash)){ const h = location.hash; whenRole(() => { if (!Cloud.squad()){ toast('Sign in as an ERGS coach or player to open shared plays.'); return; } openShared(h).then(() => { try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} }); }); }
+/* =============================== SIGN-IN SCREEN: "Who are you?" Player, Coach, Parent/guardian or Supporter =============================== */
+// Signed out: four big buttons. Supporters go straight to ERGS Live (no account). Players, coaches and parents get one sign-in step
+// (Google, or an email link for school C2k accounts), and the choice is remembered so the "tell the coaches who you are" form opens
+// as the right one after signing in. That form has a Player / Coach / Parent switch at the top in case they picked wrong.
+const JOIN = {step:'', K:'ergs.joinAs'};
+const joinAs = v => { if (v !== undefined){ try { localStorage.setItem(JOIN.K, v); localStorage.setItem('ergs.gqIntent', v === 'guardian' ? '1' : '0'); } catch(e){} GDQ.mode = v === 'guardian' ? 'guardian' : ''; return v; }
+  try { return localStorage.getItem(JOIN.K) || ''; } catch(e){ return ''; } };
+const JOIN_R = {
+  player:{t:'Player', d:'Plays, drills and your squad', ic:'<circle cx="12" cy="6" r="3"/><path d="M12 9v6M8 12l4-2 4 2M9 21l3-6 3 6"/>'},
+  coach:{t:'Coach', d:'Run your squads and match days', ic:'<path d="M4 10l8-5 8 5-8 5z"/><path d="M8 12.5V17c2.4 1.6 5.6 1.6 8 0v-4.5"/><path d="M20 10v5"/>'},
+  guardian:{t:'Parent or guardian', d:'Your child’s fixtures and news', ic:'<circle cx="8" cy="7" r="3"/><circle cx="17" cy="9" r="2.3"/><path d="M2.5 20c0-3.3 2.5-6 5.5-6s5.5 2.7 5.5 6M14 20c0-2.6 1.3-5 3-5s4 2 4 5"/>'},
+  supporter:{t:'Supporter', d:'Live scores, no sign-in', ic:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'}};
+const jIc = k => `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${JOIN_R[k].ic}</svg>`;
+const G_LOGO = '<svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.6 13.3l7.9 6.2C12.4 13.7 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 7l7.2 5.6c4.2-3.9 7.1-9.6 7.1-17.1z"/><path fill="#FBBC05" d="M10.5 28.5c-.5-1.4-.8-2.9-.8-4.5s.3-3.1.8-4.5l-7.9-6.2C1 16.5 0 20.1 0 24s1 7.5 2.6 10.7l7.9-6.2z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.2-5.6c-2 1.4-4.7 2.3-8.7 2.3-6.3 0-11.6-4.2-13.5-10l-7.9 6.2C6.6 42.6 14.6 48 24 48z"/></svg>';
+function joinGate(){
+  const A = window.ERGS_AUTH, m = $('#gateMsg'), box = $('#gateActs'); if (!m || !box) return;
+  const gate = $('#gate .gate'); gate.classList.add('jn');
+  const step = JOIN.step && JOIN_R[JOIN.step] && JOIN.step !== 'supporter' ? JOIN.step : '';
+  if (!step){
+    m.innerHTML = '<span class="jn-q">Who are you?</span>';
+    box.innerHTML = `<div class="jn-grid">${Object.keys(JOIN_R).map(k => k === 'supporter' ? `<a class="jn-tile sup" href="https://popcorn483.github.io/ergs-live/"><span class="jn-ic">${jIc(k)}</span><b>${JOIN_R[k].t}</b><small>${JOIN_R[k].d}</small></a>` : `<button type="button" class="jn-tile" data-join="${k}"><span class="jn-ic">${jIc(k)}</span><b>${JOIN_R[k].t}</b><small>${JOIN_R[k].d}</small></button>`).join('')}</div>
+      <p class="jn-foot">Supporters don’t need an account. Players, coaches and parents sign in; first time, your details go to the coaches.</p>`;
+    box.querySelectorAll('[data-join]').forEach(b => b.onclick = () => { const k = b.dataset.join; JOIN.step = k; joinAs(k); joinGate(); });
+  } else {
+    const r = JOIN_R[step];
+    m.innerHTML = `<span class="jn-q">Sign in as a ${r.t.toLowerCase()}</span>`;
+    box.innerHTML = `<div class="jn-card"><span class="jn-ic big">${jIc(step)}</span>
+      <button type="button" class="jn-g" id="jnG">${G_LOGO}<span>Continue with Google</span></button>
+      <button type="button" class="jn-lnk" id="jnLk">School C2k email, or not a Google account? Get a sign-in link</button>
+      <form class="jn-lkf" id="jnLkF" hidden><input class="input" type="email" id="jnLkE" placeholder="${step === 'player' ? 'you@c2ken.net' : 'you@example.com'}" autocomplete="email" inputmode="email" value="${esc((A && A.linkEmail) || '')}" aria-label="Your email"><button class="btn primary" type="submit" id="jnLkGo">Email me a link</button><p class="lk-msg" id="jnLkM" role="status"></p></form>
+      <p class="jn-note">${step === 'coach' ? 'First time? You’ll tell us which squads you coach and the head coach lets you in.' : step === 'guardian' ? 'First time? You’ll tell us your child’s name and squad, and their coach links you.' : 'First time? You’ll tell us your name and squad, and your coach lets you in.'}</p></div>
+      <button type="button" class="jn-back" data-jback>← Back</button>`;
+    if (A && A.linkErr){ const w = document.createElement('p'); w.className = 'lk-err'; w.textContent = A.linkErr; box.prepend(w); }
+    const g = $('#jnG'); g.onclick = async () => { g.disabled = true; try { await A.signIn(); } catch(e){ g.disabled = false; toast(/popup/.test(e && e.code || '') ? 'Allow pop-ups for this site, then try again.' : 'Sign-in didn’t finish. Try again.'); } };
+    $('#jnLk').onclick = () => { const f = $('#jnLkF'); f.hidden = !f.hidden; if (!f.hidden) $('#jnLkE').focus(); };
+    $('#jnLkF').onsubmit = async e => { e.preventDefault(); const go = $('#jnLkGo'), msg = $('#jnLkM'); go.disabled = true; msg.className = 'lk-msg';
+      try { const em = await A.sendLink($('#jnLkE').value); msg.classList.add('ok'); msg.innerHTML = `Link sent to <b>${esc(em)}</b>. Open the email on this device and tap <b>Sign in</b>. It can take a minute: check Junk too.`; go.textContent = 'Send again'; }
+      catch(err){ msg.classList.add('bad'); msg.textContent = A.linkMsg ? A.linkMsg(err) : 'That didn’t send. Try again.'; }
+      go.disabled = false; };
+  }
+  const bk = box.querySelector('[data-jback]'); if (bk) bk.onclick = () => { JOIN.step = ''; joinGate(); };
+}
+(() => { const gu = gateUI; gateUI = function(){ gu.apply(this, arguments); const gh = window.ERGS_HOST === 'github', g = $('#gate .gate');
+  if (gh && Cloud.role === 'signedout') joinGate(); else if (g) g.classList.remove('jn');
+  if (gh && Cloud.role === 'public'){ const A = window.ERGS_AUTH, m = $('#gateMsg'); if (m) m.innerHTML = `Signed in as <b>${esc(A && A.email || '')}</b>`; }
+}; })();
+/* signed in but not on a list yet: one Player / Coach / Parent switch, and a coach version of the form */
+(() => {
+  const rf = rqForm; rqForm = async function(){ await rf.apply(this, arguments);
+    const A = window.ERGS_AUTH, f = $('#rqForm'); if (!f || !A || A.accessErr || Cloud.role !== 'public') return;
+    let r = null; try { r = await A.getOne('requests', A.email); } catch(e){}
+    if (r && r.kind === 'supporter') return;
+    const want = joinAs(), mode = r && r.kind === 'coach' ? 'coach' : r && r.kind === 'guardian' ? 'guardian' : r && r.sent && !r.kind ? 'player' : want === 'coach' ? 'coach' : GDQ.mode === 'guardian' ? 'guardian' : 'player';
+    if (mode === 'coach'){
+      const sent = r && r.kind === 'coach' && r.sent, mine = (r && r.coachOf) || [];
+      f.innerHTML = `<h2>${sent ? 'Thanks, the head coach has your details' : 'Tell us which squads you coach'}</h2><p>${sent ? 'You’ll be let in shortly. You can change your details below.' : 'The head coach checks and gives you coach access.'}</p>
+        <label><span>Your name</span><input class="input" id="jcN" maxlength="80" required value="${esc((r && r.name) || '')}" placeholder="First and last name"></label>
+        <fieldset class="jc-sq"><legend>Squads you coach</legend>${PA_TEAMS.map(([k, t]) => `<label class="jc-c"><input type="checkbox" value="${k}" ${mine.includes(k) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</fieldset>
+        <button class="btn primary" type="submit">${sent ? 'Save changes' : 'Send to the head coach'}</button>`;
+      f.onsubmit = async e => { e.preventDefault(); const name = $('#jcN').value.trim(), of = [...f.querySelectorAll('.jc-sq input:checked')].map(x => x.value);
+        if (!name){ toast('Add your name.'); return; } if (!of.length){ toast('Tick at least one squad.'); return; }
+        const data = {kind:'coach', name:name.slice(0, 100), squad:of[0], coachOf:of, pos:''}; if (!sent){ data.sent = Date.now(); data.at = Date.now(); data.resend = false; }
+        try { await A.setAccess('requests', A.email, data); toast(sent ? 'Saved.' : 'Sent. The head coach will give you access.'); rqForm(); }
+        catch(err){ toast(/permission/i.test(String(err && (err.code || err.message))) ? 'That couldn’t be sent: the app’s Firebase rules need publishing.' : 'That didn’t send. Try again.'); } };
+    }
+    // one switch for all three
+    f.querySelectorAll('.gq-who').forEach(x => x.remove());
+    const sw = document.createElement('div'); sw.className = 'seg jn-sw'; sw.setAttribute('role', 'group'); sw.setAttribute('aria-label', 'I am a');
+    sw.innerHTML = ['player', 'coach', 'guardian'].map(k => `<button type="button" data-jsw="${k}" aria-pressed="${mode === k}">${k === 'guardian' ? 'Parent' : JOIN_R[k].t}</button>`).join('');
+    sw.querySelectorAll('[data-jsw]').forEach(b => b.onclick = async () => { const k = b.dataset.jsw; if (k === mode) return; joinAs(k);
+      if (r && (r.kind === 'coach' || r.kind === 'guardian') && r.kind !== k){ try { await A.setAccess('requests', A.email, {kind:'', child:'', coachOf:[]}); } catch(e){} }
+      rqForm(); });
+    f.prepend(sw);
+    const si = $('#supIam'); if (si){ const a = document.createElement('a'); a.className = si.className; a.href = 'https://popcorn483.github.io/ergs-live/'; a.textContent = 'Just a supporter? You don’t need an account: open ERGS Live'; si.replaceWith(a); }
+  };
+})();
+// the head coach sees what a coach request said
+(() => { const rb = reqBox; reqBox = async function(host){ await rb.apply(this, arguments); if (!host || host.hidden) return; const L = await lgLoad();
+  host.querySelectorAll('.rq2[data-rq]').forEach(el => { const r = L.requests.find(x => x.id === el.dataset.rq); if (!r || r.kind !== 'coach' || el.querySelector('.jc-tag')) return;
+    const who = el.querySelector('.rq-who'); if (!who) return; const t = document.createElement('small'); t.className = 'jc-tag'; t.textContent = `🧢 Says they coach: ${(r.coachOf || []).map(paTeamName).join(', ') || '?'}`; who.appendChild(t); }); }; })();
 /* =============================== HOME: the coach-only areas grouped under Coach access =============================== */
 // Everyone's things stay as the big list (library, photos, video, drills, Play IQ, scores). For coaches, everything only coaches
 // can open (graphics, squads, the toolkit and any tools they've pinned) goes into one Coach access group: a single row that opens
