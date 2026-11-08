@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '6582356943';</script>
+<script>window.ERGS_VER = 'adbf132334';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -2041,6 +2041,20 @@ body.va-guardian .va-bar{border-color:#8fd3a6}
 .set-num,.set-txt{display:grid;gap:4px;font-weight:600;color:var(--chalk);font-size:14px}.set-num{grid-template-columns:1fr 90px auto;align-items:center;padding:8px 12px;border-radius:12px;background:rgba(255,255,255,.04)}
 .set-num small{color:var(--mute);font-weight:500}.set-txt .input{width:100%}
 .set-lbl{font-weight:600;color:var(--chalk);font-size:14px;margin-top:4px}
+
+/* Coach access group on the home screen */
+#menuList > li.cg{margin:14px 0 6px;border:1px solid var(--rule);border-radius:16px;background:rgba(255,255,255,.025);overflow:hidden}
+.cg-h{width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit}
+.cg-k{width:36px;height:36px;flex:none;display:grid;place-items:center;border-radius:10px;background:rgba(220,192,138,.14);color:var(--flood)}
+.cg-tt{flex:1;min-width:0;display:grid;gap:2px}.cg-tt b{font-family:var(--f-cond);font-size:18px;letter-spacing:.06em;text-transform:uppercase;color:var(--flood)}.cg-tt small{color:var(--mute);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cg-chev{flex:none;color:var(--mute);transition:transform .25s}.cg.open .cg-chev{transform:rotate(180deg)}.cg.open .cg-tt small{display:none}
+.cg-grid{display:none;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;padding:0 12px 12px}.cg.open .cg-grid{display:grid}
+.cg-tile{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--rule);border-radius:12px;background:rgba(255,255,255,.03);color:inherit;text-decoration:none;text-align:left;cursor:pointer;font:inherit;transition:border-color .2s,background .2s}
+.cg-tile:hover,.cg-tile:focus-visible{border-color:var(--flood);background:rgba(220,192,138,.07)}
+.cg-ic{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:10px;background:rgba(255,255,255,.06);color:var(--flood)}
+.cg-tile>span:last-child{display:grid;gap:2px;min-width:0}.cg-tile b{font-weight:800;font-size:15px}.cg-tile small{color:var(--mute);font-size:12.5px;line-height:1.3}
+@media (max-width:520px){.cg-grid{grid-template-columns:1fr;gap:6px}.cg-tile{padding:10px 12px}}
+.nr-row{grid-auto-flow:column;grid-template-columns:minmax(0,1fr)}
 #menuList > li.set-hidden{display:none!important}
 /* features switched off */
 .no-mplan #mpMenu,.no-mplan .mp-tk,.no-mplan .mp-gd,.no-register #rgMenu,.no-register .tb-tr,.no-register .gd-tr,.no-register .mc-tr,.no-reports #rpMenu,
@@ -19267,7 +19281,39 @@ function routeHash(){
 }
 routeHash(); addEventListener('hashchange', routeHash);
 if (/^#[pj]\./.test(location.hash)){ const h = location.hash; whenRole(() => { if (!Cloud.squad()){ toast('Sign in as an ERGS coach or player to open shared plays.'); return; } openShared(h).then(() => { try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} }); }); }
+/* =============================== HOME: the coach-only areas grouped under Coach access =============================== */
+// Everyone's things stay as the big list (library, photos, video, drills, Play IQ, scores). For coaches, everything only coaches
+// can open (graphics, squads, the toolkit and any tools they've pinned) goes into one Coach access group: a single row that opens
+// into a tidy grid. Open or closed is remembered on this device.
+const CG_IDS = ['mpMenu', 'rgMenu', 'rpMenu', 'setMenu', 'ctMenu'], CG_T = ['Graphics', 'Squads', 'Coach toolkit'];
+const CG_IC = {'Graphics':'<path d="M4 5h16v14H4z"/><path d="M4 15l4-4 4 4 3-3 5 5"/><circle cx="15.5" cy="9" r="1.5"/>', 'Squads':'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M15.5 14.2A5 5 0 0 1 21 19"/>',
+  'Coach toolkit':'<path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.6 2.6-2.4-.6-.6-2.4z"/>', 'Match-day plans':'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 10h6M9 14h6M9 18h3"/>',
+  'Training register':'<path d="M4 6h16M4 12h16M4 18h10"/><path d="M17 17l2 2 3-4"/>', 'Match reports':'<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>', 'Settings':'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'};
+const CG_D = {'Graphics':'Team of the week, cup team, matchday', 'Squads':'Players, positions, team sheets, access', 'Coach toolkit':'Analytics, scouting, depth chart', 'Match-day plans':'Plans and team talks', 'Training register':'Who was at training', 'Match reports':'Write up and post', 'Settings':'Features and options'};
+let cgOpen = false; try { cgOpen = localStorage.getItem('ergs.coachGrp') === '1'; } catch(e){}
+function cgHome(){
+  const ul = $('#menuList'); if (!ul) return; const old = $('#coachGrp');
+  if (Cloud.role !== 'coach' || (typeof VA !== 'undefined' && VA.on)){ if (old) old.remove(); return; }
+  const lis = [...ul.children].filter(li => li.id !== 'coachGrp' && (CG_IDS.includes(li.id) || CG_T.includes(((li.querySelector('.t') || {}).textContent || '').trim())));
+  const shown = lis.filter(li => !li.classList.contains('set-hidden') && !li.classList.contains('set-off'));
+  lis.forEach(li => li.remove()); if (old) old.remove();
+  if (!shown.length) return;
+  const g = document.createElement('li'); g.id = 'coachGrp'; g.className = 'cg' + (cgOpen ? ' open' : ''); g.style.animationDelay = (0.9 + ul.children.length*0.09) + 's';
+  const names = shown.map(li => li.querySelector('.t').textContent.trim());
+  g.innerHTML = `<button type="button" class="cg-h" aria-expanded="${cgOpen}" aria-controls="cgGrid"><span class="cg-k"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><span class="cg-tt"><b>Coach access</b><small>${esc(names.length > 3 ? names.slice(0, 3).join(' · ') + ` · +${names.length - 3}` : names.join(' · '))}</small></span><svg class="cg-chev" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button><div class="cg-grid" id="cgGrid"></div>`;
+  const grid = g.querySelector('.cg-grid');
+  shown.forEach(li => { const src = li.querySelector('.menu-item'), t = li.querySelector('.t').textContent.trim(), b = document.createElement(src.tagName === 'A' ? 'a' : 'button');
+    if (src.tagName === 'A'){ b.href = src.href; b.target = src.target; b.rel = src.rel; } else b.type = 'button';
+    b.className = 'cg-tile'; b.innerHTML = `<span class="cg-ic"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${CG_IC[t] || '<circle cx="12" cy="12" r="8"/>'}</svg></span><span><b></b><small></small></span>`;
+    b.querySelector('b').textContent = t; b.querySelector('small').textContent = CG_D[t] || (li.querySelector('.d') || {}).textContent || '';
+    b.onclick = e => { if (src.tagName !== 'A'){ e.preventDefault(); src.click(); } };
+    grid.appendChild(b); });
+  g.querySelector('.cg-h').onclick = () => { cgOpen = !cgOpen; g.classList.toggle('open', cgOpen); g.querySelector('.cg-h').setAttribute('aria-expanded', cgOpen); try { localStorage.setItem('ergs.coachGrp', cgOpen ? '1' : '0'); } catch(e){} };
+  const sc = ul.querySelector('li.mi-scores'); sc ? sc.before(g) : ul.appendChild(g);
+}
+(() => { const rm = renderMenu; renderMenu = function(){ rm.apply(this, arguments); cgHome(); }; if (typeof whenRole === 'function') whenRole(() => { if (S.screen === 'menu') cgHome(); }); })();
 })();
+
 </script>
 
 <style>
