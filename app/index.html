@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '18ed630886';</script>
+<script>window.ERGS_VER = '6582356943';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -6311,15 +6311,18 @@ $('#twPickSheet').onchange = e => { TW.pickSheet = e.target.value; twPickUI(); }
 $('#twPickAll').onclick = () => { const sh = Cloud.sheets.find(x => x.id === TW.pickSheet); if (sh) twFill(sh.players.map(p => ({f:p.f, l:p.l, t:p.t || sh.tag || ''}))); };
 $('#twClear').onclick = () => ask('Clear all names?', 'This empties the player boxes for this team. Nothing changes for everyone else until you publish.', 'Clear names', () => twEdit(d => d.players = d.players.map(() => ({f:'', l:'', t:'', photo:''})), true));
 $('#twDiscard').onclick = () => { delete TW.drafts[TW.side]; store('twDrafts', TW.drafts); TW.palette = []; twUI(); };
-$('#twSave').onclick = async () => {
+async function twSaveNow(){
   const side = TW.side, d = twCur(side);
   d.players = d.players.map(p => Object.assign({}, p, {photo:twPhoto(p)}));
   const body = Object.assign({}, d, {updatedAt:Date.now()});
-  $('#twSave').disabled = true;
-  try { await Cloud.set('totw/'+side, body); delete TW.drafts[side]; store('twDrafts', TW.drafts); toast(Cloud.mode === 'db' ? 'Published. Everyone with the link now sees this team.' : 'Saved on this device.'); }
+  $('#twSave').disabled = true; let ok = false;
+  try { await Cloud.set('totw/'+side, body); delete TW.drafts[side]; store('twDrafts', TW.drafts); ok = true;
+    const auto = typeof twAutoNoms === 'function' ? await twAutoNoms(d, side) : '';
+    toast((Cloud.mode === 'db' ? 'Published. Everyone with the link now sees this team.' : 'Saved on this device.') + (auto ? ' ' + auto : '')); }
   catch(e){}
-  twUI();
-};
+  twUI(); return ok;
+}
+$('#twSave').onclick = () => twSaveNow();
 $('#twDl').onclick = () => {
   const side = TW.side, [w, h] = (TW.size[side] || '1080x1350').split('x').map(Number), c = document.createElement('canvas'); c.width = w*2; c.height = h*2;
   drawTotw(c.getContext('2d'), w*2, h*2, twCur(side), side);
@@ -16253,6 +16256,42 @@ function nrForm(m){
 }
 (() => { const rm = renderMenu; renderMenu = function(){ rm.apply(this, arguments); nrHome(); };
   let seen, seenM, seenD; Cloud.on(() => { const d = Cloud.docs['team/noms'], dd = Cloud.docs['team/nomsDone']; if (d === seen && Cloud.matches === seenM && dd === seenD) return; seen = d; seenM = Cloud.matches; seenD = dd; if (S.screen === 'menu') nrHome(); }); })();
+/* =============================== TEAM OF THE WEEK → NOMINATIONS: the graphic's players fill matches still waiting for picks =============================== */
+// Publishing the graphic nominates its players for their team's most recent finished match that has no nominations yet
+// (the matches on the home screen's reminder): a MEDS player goes to the Medallion match, a 2XV player to the 2nd XV match.
+// Exports (PNG, GIF, Facebook) wait until the graphic is saved, so the nominations always match what gets posted.
+const twFine = t => { const x = String(t || '').toLowerCase(), xv = x.match(/\b([123])(?:st|nd|rd)?\s*xv\b|\b([123])xv\b/);
+  return xv ? (xv[1] || xv[2]) + 'XV' : nrSquad(t); };
+async function twAutoNoms(d, side){
+  if (Cloud.role !== 'coach' || Cloud.mode !== 'db') return '';
+  const n = twCount(side, d), ps = d.players.slice(0, n).filter(p => (p.f || p.l) && p.t), since = Date.now() - NR_DAYS*864e5;
+  if (!ps.length) return '';
+  const all = ((Cloud.docs['team/noms'] || {}).list || []), done = new Set(all.map(x => x.mid));
+  const waiting = (Cloud.matches || []).filter(m => m.status === 'FT' && usOf(m) && kotOf(m) >= since && kotOf(m) <= Date.now() && !done.has(m.id)).sort((a, b) => kotOf(b) - kotOf(a));
+  const add = [], used = [];
+  for (const p of ps){ const fine = twFine(p.t), sq = nrSquad(p.t); if (!sq) continue;
+    // the same team (2XV ↔ 2nd XV), or the same squad when the match doesn't say which XV
+    const m = waiting.find(x => twFine(x.team) === fine) || waiting.find(x => nrSquad(x.team) === sq && !/\b[123](st|nd|rd)?\s*xv\b|\b[123]xv\b/i.test(x.team || '') && fine === sq);
+    if (!m) continue; const name = ((p.f || '') + ' ' + (p.l || '')).trim().slice(0, 40);
+    if (add.some(x => x.mid === m.id && normName(x.name) === normName(name))) continue;
+    if (add.filter(x => x.mid === m.id).length >= NR_MAX) continue;
+    const us = usOf(m); add.push({id:uid(), mid:m.id, name, n:'', team:nomTag(p.t), opp:us === 'A' ? m.home : m.away, date:(m.ko || '').slice(0, 10), by:(window.ERGS_AUTH || {}).email || '', at:Date.now(), src:'totw'});
+    if (!used.includes(m)) used.push(m); }
+  if (!add.length) return '';
+  try { await Cloud.set('team/noms', {list:all.concat(add), updated:Date.now()}); } catch(e){ return ''; }
+  if (typeof nrHome === 'function') nrHome();
+  return `${add.length} ${add.length === 1 ? 'player' : 'players'} nominated for ${used.map(m => `${m.team || 'ERGS'} v ${fxOpp(m) || 'opposition'}`).join(', ')}.`;
+}
+// exports wait for Save & publish
+(() => {
+  const sec = $('#totw'); if (!sec) return;
+  sec.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('#twDl, [data-gagif="totw"], .fbs-btn'); if (!b || !sec.contains(b)) return;
+    if (!(Cloud.canEdit && TW.drafts[TW.side])) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    ask('Save the team first', 'You have changes that aren’t published yet. Saving publishes the team and nominates its players for any of their matches still waiting for Team of the Week picks. Then the download carries on.', 'Save & download', async () => { if (await twSaveNow()) setTimeout(() => b.click(), 150); });
+  }, true);
+})();
 /* =============================== TEAM OF THE WEEK FROM THE NOMINATIONS: this week's picks, placed by position =============================== */
 // Each nominee's position comes from their shirt number in the match (1-15), or their usual position in Squads.
 // Building the team puts everyone in their own position where it's free, and otherwise in the nearest one:
