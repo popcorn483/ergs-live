@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '444d0c3735';</script>
+<script>window.ERGS_VER = '37f21c9e40';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -1860,6 +1860,8 @@ body.va-guardian .va-bar{border-color:#8fd3a6}
 .nr-done{min-height:34px;font-size:12px;padding:0 10px;white-space:nowrap}
 /* animated frames */
 .ga-host:not(.tw-prev){position:relative}
+@media (max-width:900px){.tw-prev.ga-host{position:relative}}
+.ga-png{justify-self:start;border:0;background:none;color:var(--mute);font:inherit;font-size:13px;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px 0}.ga-png:hover{color:var(--flood)}
 .ga-ov{position:absolute;pointer-events:none;z-index:2;background:transparent!important;box-shadow:none!important;border:0!important;outline:0!important;border-radius:0!important;max-width:none!important;aspect-ratio:auto!important;margin:0!important;padding:0!important;filter:none!important}
 .ga-bar{display:grid;gap:8px;margin:12px 0 4px;padding:12px 14px;border-radius:14px;border:1px solid rgba(220,192,138,.35);background:rgba(220,192,138,.06)}
 .ga-h{display:grid;gap:2px}.ga-h b{color:var(--chalk);font-family:var(--f-cond);letter-spacing:.06em;text-transform:uppercase;font-size:14px}.ga-h small{color:var(--mute);font-size:12px}
@@ -16571,6 +16573,7 @@ const GA_FX = [['none', 'None'], ['shimmer', 'Gold shimmer'], ['glow', 'Glow'], 
 const GA_LOOP = 2.4, GA_FRAMES = 30, GA_GOLD = '#DCC08A', GA_LIGHT = '#FFF4D6', GA_RED = '#D9262B';
 const GA = {fx:{}, raf:0, t0:performance.now()};
 try { GA.fx = JSON.parse(localStorage.getItem('ergs.gaFx') || '{}') || {}; } catch(e){}
+const gaFx = k => GA.fx[k] || 'shimmer';   // gold shimmer unless someone picks another (or None)
 const gaKeep = () => { try { localStorage.setItem('ergs.gaFx', JSON.stringify(GA.fx)); } catch(e){} };
 // the graphics it works with: how to draw each one, its size and file name
 const GA_G = [
@@ -16639,7 +16642,7 @@ function gaOverlay(G){
 }
 function gaLoop(){
   cancelAnimationFrame(GA.raf); let any = false;
-  GA_G.forEach(G => { const fx = GA.fx[G.key] || 'none', on = S.screen === G.screen && fx !== 'none', base = $(G.canvas), ov = base && base.parentElement.querySelector(':scope > .ga-ov');
+  GA_G.forEach(G => { const fx = gaFx(G.key), on = S.screen === G.screen && fx !== 'none', base = $(G.canvas), ov = base && base.parentElement.querySelector(':scope > .ga-ov');
     if (!on){ if (ov) ov.hidden = true; return; } const o = gaOverlay(G); if (!o) return; any = true; o.hidden = false;
     // the picture inside the canvas box (it's scaled to fit, so there can be space round it)
     const r0 = base.getBoundingClientRect(), pr = base.parentElement.getBoundingClientRect(), k = Math.min(r0.width/base.width, r0.height/base.height) || 1, cw = base.width*k, ch = base.height*k;
@@ -16694,23 +16697,31 @@ async function gaGif(G, fx, onProg){
   out.push(0x3B); return new Blob([new Uint8Array(out)], {type:'image/gif'});
 }
 async function gaDownload(G){
-  const fx = GA.fx[G.key] || 'none'; if (fx === 'none'){ toast('Pick an animated frame first.'); return; }
-  const btn = document.querySelector(`[data-gagif="${G.key}"]`), was = btn ? btn.textContent : ''; if (btn){ btn.disabled = true; btn.textContent = 'Making GIF… 0%'; }
+  const fx = gaFx(G.key); if (fx === 'none'){ toast('Pick an animated frame first.'); return; }
+  const btn = $(G.dl) || document.querySelector(`[data-gagif="${G.key}"]`), was = btn ? btn.innerHTML : ''; if (btn){ btn.disabled = true; btn.textContent = 'Making GIF… 0%'; }
   try { const blob = await gaGif(G, fx, p => { if (btn) btn.textContent = `Making GIF… ${Math.round(p*100)}%`; });
     saveFile(`${G.name()}-${fx}.gif`, blob); toast(`GIF ready (${(blob.size/1048576).toFixed(1)} MB).`); }
   catch(e){ toast(/secur|taint/i.test(String(e && (e.name || e.message))) ? 'A photo from another website is blocking the GIF. Upload the photo again, then try.' : 'The GIF could not be made on this device.'); }
-  if (btn){ btn.disabled = false; btn.textContent = was; }
+  if (btn){ btn.disabled = false; btn.innerHTML = was; }
 }
 /* ---------- the controls under each graphic ---------- */
 function gaBar(G){
   const dl = $(G.dl); if (!dl) return; const host = dl.parentElement; let bar = document.querySelector(`.ga-bar[data-ga="${G.key}"]`);
   if (!bar){ bar = document.createElement('div'); bar.className = 'ga-bar'; bar.dataset.ga = G.key; host.after(bar); }
-  const fx = GA.fx[G.key] || 'none';
+  const fx = gaFx(G.key);
   bar.innerHTML = `<div class="ga-h"><b>✨ Animated frame</b><small>Plays on the preview. Download a looping GIF to share.</small></div>
     <div class="ga-chips">${GA_FX.map(([k, t]) => `<button type="button" class="af-chip" data-gafx="${k}" aria-pressed="${fx === k}">${esc(t)}</button>`).join('')}</div>
-    <button type="button" class="btn ${fx === 'none' ? '' : 'primary'} ga-gif" data-gagif="${G.key}" ${fx === 'none' ? 'disabled' : ''}><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/></svg>Download GIF</button>`;
+    ${fx === 'none' ? '' : '<button type="button" class="ga-png" data-gapng>Download a still PNG instead</button>'}`;
   bar.querySelectorAll('[data-gafx]').forEach(b => b.onclick = () => { GA.fx[G.key] = b.dataset.gafx; gaKeep(); GA.t0 = performance.now(); gaBar(G); gaLoop(); });
-  bar.querySelector('[data-gagif]').onclick = () => gaDownload(G);
+  const pn = bar.querySelector('[data-gapng]'); if (pn) pn.onclick = () => { GA.still = G.key; dl.click(); };
+  gaDl(G);
+}
+// the main download button follows the frame: Download GIF with an animation, Download PNG with None
+function gaDl(G){ const dl = $(G.dl); if (!dl) return; const fx = gaFx(G.key);
+  if (!dl.dataset.gaPng) dl.dataset.gaPng = dl.innerHTML;
+  const lab = dl.dataset.gaPng.replace(/PNG/g, 'GIF'); dl.innerHTML = fx === 'none' ? dl.dataset.gaPng : (lab === dl.dataset.gaPng ? dl.dataset.gaPng.replace(/Download[^<]*/, 'Download GIF') : lab);
+  dl.dataset.gagif = fx === 'none' ? '' : G.key;
+  const host = dl.parentElement; if (host && !host.dataset.gaHook){ host.dataset.gaHook = 1; host.addEventListener('click', e => { const b = e.target.closest && e.target.closest(G.dl); if (!b) return; if (GA.still === G.key){ GA.still = ''; return; } if (gaFx(G.key) === 'none' || b.disabled) return; e.preventDefault(); e.stopImmediatePropagation(); gaDownload(G); }, true); }   // caught on the way down, before the PNG download
 }
 (() => {
   const gw = go; go = function(){ const r = gw.apply(this, arguments); setTimeout(() => { GA_G.forEach(G => { if (S.screen === G.screen) gaBar(G); }); gaLoop(); }, 0); return r; };
