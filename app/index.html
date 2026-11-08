@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = 'fcb05a50a5';</script>
+<script>window.ERGS_VER = '25e0224cc1';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -16229,6 +16229,63 @@ async function gdSquadBox(){
   box.querySelectorAll('.rq2[data-rq]').forEach(el => gdWire(el, rs.find(x => x.id === el.dataset.rq), pls));
 }
 (() => { const su = sqUI; sqUI = function(){ su.apply(this, arguments); gdSquadBox(); }; })();
+/* ---------- parents who sign up before their child ---------- */
+// A parent's request whose child is in the squad list but has no login yet: their email becomes that player's main login, marked as a
+// parent/guardian's (mainRel), so they're in straight away with the parent's view. When the child signs up later, their email is
+// linked to it as the player's own second email. Both happen automatically when the names match exactly (and the squad, if given);
+// anything less certain waits for a coach to pick the player, as before.
+const gdNm = n => normName(String(n || ''));
+function gdRosterFree(L){ const taken = new Set((L.players || []).map(p => p.rid).filter(Boolean)), names = new Set((L.players || []).map(p => gdNm(p.name)));
+  return roster().filter(p => (p.f || p.l) && !taken.has(p.id) && !names.has(gdNm((p.f || '') + ' ' + (p.l || '')))); }
+async function gdMainNew(rp, r){
+  const name = ((rp.f || '') + ' ' + (rp.l || '')).trim(), team = sqToTeam(rp.t) || (r.squad && r.squad !== '?' ? r.squad : '');
+  try { await lgAddPlayer(r.id, name, team, {rid:rp.id, mainRel:'guardian', gname:String(r.name || '').trim().slice(0, 60)}); }
+  catch(e){ toast('That didn’t save. Publish the latest Firebase rules first.'); return false; }
+  if (typeof MR !== 'undefined'){ MR.map[r.id] = {gname:r.name || ''}; }
+  toast(`${r.name || r.id} is linked as ${name.split(' ')[0]}’s parent/guardian. When ${name.split(' ')[0]} signs up, their email joins the same account.`); return true;
+}
+let GDA = 0;
+async function gdAuto(){
+  if (Cloud.role !== 'coach' || Date.now() - GDA < 8000) return false; GDA = Date.now();
+  const L = await lgLoad(true); let did = false; await accAliases();
+  const pls = (L.players || []).filter(p => !p.aliasOf), free = gdRosterFree(L), T = typeof coTeams === 'function' ? coTeams() : [], mayTeam = t => !T.length || (typeof isAdminCoach === 'function' && isAdminCoach()) || T.includes(t);
+  for (const r of L.requests){
+    if (r.kind === 'guardian' && r.child){ const n = gdNm(r.child), sq = r.squad && r.squad !== '?' ? r.squad : '';
+      const hits = pls.filter(p => gdNm(p.name) === n && (!sq || p.team === sq));
+      if (hits.length === 1){ const p = hits[0]; if (!accAltOf(p.id) && mayTeam(p.team) && await accSetAlt(p.id, r.id, 'guardian', r.name || '', p)) did = true; continue; }
+      if (hits.length) continue;
+      const rs = free.filter(x => gdNm((x.f || '') + ' ' + (x.l || '')) === n && (!sq || sqToTeam(x.t) === sq));
+      if (rs.length === 1 && mayTeam(sqToTeam(rs[0].t)) && await gdMainNew(rs[0], r)){ did = true; free.splice(free.indexOf(rs[0]), 1); }
+    } else if (!r.kind && r.sent && r.name){   // a player whose parent got there first
+      const n = gdNm(r.name), sq = r.squad && r.squad !== '?' ? r.squad : '';
+      const hits = pls.filter(p => p.mainRel === 'guardian' && gdNm(p.name) === n && (!sq || p.team === sq) && !accAltOf(p.id));
+      if (hits.length === 1 && mayTeam(hits[0].team) && await accSetAlt(hits[0].id, r.id, 'self', '', hits[0])) did = true;
+    }
+  }
+  if (did){ LG.at = 0; if (typeof lgRefresh === 'function') lgRefresh(); if (S.screen === 'squads') gdSquadBox(); }
+  return did;
+}
+(() => { const rb = reqBox; reqBox = async function(){ await rb.apply(this, arguments); gdAuto(); };
+  const gs = gdSquadBox; gdSquadBox = async function(){ await gs.apply(this, arguments); gdAuto(); }; })();
+// by hand: the player picker in a parent's request also lists squad players with no login yet
+(() => {
+  const gr = gdRow; gdRow = function(r, pls){ let h = gr.apply(this, arguments); const free = gdRosterFree(LG), sq = r.squad && r.squad !== '?' ? r.squad : '';
+    if (!free.length) return h; const list = free.filter(x => !sq || sqToTeam(x.t) === sq).concat(sq ? free.filter(x => sqToTeam(x.t) !== sq) : []);
+    const n = gdNm(r.child), sug = list.find(x => gdNm((x.f || '') + ' ' + (x.l || '')) === n);
+    const og = `<optgroup label="No login yet: the parent goes in first">${list.map(x => { const nm = ((x.f || '') + ' ' + (x.l || '')).trim(); return `<option value="r:${esc(x.id)}" ${sug === x && !/selected/.test(h) ? 'selected' : ''}>${esc(nm)}${x.t ? ' · ' + esc(x.t) : ''}${sug === x ? ' ★' : ''}</option>`; }).join('')}</optgroup>`;
+    h = h.replace('</select>', og + '</select>');
+    if (sug) h = h.replace(/<small class="gq-none">[\s\S]*?<\/small>/, `<small class="rq-sug">★ ${esc(r.child)} has no login yet: linking makes this the account, and ${esc(String(r.child).split(' ')[0])}’s own email joins it later.</small>`);
+    else h = h.replace(/(<small class="gq-none">)[\s\S]*?(<\/small>)/, `$1No login for ${esc(r.child || 'that player')} yet. Pick them under “No login yet” and the parent goes in first.$2`);
+    return h; };
+  const gw = gdWire; gdWire = async function(el, r, pls){ await gw.apply(this, arguments);
+    const sel = el.querySelector('[data-gql]'), go = el.querySelector('[data-gqgo]'), warn = el.querySelector('.gq-warn'); if (!sel || !go) return;
+    const sync = () => { if (!sel.value.startsWith('r:')) return; const rp = roster().find(x => x.id === sel.value.slice(2)); go.disabled = !rp; go.textContent = rp ? `Link to ${rp.f || 'player'}` : 'Link as parent/guardian'; if (warn) warn.hidden = true; };
+    sel.addEventListener('change', sync); sync();
+    go.addEventListener('click', async e => { if (!sel.value.startsWith('r:')) return; e.stopImmediatePropagation(); const rp = roster().find(x => x.id === sel.value.slice(2)); if (!rp) return; go.disabled = true;
+      if (await gdMainNew(rp, r)){ LG.at = 0; if (typeof lgRefresh === 'function') lgRefresh(); if (S.screen === 'squads') gdSquadBox(); } else go.disabled = false; }, true);
+  };
+})();
+
 /* =============================== TEAM OF THE WEEK REMINDER: a coach's finished matches with no nominations yet =============================== */
 // On the home screen, a coach sees each match their squads finished in the last 14 days that has no Team of the Week nominations.
 // Nominate opens the same four-player form as ERGS Live (it saves to team/noms); Dismiss hides that match's reminder for this coach.
