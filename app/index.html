@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '7d16600fce';</script>
+<script>window.ERGS_VER = '444d0c3735';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -1359,9 +1359,8 @@ body.dr-player #drGrp,body.dr-player #drTagPick,body.dr-player #drills .page > .
 .dr-mine-h{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;background:var(--flood);color:#111318;font-family:var(--f-cond);font-weight:700;font-size:14px;letter-spacing:.04em;text-transform:uppercase}
 .dr-mine-h small{opacity:.7}
 @media (max-width:640px){#liveTop,#signOutTop{display:none!important}}
-.sc-top{display:none}
-@media (max-width:640px){
-  #menuList li.mi-scores{display:none}
+#menuList li.mi-scores{display:none}
+@media all{
   .sc-top{position:relative;z-index:5;flex:none;width:44px;height:44px;margin-left:10px;border-radius:50%;background:linear-gradient(145deg,#f6e3b4 0%,#DCC08A 55%,#c9a865 100%);box-shadow:0 4px 14px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.6),inset 0 -2px 0 rgba(0,0,0,.12);display:grid;place-items:center;text-decoration:none;transition:transform .18s cubic-bezier(.3,1.6,.5,1)}
   .sc-top:active{transform:scale(.95)}.sc-top:focus-visible{outline:2px solid #fff;outline-offset:3px}
   .sc-ico{display:block;overflow:visible}.sc-board,.sc-leg{fill:#1A1630}.sc-sep{fill:#DCC08A;opacity:.55}
@@ -2075,6 +2074,7 @@ body.va-guardian .va-bar{border-color:#8fd3a6}
 .card-a .dr-extra{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;padding-top:6px;border-top:1px solid var(--rule);margin-top:4px}.card-a .dr-extra[hidden]{display:none}
 #sqSqUse{white-space:normal;height:auto;min-height:40px;padding-block:8px;text-align:left;max-width:100%}
 .gd-hub{min-width:0;max-width:min(560px,100%);box-sizing:border-box}.gd-hub *{min-width:0}.gd-stats{grid-template-columns:repeat(4,minmax(0,1fr))!important}.gd-h b,.gd-h h2{overflow-wrap:anywhere}
+@media (min-width:641px){#liveTop{display:none!important}#scoresTop{margin-left:6px;order:1}#signOutTop{order:2}}
 /* Coach access group on the home screen */
 #menuList > li.cg{margin:14px 0 6px;border:1px solid var(--rule);border-radius:16px;background:rgba(255,255,255,.025);overflow:hidden}
 .cg-h{width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit}
@@ -3889,7 +3889,7 @@ function scoresTop(){
   if (!Cloud.squad()){ if (b) b.remove(); return; }
   if (!b){ b = document.createElement('a'); b.id = 'scoresTop'; b.className = 'sc-top'; b.href = 'https://popcorn483.github.io/ergs-live/?live'; b.target = '_blank'; b.rel = 'noopener';
     b.innerHTML = '<svg class="sc-ico" viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect class="sc-board" x="3.5" y="7" width="25" height="16.5" rx="3.2"/><rect class="sc-leg" x="14.6" y="23.5" width="2.8" height="4"/><rect class="sc-leg" x="10" y="27" width="12" height="2.2" rx="1.1"/><text class="sc-num n1" x="10" y="19.6" text-anchor="middle">2</text><text class="sc-num n2" x="22" y="19.6" text-anchor="middle">1</text><rect class="sc-sep" x="15.3" y="11" width="1.4" height="9" rx=".7"/></svg><i class="sc-live" hidden>LIVE</i>'; }
-  brand.appendChild(b);   // always last: the top-right corner
+  const so = $('#signOutTop'); if (so && so.parentElement === brand && innerWidth > 640){ if (b.nextElementSibling !== so) so.before(b); } else brand.appendChild(b);   // phones: always last, the top-right corner; PC: just before Sign out
   const live = (Cloud.matches || []).filter(m => m.status === '1H' || m.status === 'HT' || m.status === '2H').length;
   b.querySelector('.sc-live').hidden = !live; b.classList.toggle('live', !!live);
   const t = live ? `Scores & fixtures: ${live} match${live === 1 ? '' : 'es'} live now` : 'Scores & fixtures on ERGS Live'; b.title = t; b.setAttribute('aria-label', t);
