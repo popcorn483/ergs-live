@@ -661,27 +661,13 @@
   ],
   "meds": [
    {
-    "name": "Danske Bank Medallion Shield Fixtures & Results",
+    "name": "Danske Bank Medallion Shield",
     "kind": "ko",
     "url": "https://ulsterrugby.sportlomo.com/competition_fixtures_results/221061/",
     "table": [],
     "games": [
      {
       "date": "",
-      "time": "13:30",
-      "h": "Rathfriland HS",
-      "a": "Wellington College",
-      "venue": "Rathfriland HS"
-     },
-     {
-      "date": "",
-      "time": "13:30",
-      "h": "Drumglass High School",
-      "a": "Lurgan College",
-      "venue": "Drumglass High School"
-     },
-     {
-      "date": "2026-11-13",
       "time": "14:00",
       "h": "Larne GS",
       "a": "Craigavon SHS",
@@ -693,6 +679,28 @@
       "h": "Belfast High School",
       "a": "Portadown College",
       "venue": "Belfast High School"
+     },
+     {
+      "date": "2026-11-10",
+      "time": "13:30",
+      "h": "Rathfriland HS",
+      "a": "Wellington College",
+      "venue": "Rathfriland HS",
+      "hs": 39,
+      "as": 7,
+      "ht": 7,
+      "at": 1
+     },
+     {
+      "date": "2026-11-10",
+      "time": "13:30",
+      "h": "Drumglass High School",
+      "a": "Lurgan College",
+      "venue": "Drumglass High School",
+      "hs": 34,
+      "as": 34,
+      "ht": 6,
+      "at": 5
      }
     ]
    }
@@ -4136,5 +4144,5 @@
    }
   ]
  },
- "updated": "2026-11-10T12:49:48.461Z"
+ "updated": "2026-11-10T20:55:31.549Z"
 }
