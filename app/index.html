@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '37f21c9e40';</script>
+<script>window.ERGS_VER = 'b49e9cfcf7';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -4566,11 +4566,12 @@ const LINEUP = {
   union: {1:[.17,0],2:[.5,0],3:[.83,0],4:[.31,.165],5:[.69,.165],6:[.12,.33],8:[.5,.35],7:[.88,.33],9:[.33,.51],10:[.67,.53],11:[.12,.71],12:[.37,.69],13:[.63,.69],14:[.88,.71],15:[.5,.87]},
   sevens: {1:[.18,0],2:[.5,0],3:[.82,0],4:[.36,.3],5:[.64,.45],6:[.34,.66],7:[.78,.8]}
 };
+const ERGS_FULL = 'Enniskillen Royal Grammar School';
 const sheet = Object.assign({kind:'lineup', layout:'lineup', size:'1080x1350', kicker:'', title:'', second:'pos', opp:false, style:'floodlit', footer:'',
   titles:{result:'FULL TIME', potm:'PLAYER OF THE MATCH', fixtures:'FIXTURES'},
   res:{home:'', away:'', hs:'24', as:'17', hsc:'', asc:''}, potm:{n:10, name:'', tag:'', line:''},
   fixtures:'Sat 18 Oct | 1st XV | Portora Royal School | H | 11:00\nSat 18 Oct | U14 | Omagh Academy | A | 10:30\nWed 22 Oct | Medallion | Royal School Dungannon | H | 14:30'}, load('sheet', {}), {touched:{}});
-const sheetSave = () => store('sheet', {kind:sheet.kind, layout:sheet.layout, size:sheet.size, second:sheet.second, style:sheet.style, footer:sheet.footer, opp:sheet.opp, titles:sheet.titles, res:sheet.res, potm:sheet.potm, fixtures:sheet.fixtures, fixPick:sheet.fixPick, fixAuto:sheet.fixAuto, fxTeam:sheet.fxTeam, fxRange:sheet.fxRange, fxTimes:sheet.fxTimes, fxOrder:sheet.fxOrder, fxHi:sheet.fxHi, fxBadge:sheet.fxBadge, fxEdit:sheet.fxEdit});
+const sheetSave = () => store('sheet', {ftTeam:sheet.ftTeam, kind:sheet.kind, layout:sheet.layout, size:sheet.size, second:sheet.second, style:sheet.style, footer:sheet.footer, opp:sheet.opp, titles:sheet.titles, res:sheet.res, potm:sheet.potm, fixtures:sheet.fixtures, fixPick:sheet.fixPick, fixAuto:sheet.fixAuto, fxTeam:sheet.fxTeam, fxRange:sheet.fxRange, fxTimes:sheet.fxTimes, fxOrder:sheet.fxOrder, fxHi:sheet.fxHi, fxBadge:sheet.fxBadge, fxEdit:sheet.fxEdit});
 let crestUp = null, crestOff = load('crestOff', false);
 (function(){ const d = load('crest', null); if (d){ crestUp = new Image(); crestUp.onload = () => { if (!$('#expModal').hidden) sheetPreview(); }; crestUp.src = d; } })();
 const sheetCrest = () => crestOff ? null : (crestUp || SCHOOL_CREST);
@@ -4679,7 +4680,7 @@ function drawSheet(g, W, H){
       for (const q of pts){ q.x = clamp(q.x, C.x + w*0.9, C.x + C.w - w*0.9); q.y = clamp(q.y, C.y, C.y + C.h - w*1.6); }
     } }
   vpitch(g, T, {x:P.x, y:P.y, w:P.w, h:P.h-foot}, C.y, FL ? .14 : .34);
-  const kick = (sheet.kicker || A.name).toUpperCase(), title = (kind === 'lineup' ? (sheet.title || p.title) : (sheet.titles[kind] || '')).toUpperCase();
+  const kick = (sheet.kicker || (kind === 'lineup' ? A.name : 'ERGS Rugby' + (kind === 'result' && sheet.ftTeam ? ' · ' + sheet.ftTeam : ''))).toUpperCase(), title = (kind === 'lineup' ? (sheet.title || p.title) : (sheet.titles[kind] || '')).toUpperCase();
   const bandCols = A.band ? [A.band1, A.band2] : [accent, mix(accent,'#ffffff',0.3)];
   if (FL){
     // floodlight beams from two pylons
@@ -4790,13 +4791,16 @@ function drawBadge(g, x, y, s, crest, colA, colB, txt){
 const GFX = {
   result(g, o){
     const {u, C, FL, A, B, accent, bandCols, crestImg} = o, R2 = sheet.res;
-    const home = (R2.home || A.name).toUpperCase(), away = (R2.away || B.name).toUpperCase();
+    const isUs = n => !!n && (OUR_RX.test(n) || n === A.name), usAway = isUs(R2.away) && !isUs(R2.home);
+    const show = n => isUs(n) ? ERGS_FULL : n;
+    const home = show(R2.home || (usAway ? B.name : A.name)).toUpperCase(), away = show(R2.away || (usAway ? A.name : B.name)).toUpperCase();
     const hs = parseInt(R2.hs, 10), as = parseInt(R2.as, 10), done = !isNaN(hs) && !isNaN(as);
     const top = C.y + 10*u, cw = C.w, bh = Math.min(C.h*0.48, 440*u);
     gPanel(g, C.x, top, cw, bh, 22*u, FL);
     const bs = Math.min(bh*0.34, 150*u), colX = [C.x + cw*0.15, C.x + cw*0.85], by = top + bh*0.32;
-    drawBadge(g, colX[0], by, bs, crestImg, A.color, A.band ? A.band1 : A.color2, initials(home));
-    drawBadge(g, colX[1], by, bs, null, B.color, B.color2, initials(away));
+    const oc = n => { try { return typeof fxCrest === 'function' ? fxCrest(n) : null; } catch(e){ return null; } };
+    if (usAway){ drawBadge(g, colX[0], by, bs, oc(R2.home), B.color, B.color2, initials(home)); drawBadge(g, colX[1], by, bs, crestImg, A.color, A.band ? A.band1 : A.color2, initials(away)); }
+    else { drawBadge(g, colX[0], by, bs, crestImg, A.color, A.band ? A.band1 : A.color2, initials(home)); drawBadge(g, colX[1], by, bs, oc(R2.away), B.color, B.color2, initials(away)); }
     g.textAlign = 'center'; g.textBaseline = 'alphabetic';
     [[home, colX[0]], [away, colX[1]]].forEach(([t, x]) => { const lines = (() => { sheetFont(g, 700, 30*u, F_COND); return wrapLines(g, t, cw*0.28); })().slice(0, 2);
       lines.forEach((l, i) => { g.fillStyle = '#ffffff'; g.fillText(l, x, by + bs*0.66 + 38*u*i); }); });
@@ -4879,7 +4883,7 @@ function sheetUI(){
   const k = sheet.kind || 'lineup';
   $$('#shKind button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === k));
   $$('#expSheetOpts [data-only]').forEach(el => el.hidden = el.dataset.only !== k);
-  const R2 = sheet.res; $('#rsHome').value = R2.home || S.squads.A.name; $('#rsAway').value = R2.away || S.squads.B.name; $('#rsHs').value = R2.hs; $('#rsAs').value = R2.as; $('#rsHsc').value = R2.hsc; $('#rsAsc').value = R2.asc;
+  const R2 = sheet.res; $('#rsHome').value = R2.home || ERGS_FULL; $('#rsAway').value = R2.away || S.squads.B.name; $('#rsHs').value = R2.hs; $('#rsAs').value = R2.as; $('#rsHsc').value = R2.hsc; $('#rsAsc').value = R2.asc;
   const pk = $('#pmPick'); pk.innerHTML = ''; S.squads.A.names.forEach((nm, i) => { const o = document.createElement('option'); o.value = i+1; o.textContent = `${i+1}. ${nm || (i < 15 ? POS.union[i][0] : 'Replacement')}`; pk.appendChild(o); });
   pk.value = sheet.potm.n; $('#pmName').value = sheet.potm.name; $('#pmName').placeholder = S.squads.A.names[sheet.potm.n-1] || 'Player name'; $('#pmTag').value = sheet.potm.tag; $('#pmTag').placeholder = (S.squads.A.tags||[])[sheet.potm.n-1] || '1XV'; $('#pmLine').value = sheet.potm.line;
   $('#fxList').value = sheet.fixtures;
@@ -6720,8 +6724,8 @@ $('#liveFT').onclick = () => {
       out.push(named.length ? lab + ': ' + named.join(', ') + (anon ? ` +${anon}` : '') : lab + (anon > 1 ? ' ' + anon : ''));
     }
     return out.join('\n'); };
-  sheet.res = {home:m.home, away:m.away, hs:String(h), as:String(a), hsc:scorers('H'), asc:scorers('A')};
-  sheet.kind = 'result'; sheetSave(); openSheetFromMenu();
+  sheet.res = {home:OUR_RX.test(m.home) ? ERGS_FULL : m.home, away:OUR_RX.test(m.away) ? ERGS_FULL : m.away, hs:String(h), as:String(a), hsc:scorers('H'), asc:scorers('A')};
+  sheet.kind = 'result'; sheet.ftTeam = m.team || ''; sheetSave(); openSheetFromMenu();
 };
 
 /* ---------- records against each school ---------- */
@@ -10855,9 +10859,9 @@ function ftFill(m){
   if ((!any || m.finalSet) && Array.isArray(m.final)){ sc[0] = +m.final[0] || 0; sc[1] = +m.final[1] || 0; }
   const lines = side => ['Try', 'Pen try', 'Con', 'Pen', 'DG'].filter(k => by[side][k]).map(k => { const c = {}; let anon = 0; by[side][k].forEach(n => n ? c[n] = (c[n] || 0) + 1 : anon++);
     const names = Object.entries(c).map(([n, x]) => x > 1 ? `${n} ${x}` : n); if (!names.length){ const pl = {Try:'tries', 'Pen try':'pen tries', Con:'cons', Pen:'pens', DG:'drop goals'}[k]; return `${anon} ${anon > 1 ? pl : k.toLowerCase()}`; } return `${k}: ${names.join(', ')}${anon ? ', ' + anon : ''}`; }).join('\n');
-  const nm = x => OUR_RX.test(x) ? (S.squads.A.name || x) : x;
+  const nm = x => OUR_RX.test(x) ? ERGS_FULL : x;
   sheet.res = {home:nm(m.home), away:nm(m.away), hs:String(sc[0]), as:String(sc[1]), hsc:lines('H'), asc:lines('A')};
-  sheet.kind = 'result'; sheet.ftMatch = m.id; sheetSave();
+  sheet.kind = 'result'; sheet.ftMatch = m.id; sheet.ftTeam = m.team || ''; sheetSave();
 }
 function ftFromHash(){ const mm = /^#ft\.([A-Za-z0-9_-]+)$/.exec(location.hash); if (!mm) return; const id = mm[1];
   try { history.replaceState(null, '', location.pathname + location.search); } catch(e){}
