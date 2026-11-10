@@ -4,6 +4,35 @@
  "comps": {
   "cup": [
    {
+    "name": "Danske Bank 2XV Schools Cup Fixtures & Results",
+    "kind": "ko",
+    "url": "https://ulsterrugby.sportlomo.com/competition_fixtures_results/221085/",
+    "table": [],
+    "games": [
+     {
+      "date": "",
+      "time": "14:00",
+      "h": "Grosvenor GS",
+      "a": "Antrim Grammar School",
+      "venue": "Grosvenor GS"
+     },
+     {
+      "date": "",
+      "time": "15:15",
+      "h": "Dromore HS",
+      "a": "Limavady GS",
+      "venue": "Barban Hill"
+     },
+     {
+      "date": "2026-11-14",
+      "time": "10:00",
+      "h": "Larne GS",
+      "a": "Belfast High School",
+      "venue": "Larne GS"
+     }
+    ]
+   },
+   {
     "name": "Danske Bank Schools Cup Group A",
     "kind": "league",
     "url": "https://ulsterrugby.sportlomo.com/league/216034/",
@@ -741,6 +770,13 @@
      {
       "date": "2026-09-19",
       "time": "10:30",
+      "h": "Regent House School",
+      "a": "Enniskillen Royal GS",
+      "venue": "Regent House School"
+     },
+     {
+      "date": "2026-09-19",
+      "time": "10:30",
       "h": "Dalriada School",
       "a": "Rainey Endowed School",
       "venue": "Dalriada School"
@@ -751,13 +787,6 @@
       "h": "Omagh Academy",
       "a": "Coleraine Grammar School",
       "venue": "Omagh Academy"
-     },
-     {
-      "date": "2026-09-19",
-      "time": "10:30",
-      "h": "Regent House School",
-      "a": "Enniskillen Royal GS",
-      "venue": "Regent House School"
      },
      {
       "date": "2026-09-23",
@@ -797,13 +826,6 @@
      {
       "date": "2026-09-26",
       "time": "10:30",
-      "h": "Down HS",
-      "a": "Royal School Armagh",
-      "venue": "Down HS"
-     },
-     {
-      "date": "2026-09-26",
-      "time": "10:30",
       "h": "Banbridge Academy",
       "a": "Omagh Academy",
       "venue": "Banbridge Academy"
@@ -814,6 +836,13 @@
       "h": "Dalriada School",
       "a": "Cambridge House GS",
       "venue": "Dalriada School"
+     },
+     {
+      "date": "2026-09-26",
+      "time": "10:30",
+      "h": "Down HS",
+      "a": "Royal School Armagh",
+      "venue": "Down HS"
      },
      {
       "date": "2026-09-26",
@@ -929,7 +958,7 @@
      },
      {
       "date": "2026-11-13",
-      "time": "14:30",
+      "time": "15:00",
       "h": "Banbridge Academy",
       "a": "Dromore HS",
       "venue": "Banbridge Academy"
@@ -937,9 +966,44 @@
      {
       "date": "2026-11-14",
       "time": "10:00",
+      "h": "Larne GS",
+      "a": "Belfast High School",
+      "venue": "Larne GS"
+     },
+     {
+      "date": "2026-11-14",
+      "time": "10:00",
+      "h": "Lurgan College",
+      "a": "Methodist College",
+      "venue": "Lurgan College"
+     },
+     {
+      "date": "2026-11-14",
+      "time": "10:00",
       "h": "Omagh Academy",
       "a": "Limavady GS",
       "venue": "Omagh Academy"
+     },
+     {
+      "date": "2026-11-14",
+      "time": "10:15",
+      "h": "Friends School",
+      "a": "Dalriada School",
+      "venue": "Friends School"
+     },
+     {
+      "date": "2026-11-14",
+      "time": "10:30",
+      "h": "Coleraine Grammar School",
+      "a": "Ballyclare High School",
+      "venue": "Coleraine Grammar School"
+     },
+     {
+      "date": "2026-11-14",
+      "time": "10:30",
+      "h": "Enniskillen Royal GS",
+      "a": "Royal School Dungannon",
+      "venue": "Mullaghmeen"
      },
      {
       "date": "2026-11-14",
@@ -961,41 +1025,6 @@
       "h": "Royal School Armagh",
       "a": "Wallace High School",
       "venue": "Royal School Armagh"
-     },
-     {
-      "date": "2026-11-14",
-      "time": "10:30",
-      "h": "Grosvenor GS",
-      "a": "Lurgan College",
-      "venue": "Grosvenor GS"
-     },
-     {
-      "date": "2026-11-14",
-      "time": "10:30",
-      "h": "Enniskillen Royal GS",
-      "a": "Royal School Dungannon",
-      "venue": "Mullaghmeen"
-     },
-     {
-      "date": "2026-11-14",
-      "time": "10:30",
-      "h": "Belfast High School",
-      "a": "Down HS",
-      "venue": "Belfast High School"
-     },
-     {
-      "date": "2026-11-14",
-      "time": "10:30",
-      "h": "Cambridge House GS",
-      "a": "Antrim Grammar School",
-      "venue": "Cambridge House GS"
-     },
-     {
-      "date": "2026-11-14",
-      "time": "10:30",
-      "h": "Coleraine Grammar School",
-      "a": "Ballyclare High School",
-      "venue": "Coleraine Grammar School"
      },
      {
       "date": "2026-11-14",
@@ -1021,30 +1050,9 @@
      {
       "date": "2026-11-21",
       "time": "10:30",
-      "h": "Wellington College",
-      "a": "Lurgan College",
-      "venue": "Wellington College"
-     },
-     {
-      "date": "2026-11-21",
-      "time": "10:30",
-      "h": "Wallace High School",
-      "a": "Omagh Academy",
-      "venue": "Wallace High School"
-     },
-     {
-      "date": "2026-11-21",
-      "time": "10:30",
       "h": "Bangor GS",
       "a": "Down HS",
       "venue": "Bangor GS"
-     },
-     {
-      "date": "2026-11-21",
-      "time": "10:30",
-      "h": "Royal Belfast Academical Inst",
-      "a": "Campbell College",
-      "venue": "Royal Belfast Academical Inst"
      },
      {
       "date": "2026-11-21",
@@ -1064,15 +1072,15 @@
       "date": "2026-11-21",
       "time": "10:30",
       "h": "Foyle College",
-      "a": "Enniskillen Royal GS",
+      "a": "Rainey Endowed School",
       "venue": "Foyle College"
      },
      {
       "date": "2026-11-21",
       "time": "10:30",
-      "h": "Foyle College",
-      "a": "Rainey Endowed School",
-      "venue": "Foyle College"
+      "h": "Portadown College",
+      "a": "Cambridge House GS",
+      "venue": "Portadown College"
      },
      {
       "date": "2026-11-21",
@@ -1084,16 +1092,44 @@
      {
       "date": "2026-11-21",
       "time": "10:30",
-      "h": "Portadown College",
-      "a": "Cambridge House GS",
-      "venue": "Portadown College"
+      "h": "Royal Belfast Academical Inst",
+      "a": "Campbell College",
+      "venue": "Royal Belfast Academical Inst"
+     },
+     {
+      "date": "2026-11-21",
+      "time": "10:30",
+      "h": "Wallace High School",
+      "a": "Omagh Academy",
+      "venue": "Wallace High School"
+     },
+     {
+      "date": "2026-11-21",
+      "time": "10:30",
+      "h": "Wellington College",
+      "a": "Lurgan College",
+      "venue": "Wellington College"
+     },
+     {
+      "date": "2026-11-21",
+      "time": "10:30",
+      "h": "Foyle College",
+      "a": "Enniskillen Royal GS",
+      "venue": "Foyle College"
+     },
+     {
+      "date": "2026-11-21",
+      "time": "11:30",
+      "h": "Ballymena Academy",
+      "a": "TBC",
+      "venue": "Ballymena Academy"
      },
      {
       "date": "2026-11-25",
       "time": "14:30",
-      "h": "Sullivan Upper School",
-      "a": "Campbell College",
-      "venue": "Sullivan Upper School"
+      "h": "Ballyclare High School",
+      "a": "Royal School Dungannon",
+      "venue": "Ballyclare High School"
      },
      {
       "date": "2026-11-25",
@@ -1105,9 +1141,9 @@
      {
       "date": "2026-11-25",
       "time": "14:30",
-      "h": "Ballyclare High School",
-      "a": "Royal School Dungannon",
-      "venue": "Ballyclare High School"
+      "h": "Sullivan Upper School",
+      "a": "Campbell College",
+      "venue": "Sullivan Upper School"
      },
      {
       "date": "2026-11-28",
@@ -1140,37 +1176,9 @@
      {
       "date": "2026-12-05",
       "time": "10:30",
-      "h": "Coleraine Grammar School",
-      "a": "TBC",
-      "venue": "Coleraine Grammar School"
-     },
-     {
-      "date": "2026-12-05",
-      "time": "10:30",
-      "h": "Lurgan College",
-      "a": "Ballyclare High School",
-      "venue": "Lurgan College"
-     },
-     {
-      "date": "2026-12-05",
-      "time": "10:30",
-      "h": "Belfast High School",
-      "a": "Portadown College",
-      "venue": "Belfast High School"
-     },
-     {
-      "date": "2026-12-05",
-      "time": "10:30",
-      "h": "Campbell College",
-      "a": "Methodist College",
-      "venue": "Campbell College"
-     },
-     {
-      "date": "2026-12-05",
-      "time": "10:30",
-      "h": "Royal Belfast Academical Inst",
-      "a": "TBC",
-      "venue": "Royal Belfast Academical Inst"
+      "h": "Wellington College",
+      "a": "Carrickfergus GS",
+      "venue": "Wellington College"
      },
      {
       "date": "2026-12-05",
@@ -1182,23 +1190,72 @@
      {
       "date": "2026-12-05",
       "time": "10:30",
-      "h": "Wellington College",
-      "a": "Carrickfergus GS",
-      "venue": "Wellington College"
-     },
-     {
-      "date": "2026-12-05",
-      "time": "10:30",
       "h": "Wallace High School",
       "a": "Ballymena Academy",
       "venue": "Wallace High School"
      },
      {
+      "date": "2026-12-05",
+      "time": "10:30",
+      "h": "Lurgan College",
+      "a": "Ballyclare High School",
+      "venue": "Lurgan College"
+     },
+     {
+      "date": "2026-12-05",
+      "time": "10:30",
+      "h": "Royal Belfast Academical Inst",
+      "a": "TBC",
+      "venue": "Royal Belfast Academical Inst"
+     },
+     {
+      "date": "2026-12-05",
+      "time": "10:30",
+      "h": "Campbell College",
+      "a": "Methodist College",
+      "venue": "Campbell College"
+     },
+     {
+      "date": "2026-12-05",
+      "time": "10:30",
+      "h": "Coleraine Grammar School",
+      "a": "TBC",
+      "venue": "Coleraine Grammar School"
+     },
+     {
+      "date": "2026-12-05",
+      "time": "10:30",
+      "h": "Belfast High School",
+      "a": "Portadown College",
+      "venue": "Belfast High School"
+     },
+     {
       "date": "2026-12-12",
       "time": "10:30",
-      "h": "Friends School",
-      "a": "Portadown College",
-      "venue": "Friends School"
+      "h": "Lurgan College",
+      "a": "Grosvenor GS",
+      "venue": "Lurgan College"
+     },
+     {
+      "date": "2026-12-12",
+      "time": "10:30",
+      "h": "Down HS",
+      "a": "Antrim Grammar School",
+      "venue": "Down HS"
+     },
+     {
+      "date": "2026-12-12",
+      "time": "10:30",
+      "h": "Sullivan Upper School",
+      "a": "TBC",
+      "venue": "Sullivan Upper School"
+     },
+     {
+      "date": "2026-12-12",
+      "time": "10:30",
+      "h": "Foyle College",
+      "a": "Bangor GS",
+      "venue": "Foyle College"
      },
      {
       "date": "2026-12-12",
@@ -1238,41 +1295,6 @@
      {
       "date": "2026-12-12",
       "time": "10:30",
-      "h": "Lurgan College",
-      "a": "Grosvenor GS",
-      "venue": "Lurgan College"
-     },
-     {
-      "date": "2026-12-12",
-      "time": "10:30",
-      "h": "Cambridge House GS",
-      "a": "Belfast High School",
-      "venue": "Cambridge House GS"
-     },
-     {
-      "date": "2026-12-12",
-      "time": "10:30",
-      "h": "Down HS",
-      "a": "Antrim Grammar School",
-      "venue": "Down HS"
-     },
-     {
-      "date": "2026-12-12",
-      "time": "10:30",
-      "h": "Ballyclare High School",
-      "a": "Methodist College",
-      "venue": "Ballyclare High School"
-     },
-     {
-      "date": "2026-12-12",
-      "time": "10:30",
-      "h": "Foyle College",
-      "a": "Bangor GS",
-      "venue": "Foyle College"
-     },
-     {
-      "date": "2026-12-12",
-      "time": "10:30",
       "h": "Enniskillen Royal GS",
       "a": "Omagh Academy",
       "venue": "Mullaghmeen"
@@ -1287,9 +1309,23 @@
      {
       "date": "2026-12-12",
       "time": "10:30",
-      "h": "Sullivan Upper School",
-      "a": "TBC",
-      "venue": "Sullivan Upper School"
+      "h": "Friends School",
+      "a": "Portadown College",
+      "venue": "Friends School"
+     },
+     {
+      "date": "2026-12-12",
+      "time": "10:30",
+      "h": "Ballyclare High School",
+      "a": "Methodist College",
+      "venue": "Ballyclare High School"
+     },
+     {
+      "date": "2026-12-12",
+      "time": "10:30",
+      "h": "Cambridge House GS",
+      "a": "Belfast High School",
+      "venue": "Cambridge House GS"
      },
      {
       "date": "2026-12-19",
@@ -1329,6 +1365,27 @@
      {
       "date": "2027-01-02",
       "time": "10:30",
+      "h": "Wallace High School",
+      "a": "TBC",
+      "venue": "Wallace High School"
+     },
+     {
+      "date": "2027-01-02",
+      "time": "10:30",
+      "h": "Royal School Armagh",
+      "a": "Coleraine Grammar School",
+      "venue": "Royal School Armagh"
+     },
+     {
+      "date": "2027-01-02",
+      "time": "10:30",
+      "h": "Portadown College",
+      "a": "Down HS",
+      "venue": "Portadown College"
+     },
+     {
+      "date": "2027-01-02",
+      "time": "10:30",
       "h": "Ballyclare High School",
       "a": "Regent House School",
       "venue": "Ballyclare High School"
@@ -1348,27 +1405,6 @@
       "venue": "Larne GS"
      },
      {
-      "date": "2027-01-02",
-      "time": "10:30",
-      "h": "Portadown College",
-      "a": "Down HS",
-      "venue": "Portadown College"
-     },
-     {
-      "date": "2027-01-02",
-      "time": "10:30",
-      "h": "Royal School Armagh",
-      "a": "Coleraine Grammar School",
-      "venue": "Royal School Armagh"
-     },
-     {
-      "date": "2027-01-02",
-      "time": "10:30",
-      "h": "Wallace High School",
-      "a": "TBC",
-      "venue": "Wallace High School"
-     },
-     {
       "date": "2027-01-08",
       "time": "14:30",
       "h": "Lurgan College",
@@ -1378,9 +1414,9 @@
      {
       "date": "2027-01-09",
       "time": "10:30",
-      "h": "Sullivan Upper School",
-      "a": "Ballymena Academy",
-      "venue": "Sullivan Upper School"
+      "h": "Rainey Endowed School",
+      "a": "Ballyclare High School",
+      "venue": "Rainey Endowed School"
      },
      {
       "date": "2027-01-09",
@@ -1392,58 +1428,9 @@
      {
       "date": "2027-01-09",
       "time": "10:30",
-      "h": "Belfast Royal Academy",
-      "a": "Limavady GS",
-      "venue": "Belfast Royal Academy"
-     },
-     {
-      "date": "2027-01-09",
-      "time": "10:30",
-      "h": "Antrim Grammar School",
-      "a": "Omagh Academy",
-      "venue": "Antrim Grammar School"
-     },
-     {
-      "date": "2027-01-09",
-      "time": "10:30",
-      "h": "Enniskillen Royal GS",
-      "a": "Royal School Armagh",
-      "venue": "Mullaghmeen"
-     },
-     {
-      "date": "2027-01-09",
-      "time": "10:30",
-      "h": "Cambridge House GS",
-      "a": "Bangor GS",
-      "venue": "Cambridge House GS"
-     },
-     {
-      "date": "2027-01-09",
-      "time": "10:30",
-      "h": "Grosvenor GS",
-      "a": "Belfast High School",
-      "venue": "Grosvenor GS"
-     },
-     {
-      "date": "2027-01-09",
-      "time": "10:30",
-      "h": "Friends School",
-      "a": "Regent House School",
-      "venue": "Friends School"
-     },
-     {
-      "date": "2027-01-09",
-      "time": "10:30",
-      "h": "Methodist College",
-      "a": "Coleraine Grammar School",
-      "venue": "Methodist College"
-     },
-     {
-      "date": "2027-01-09",
-      "time": "10:30",
-      "h": "Omagh Academy",
-      "a": "Antrim Grammar School",
-      "venue": "Omagh Academy"
+      "h": "Sullivan Upper School",
+      "a": "Ballymena Academy",
+      "venue": "Sullivan Upper School"
      },
      {
       "date": "2027-01-09",
@@ -1455,9 +1442,65 @@
      {
       "date": "2027-01-09",
       "time": "10:30",
-      "h": "Rainey Endowed School",
-      "a": "Ballyclare High School",
-      "venue": "Rainey Endowed School"
+      "h": "Omagh Academy",
+      "a": "Antrim Grammar School",
+      "venue": "Omagh Academy"
+     },
+     {
+      "date": "2027-01-09",
+      "time": "10:30",
+      "h": "Methodist College",
+      "a": "Coleraine Grammar School",
+      "venue": "Methodist College"
+     },
+     {
+      "date": "2027-01-09",
+      "time": "10:30",
+      "h": "Grosvenor GS",
+      "a": "Belfast High School",
+      "venue": "Grosvenor GS"
+     },
+     {
+      "date": "2027-01-09",
+      "time": "10:30",
+      "h": "Antrim Grammar School",
+      "a": "Omagh Academy",
+      "venue": "Antrim Grammar School"
+     },
+     {
+      "date": "2027-01-09",
+      "time": "10:30",
+      "h": "Belfast Royal Academy",
+      "a": "Limavady GS",
+      "venue": "Belfast Royal Academy"
+     },
+     {
+      "date": "2027-01-09",
+      "time": "10:30",
+      "h": "Cambridge House GS",
+      "a": "Bangor GS",
+      "venue": "Cambridge House GS"
+     },
+     {
+      "date": "2027-01-09",
+      "time": "10:30",
+      "h": "Enniskillen Royal GS",
+      "a": "Royal School Armagh",
+      "venue": "Mullaghmeen"
+     },
+     {
+      "date": "2027-01-09",
+      "time": "10:30",
+      "h": "Friends School",
+      "a": "Regent House School",
+      "venue": "Friends School"
+     },
+     {
+      "date": "2027-01-16",
+      "time": "10:30",
+      "h": "Grosvenor GS",
+      "a": "Banbridge Academy",
+      "venue": "Grosvenor GS"
      },
      {
       "date": "2027-01-16",
@@ -1476,13 +1519,6 @@
      {
       "date": "2027-01-16",
       "time": "10:30",
-      "h": "Grosvenor GS",
-      "a": "Banbridge Academy",
-      "venue": "Grosvenor GS"
-     },
-     {
-      "date": "2027-01-16",
-      "time": "10:30",
       "h": "Foyle College",
       "a": "Dalriada School",
       "venue": "Foyle College"
@@ -1493,13 +1529,6 @@
       "h": "Banbridge Academy",
       "a": "Grosvenor GS",
       "venue": "Banbridge Academy"
-     },
-     {
-      "date": "2027-01-23",
-      "time": "10:30",
-      "h": "Wellington College",
-      "a": "Antrim Grammar School",
-      "venue": "Wellington College"
      },
      {
       "date": "2027-01-23",
@@ -1530,25 +1559,11 @@
       "venue": "Omagh Academy"
      },
      {
-      "date": "2027-01-30",
+      "date": "2027-01-23",
       "time": "10:30",
-      "h": "Antrim Grammar School",
-      "a": "Limavady GS",
-      "venue": "Antrim Grammar School"
-     },
-     {
-      "date": "2027-01-30",
-      "time": "10:30",
-      "h": "Bangor GS",
-      "a": "Grosvenor GS",
-      "venue": "Bangor GS"
-     },
-     {
-      "date": "2027-01-30",
-      "time": "10:30",
-      "h": "Cambridge House GS",
-      "a": "Larne GS",
-      "venue": "Cambridge House GS"
+      "h": "Wellington College",
+      "a": "Antrim Grammar School",
+      "venue": "Wellington College"
      },
      {
       "date": "2027-01-30",
@@ -1565,18 +1580,25 @@
       "venue": "Lurgan College"
      },
      {
-      "date": "2027-02-06",
+      "date": "2027-01-30",
       "time": "10:30",
-      "h": "Lurgan College",
-      "a": "Bangor GS",
-      "venue": "Lurgan College"
+      "h": "Cambridge House GS",
+      "a": "Larne GS",
+      "venue": "Cambridge House GS"
      },
      {
-      "date": "2027-02-06",
+      "date": "2027-01-30",
       "time": "10:30",
-      "h": "Lurgan College",
-      "a": "Bangor GS",
-      "venue": "Lurgan College"
+      "h": "Bangor GS",
+      "a": "Grosvenor GS",
+      "venue": "Bangor GS"
+     },
+     {
+      "date": "2027-01-30",
+      "time": "10:30",
+      "h": "Antrim Grammar School",
+      "a": "Limavady GS",
+      "venue": "Antrim Grammar School"
      },
      {
       "date": "2027-02-06",
@@ -1588,6 +1610,13 @@
      {
       "date": "2027-02-06",
       "time": "10:30",
+      "h": "Antrim Grammar School",
+      "a": "Grosvenor GS",
+      "venue": "Antrim Grammar School"
+     },
+     {
+      "date": "2027-02-06",
+      "time": "10:30",
       "h": "Belfast High School",
       "a": "Foyle College",
       "venue": "Belfast High School"
@@ -1595,16 +1624,16 @@
      {
       "date": "2027-02-06",
       "time": "10:30",
-      "h": "Antrim Grammar School",
-      "a": "Grosvenor GS",
-      "venue": "Antrim Grammar School"
+      "h": "Lurgan College",
+      "a": "Bangor GS",
+      "venue": "Lurgan College"
      },
      {
-      "date": "2027-02-20",
+      "date": "2027-02-06",
       "time": "10:30",
-      "h": "Antrim Grammar School",
-      "a": "Dromore HS",
-      "venue": "Antrim Grammar School"
+      "h": "Lurgan College",
+      "a": "Bangor GS",
+      "venue": "Lurgan College"
      },
      {
       "date": "2027-02-20",
@@ -1626,6 +1655,20 @@
       "h": "Killicomaine Junior HS",
       "a": "Carrickfergus GS",
       "venue": "Killicomaine Junior HS"
+     },
+     {
+      "date": "2027-02-20",
+      "time": "10:30",
+      "h": "Antrim Grammar School",
+      "a": "Dromore HS",
+      "venue": "Antrim Grammar School"
+     },
+     {
+      "date": "2027-02-27",
+      "time": "10:30",
+      "h": "Rainey Endowed School",
+      "a": "Limavady GS",
+      "venue": "Rainey Endowed School"
      },
      {
       "date": "2027-02-27",
@@ -1654,13 +1697,6 @@
       "h": "Larne GS",
       "a": "Friends School",
       "venue": "Larne GS"
-     },
-     {
-      "date": "2027-02-27",
-      "time": "10:30",
-      "h": "Rainey Endowed School",
-      "a": "Limavady GS",
-      "venue": "Rainey Endowed School"
      },
      {
       "date": "2027-03-06",
@@ -2393,9 +2429,9 @@
      {
       "date": "2026-09-05",
       "time": "10:30",
-      "h": "Cambridge House GS",
-      "a": "Methodist College",
-      "venue": "Cambridge House GS"
+      "h": "Royal Belfast Academical Inst",
+      "a": "TBC",
+      "venue": "Royal Belfast Academical Inst"
      },
      {
       "date": "2026-09-05",
@@ -2403,6 +2439,13 @@
       "h": "Coleraine Grammar School",
       "a": "Foyle College",
       "venue": "Coleraine Grammar School"
+     },
+     {
+      "date": "2026-09-05",
+      "time": "10:30",
+      "h": "Cambridge House GS",
+      "a": "Methodist College",
+      "venue": "Cambridge House GS"
      },
      {
       "date": "2026-09-05",
@@ -2427,10 +2470,10 @@
      },
      {
       "date": "2026-09-05",
-      "time": "10:30",
-      "h": "Royal Belfast Academical Inst",
-      "a": "TBC",
-      "venue": "Royal Belfast Academical Inst"
+      "time": "11:00",
+      "h": "Lurgan College",
+      "a": "Portadown College",
+      "venue": "Lurgan College"
      },
      {
       "date": "2026-09-05",
@@ -2438,13 +2481,6 @@
       "h": "Dromore HS",
       "a": "Larne GS",
       "venue": "Dromore HS"
-     },
-     {
-      "date": "2026-09-05",
-      "time": "11:00",
-      "h": "Lurgan College",
-      "a": "Portadown College",
-      "venue": "Lurgan College"
      },
      {
       "date": "2026-09-12",
@@ -2456,30 +2492,9 @@
      {
       "date": "2026-09-12",
       "time": "10:30",
-      "h": "Wallace High School",
-      "a": "Ballymena Academy",
-      "venue": "Wallace High School"
-     },
-     {
-      "date": "2026-09-12",
-      "time": "10:30",
-      "h": "Royal School Dungannon",
-      "a": "Friends School",
-      "venue": "Royal School Dungannon"
-     },
-     {
-      "date": "2026-09-12",
-      "time": "10:30",
-      "h": "Regent House School",
-      "a": "Rainey Endowed School",
-      "venue": "Regent House School"
-     },
-     {
-      "date": "2026-09-12",
-      "time": "10:30",
-      "h": "Portadown College",
-      "a": "Antrim Grammar School",
-      "venue": "Portadown College"
+      "h": "Banbridge Academy",
+      "a": "Sullivan Upper School",
+      "venue": "Banbridge Academy"
      },
      {
       "date": "2026-09-12",
@@ -2491,9 +2506,9 @@
      {
       "date": "2026-09-12",
       "time": "10:30",
-      "h": "Antrim Grammar School",
-      "a": "Wellington College",
-      "venue": "Antrim Grammar School"
+      "h": "Dalriada School",
+      "a": "Grosvenor GS",
+      "venue": "Dalriada School"
      },
      {
       "date": "2026-09-12",
@@ -2505,16 +2520,9 @@
      {
       "date": "2026-09-12",
       "time": "10:30",
-      "h": "Banbridge Academy",
-      "a": "Sullivan Upper School",
-      "venue": "Banbridge Academy"
-     },
-     {
-      "date": "2026-09-12",
-      "time": "10:30",
-      "h": "Dalriada School",
-      "a": "Grosvenor GS",
-      "venue": "Dalriada School"
+      "h": "Omagh Academy",
+      "a": "Royal Belfast Academical Inst",
+      "venue": "Omagh Academy"
      },
      {
       "date": "2026-09-12",
@@ -2526,9 +2534,37 @@
      {
       "date": "2026-09-12",
       "time": "10:30",
-      "h": "Omagh Academy",
-      "a": "Royal Belfast Academical Inst",
-      "venue": "Omagh Academy"
+      "h": "Portadown College",
+      "a": "Antrim Grammar School",
+      "venue": "Portadown College"
+     },
+     {
+      "date": "2026-09-12",
+      "time": "10:30",
+      "h": "Regent House School",
+      "a": "Rainey Endowed School",
+      "venue": "Regent House School"
+     },
+     {
+      "date": "2026-09-12",
+      "time": "10:30",
+      "h": "Royal School Dungannon",
+      "a": "Friends School",
+      "venue": "Royal School Dungannon"
+     },
+     {
+      "date": "2026-09-12",
+      "time": "10:30",
+      "h": "Wallace High School",
+      "a": "Ballymena Academy",
+      "venue": "Wallace High School"
+     },
+     {
+      "date": "2026-09-12",
+      "time": "10:30",
+      "h": "Antrim Grammar School",
+      "a": "Wellington College",
+      "venue": "Antrim Grammar School"
      },
      {
       "date": "2026-09-12",
@@ -2547,23 +2583,9 @@
      {
       "date": "2026-09-19",
       "time": "10:30",
-      "h": "Rainey Endowed School",
-      "a": "Dalriada School",
-      "venue": "Rainey Endowed School"
-     },
-     {
-      "date": "2026-09-19",
-      "time": "10:30",
-      "h": "Royal Belfast Academical Inst",
-      "a": "Banbridge Academy",
-      "venue": "Royal Belfast Academical Inst"
-     },
-     {
-      "date": "2026-09-19",
-      "time": "10:30",
-      "h": "Royal School Armagh",
-      "a": "Belfast Royal Academy",
-      "venue": "Royal School Armagh"
+      "h": "Wallace High School",
+      "a": "Methodist College",
+      "venue": "Wallace High School"
      },
      {
       "date": "2026-09-19",
@@ -2575,37 +2597,9 @@
      {
       "date": "2026-09-19",
       "time": "10:30",
-      "h": "Wallace High School",
-      "a": "Methodist College",
-      "venue": "Wallace High School"
-     },
-     {
-      "date": "2026-09-19",
-      "time": "10:30",
-      "h": "Methodist College",
-      "a": "Wallace High School",
-      "venue": "Methodist College"
-     },
-     {
-      "date": "2026-09-19",
-      "time": "10:30",
-      "h": "Larne GS",
-      "a": "Ballyclare High School",
-      "venue": "Larne GS"
-     },
-     {
-      "date": "2026-09-19",
-      "time": "10:30",
-      "h": "Enniskillen Royal GS",
-      "a": "Regent House School",
-      "venue": "Mullaghmeen"
-     },
-     {
-      "date": "2026-09-19",
-      "time": "10:30",
-      "h": "Down HS",
-      "a": "Grosvenor GS",
-      "venue": "Down HS"
+      "h": "Royal School Armagh",
+      "a": "Belfast Royal Academy",
+      "venue": "Royal School Armagh"
      },
      {
       "date": "2026-09-19",
@@ -2627,6 +2621,48 @@
       "h": "Carrickfergus GS",
       "a": "Belfast High School",
       "venue": "Carrickfergus GS"
+     },
+     {
+      "date": "2026-09-19",
+      "time": "10:30",
+      "h": "Enniskillen Royal GS",
+      "a": "Regent House School",
+      "venue": "Mullaghmeen"
+     },
+     {
+      "date": "2026-09-19",
+      "time": "10:30",
+      "h": "Down HS",
+      "a": "Grosvenor GS",
+      "venue": "Down HS"
+     },
+     {
+      "date": "2026-09-19",
+      "time": "10:30",
+      "h": "Larne GS",
+      "a": "Ballyclare High School",
+      "venue": "Larne GS"
+     },
+     {
+      "date": "2026-09-19",
+      "time": "10:30",
+      "h": "Methodist College",
+      "a": "Wallace High School",
+      "venue": "Methodist College"
+     },
+     {
+      "date": "2026-09-19",
+      "time": "10:30",
+      "h": "Rainey Endowed School",
+      "a": "Dalriada School",
+      "venue": "Rainey Endowed School"
+     },
+     {
+      "date": "2026-09-19",
+      "time": "10:30",
+      "h": "Royal Belfast Academical Inst",
+      "a": "Banbridge Academy",
+      "venue": "Royal Belfast Academical Inst"
      },
      {
       "date": "2026-09-19",
@@ -2652,16 +2688,9 @@
      {
       "date": "2026-09-26",
       "time": "10:30",
-      "h": "Foyle College",
-      "a": "Rainey Endowed School",
-      "venue": "Foyle College"
-     },
-     {
-      "date": "2026-09-26",
-      "time": "10:30",
-      "h": "Omagh Academy",
-      "a": "Banbridge Academy",
-      "venue": "Omagh Academy"
+      "h": "Ballymena Academy",
+      "a": "Enniskillen Royal GS",
+      "venue": "Ballymena Academy"
      },
      {
       "date": "2026-09-26",
@@ -2669,34 +2698,6 @@
       "h": "Regent House School",
       "a": "Coleraine Grammar School",
       "venue": "Regent House School"
-     },
-     {
-      "date": "2026-09-26",
-      "time": "10:30",
-      "h": "Sullivan Upper School",
-      "a": "Bangor GS",
-      "venue": "Sullivan Upper School"
-     },
-     {
-      "date": "2026-09-26",
-      "time": "10:30",
-      "h": "Sullivan Upper School",
-      "a": "Carrickfergus GS",
-      "venue": "Sullivan Upper School"
-     },
-     {
-      "date": "2026-09-26",
-      "time": "10:30",
-      "h": "Campbell College",
-      "a": "Wallace High School",
-      "venue": "Campbell College"
-     },
-     {
-      "date": "2026-09-26",
-      "time": "10:30",
-      "h": "Royal School Armagh",
-      "a": "Down HS",
-      "venue": "Royal School Armagh"
      },
      {
       "date": "2026-09-26",
@@ -2715,9 +2716,44 @@
      {
       "date": "2026-09-26",
       "time": "10:30",
-      "h": "Ballymena Academy",
-      "a": "Enniskillen Royal GS",
-      "venue": "Ballymena Academy"
+      "h": "Foyle College",
+      "a": "Rainey Endowed School",
+      "venue": "Foyle College"
+     },
+     {
+      "date": "2026-09-26",
+      "time": "10:30",
+      "h": "Campbell College",
+      "a": "Wallace High School",
+      "venue": "Campbell College"
+     },
+     {
+      "date": "2026-09-26",
+      "time": "10:30",
+      "h": "Omagh Academy",
+      "a": "Banbridge Academy",
+      "venue": "Omagh Academy"
+     },
+     {
+      "date": "2026-09-26",
+      "time": "10:30",
+      "h": "Royal School Armagh",
+      "a": "Down HS",
+      "venue": "Royal School Armagh"
+     },
+     {
+      "date": "2026-09-26",
+      "time": "10:30",
+      "h": "Sullivan Upper School",
+      "a": "Bangor GS",
+      "venue": "Sullivan Upper School"
+     },
+     {
+      "date": "2026-09-26",
+      "time": "10:30",
+      "h": "Sullivan Upper School",
+      "a": "Carrickfergus GS",
+      "venue": "Sullivan Upper School"
      },
      {
       "date": "2026-10-01",
@@ -2732,20 +2768,6 @@
       "h": "Belfast Royal Academy",
       "a": "Sullivan Upper School",
       "venue": "Belfast Royal Academy"
-     },
-     {
-      "date": "2026-10-03",
-      "time": "10:30",
-      "h": "Banbridge Academy",
-      "a": "Enniskillen Royal GS",
-      "venue": "Banbridge Academy"
-     },
-     {
-      "date": "2026-10-03",
-      "time": "10:30",
-      "h": "Royal School Dungannon",
-      "a": "Royal School Armagh",
-      "venue": "Royal School Dungannon"
      },
      {
       "date": "2026-10-03",
@@ -2790,11 +2812,18 @@
       "venue": "Methodist College"
      },
      {
-      "date": "2026-10-10",
-      "time": "10:00",
-      "h": "Belfast Royal Academy",
-      "a": "Wallace High School",
-      "venue": "Belfast Royal Academy"
+      "date": "2026-10-03",
+      "time": "10:30",
+      "h": "Royal School Dungannon",
+      "a": "Royal School Armagh",
+      "venue": "Royal School Dungannon"
+     },
+     {
+      "date": "2026-10-03",
+      "time": "10:30",
+      "h": "Banbridge Academy",
+      "a": "Enniskillen Royal GS",
+      "venue": "Banbridge Academy"
      },
      {
       "date": "2026-10-10",
@@ -2813,9 +2842,23 @@
      {
       "date": "2026-10-10",
       "time": "10:00",
+      "h": "Belfast Royal Academy",
+      "a": "Wallace High School",
+      "venue": "Belfast Royal Academy"
+     },
+     {
+      "date": "2026-10-10",
+      "time": "10:00",
       "h": "Carrickfergus GS",
       "a": "Friends School",
       "venue": "Campbell College"
+     },
+     {
+      "date": "2026-10-10",
+      "time": "10:30",
+      "h": "Wellington College",
+      "a": "Royal Belfast Academical Inst",
+      "venue": "Wellington College"
      },
      {
       "date": "2026-10-10",
@@ -2860,27 +2903,6 @@
       "venue": "Sullivan Upper School"
      },
      {
-      "date": "2026-10-10",
-      "time": "10:30",
-      "h": "Wellington College",
-      "a": "Royal Belfast Academical Inst",
-      "venue": "Wellington College"
-     },
-     {
-      "date": "2026-10-17",
-      "time": "10:30",
-      "h": "Grosvenor GS",
-      "a": "Foyle College",
-      "venue": "Grosvenor GS"
-     },
-     {
-      "date": "2026-10-17",
-      "time": "10:30",
-      "h": "Wellington College",
-      "a": "Campbell College",
-      "venue": "Wellington College"
-     },
-     {
       "date": "2026-10-17",
       "time": "10:30",
       "h": "Limavady GS",
@@ -2900,6 +2922,20 @@
       "h": "Royal School Dungannon",
       "a": "Banbridge Academy",
       "venue": "Royal School Dungannon"
+     },
+     {
+      "date": "2026-10-17",
+      "time": "10:30",
+      "h": "Wellington College",
+      "a": "Campbell College",
+      "venue": "Wellington College"
+     },
+     {
+      "date": "2026-10-17",
+      "time": "10:30",
+      "h": "Grosvenor GS",
+      "a": "Foyle College",
+      "venue": "Grosvenor GS"
      },
      {
       "date": "2026-10-20",
@@ -2960,16 +2996,16 @@
      {
       "date": "2026-11-07",
       "time": "09:30",
-      "h": "Antrim Grammar School",
-      "a": "Limavady GS",
-      "venue": "Antrim Grammar School"
+      "h": "Cambridge House GS",
+      "a": "Belfast High School",
+      "venue": "Cambridge House GS"
      },
      {
       "date": "2026-11-07",
       "time": "09:30",
-      "h": "Cambridge House GS",
-      "a": "Belfast High School",
-      "venue": "Cambridge House GS"
+      "h": "Antrim Grammar School",
+      "a": "Limavady GS",
+      "venue": "Antrim Grammar School"
      },
      {
       "date": "2026-11-07",
@@ -3009,16 +3045,16 @@
      {
       "date": "2026-11-07",
       "time": "10:30",
-      "h": "Dalriada School",
-      "a": "Dromore HS",
-      "venue": "Dalriada School"
+      "h": "Larne GS",
+      "a": "Banbridge Academy",
+      "venue": "Larne GS"
      },
      {
       "date": "2026-11-07",
       "time": "10:30",
-      "h": "Larne GS",
-      "a": "Banbridge Academy",
-      "venue": "Larne GS"
+      "h": "Regent House School",
+      "a": "Down HS",
+      "venue": "Regent House School"
      },
      {
       "date": "2026-11-07",
@@ -3037,9 +3073,9 @@
      {
       "date": "2026-11-07",
       "time": "10:30",
-      "h": "Regent House School",
-      "a": "Down HS",
-      "venue": "Regent House School"
+      "h": "Dalriada School",
+      "a": "Dromore HS",
+      "venue": "Dalriada School"
      },
      {
       "date": "2026-11-07",
@@ -3051,16 +3087,16 @@
      {
       "date": "2026-11-10",
       "time": "14:30",
-      "h": "Limavady GS",
-      "a": "Omagh Academy",
-      "venue": "Limavady GS"
+      "h": "Sullivan Upper School",
+      "a": "Methodist College",
+      "venue": "Sullivan Upper School"
      },
      {
       "date": "2026-11-10",
       "time": "14:30",
-      "h": "Sullivan Upper School",
-      "a": "Methodist College",
-      "venue": "Sullivan Upper School"
+      "h": "Limavady GS",
+      "a": "Omagh Academy",
+      "venue": "Limavady GS"
      },
      {
       "date": "2026-11-14",
@@ -3068,6 +3104,20 @@
       "h": "Belfast Royal Academy",
       "a": "Campbell College",
       "venue": "Belfast Royal Academy"
+     },
+     {
+      "date": "2026-11-14",
+      "time": "09:45",
+      "h": "Carrickfergus GS",
+      "a": "Ballymena Academy",
+      "venue": "Carrickfergus GS"
+     },
+     {
+      "date": "2026-11-14",
+      "time": "10:30",
+      "h": "Ballyclare High School",
+      "a": "Coleraine Grammar School",
+      "venue": "Ballyclare High School"
      },
      {
       "date": "2026-11-14",
@@ -3105,41 +3155,6 @@
       "venue": "Wellington College"
      },
      {
-      "date": "2026-11-14",
-      "time": "10:30",
-      "h": "Antrim Grammar School",
-      "a": "Cambridge House GS",
-      "venue": "Antrim Grammar School"
-     },
-     {
-      "date": "2026-11-14",
-      "time": "10:30",
-      "h": "Belfast High School",
-      "a": "Down HS",
-      "venue": "Belfast High School"
-     },
-     {
-      "date": "2026-11-14",
-      "time": "10:30",
-      "h": "Ballymena Academy",
-      "a": "TBC",
-      "venue": "Ballymena Academy"
-     },
-     {
-      "date": "2026-11-14",
-      "time": "10:30",
-      "h": "Ballyclare High School",
-      "a": "Coleraine Grammar School",
-      "venue": "Ballyclare High School"
-     },
-     {
-      "date": "2026-11-14",
-      "time": "10:30",
-      "h": "Cambridge House GS",
-      "a": "Antrim Grammar School",
-      "venue": "Cambridge House GS"
-     },
-     {
       "date": "2026-11-16",
       "time": "14:30",
       "h": "Wellington College",
@@ -3149,9 +3164,16 @@
      {
       "date": "2026-11-21",
       "time": "10:30",
-      "h": "Wellington College",
-      "a": "Lurgan College",
-      "venue": "Wellington College"
+      "h": "Antrim Grammar School",
+      "a": "Dalriada School",
+      "venue": "Antrim Grammar School"
+     },
+     {
+      "date": "2026-11-21",
+      "time": "10:30",
+      "h": "Down HS",
+      "a": "Bangor GS",
+      "venue": "Down HS"
      },
      {
       "date": "2026-11-21",
@@ -3163,16 +3185,23 @@
      {
       "date": "2026-11-21",
       "time": "10:30",
-      "h": "Ballymena Academy",
-      "a": "TBC",
-      "venue": "Ballymena Academy"
+      "h": "Wellington College",
+      "a": "Lurgan College",
+      "venue": "Wellington College"
      },
      {
       "date": "2026-11-21",
       "time": "10:30",
-      "h": "Omagh Academy",
-      "a": "Wallace High School",
-      "venue": "Omagh Academy"
+      "h": "Portadown College",
+      "a": "Cambridge House GS",
+      "venue": "Portadown College"
+     },
+     {
+      "date": "2026-11-21",
+      "time": "10:30",
+      "h": "Royal School Dungannon",
+      "a": "Methodist College",
+      "venue": "Royal School Dungannon"
      },
      {
       "date": "2026-11-21",
@@ -3180,6 +3209,13 @@
       "h": "Limavady GS",
       "a": "Regent House School",
       "venue": "Limavady GS"
+     },
+     {
+      "date": "2026-11-21",
+      "time": "10:30",
+      "h": "Ballyclare High School",
+      "a": "Larne GS",
+      "venue": "Ballyclare High School"
      },
      {
       "date": "2026-11-21",
@@ -3198,9 +3234,9 @@
      {
       "date": "2026-11-21",
       "time": "10:30",
-      "h": "Down HS",
-      "a": "Bangor GS",
-      "venue": "Down HS"
+      "h": "Ballymena Academy",
+      "a": "TBC",
+      "venue": "Ballymena Academy"
      },
      {
       "date": "2026-11-21",
@@ -3219,30 +3255,9 @@
      {
       "date": "2026-11-21",
       "time": "10:30",
-      "h": "Antrim Grammar School",
-      "a": "Dalriada School",
-      "venue": "Antrim Grammar School"
-     },
-     {
-      "date": "2026-11-21",
-      "time": "10:30",
-      "h": "Portadown College",
-      "a": "Cambridge House GS",
-      "venue": "Portadown College"
-     },
-     {
-      "date": "2026-11-21",
-      "time": "10:30",
-      "h": "Ballyclare High School",
-      "a": "Larne GS",
-      "venue": "Ballyclare High School"
-     },
-     {
-      "date": "2026-11-21",
-      "time": "10:30",
-      "h": "Royal School Dungannon",
-      "a": "Methodist College",
-      "venue": "Royal School Dungannon"
+      "h": "Omagh Academy",
+      "a": "Wallace High School",
+      "venue": "Omagh Academy"
      },
      {
       "date": "2026-11-21",
@@ -4121,5 +4136,5 @@
    }
   ]
  },
- "updated": "2026-11-09T20:53:28.721Z"
+ "updated": "2026-11-10T12:49:48.461Z"
 }
