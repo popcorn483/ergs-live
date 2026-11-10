@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = 'b49e9cfcf7';</script>
+<script>window.ERGS_VER = '567928a145';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -2077,6 +2077,10 @@ body.va-guardian .va-bar{border-color:#8fd3a6}
 #sqSqUse{white-space:normal;height:auto;min-height:40px;padding-block:8px;text-align:left;max-width:100%}
 .gd-hub{min-width:0;max-width:min(560px,100%);box-sizing:border-box}.gd-hub *{min-width:0}.gd-stats{grid-template-columns:repeat(4,minmax(0,1fr))!important}.gd-h b,.gd-h h2{overflow-wrap:anywhere}
 @media (min-width:641px){#liveTop{display:none!important}#scoresTop{margin-left:6px;order:1}#signOutTop{order:2}}
+.fxg-live{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;border:1px solid var(--rule);background:rgba(255,255,255,.04);font-size:14px}.fxg-live b{display:block}.fxg-live small{color:var(--mute);line-height:1.4}.fxg-live>span:last-child{display:grid;gap:2px}
+.fxg-live.busy{border-color:rgba(220,192,138,.6)}.fxg-live.ok{border-color:rgba(76,175,80,.7);background:rgba(76,175,80,.1)}.fxg-live.ok>span:first-child{color:#7ddc85;font-weight:800}.fxg-live.bad{border-color:rgba(229,57,53,.7);background:rgba(229,57,53,.1)}
+.fl-spin{width:16px;height:16px;flex:none;margin-top:2px;border-radius:50%;border:2px solid rgba(220,192,138,.3);border-top-color:var(--flood);animation:flSpin .8s linear infinite}@keyframes flSpin{to{transform:rotate(360deg)}}
+.fxg-note{margin:0;font-size:13px;color:var(--mute)}.fxg-note b{color:var(--flood)}
 /* Coach access group on the home screen */
 #menuList > li.cg{margin:14px 0 6px;border:1px solid var(--rule);border-radius:16px;background:rgba(255,255,255,.025);overflow:hidden}
 .cg-h{width:100%;display:flex;align-items:center;gap:14px;padding:14px 16px;border:0;background:transparent;color:inherit;text-align:left;cursor:pointer;font:inherit}
@@ -10430,8 +10434,8 @@ function fxgEdit(key){
     <div class="row" style="align-items:end"><label class="check" style="flex:1;min-width:160px"><input type="checkbox" id="feHi">Highlight in gold</label>
       <div class="field" style="flex:1;min-width:140px"><label class="label" for="feBadge">Badge text</label><input class="input" id="feBadge" maxlength="18" style="text-transform:uppercase"></div></div>
     <div class="dlg-a"><button class="btn ghost" type="button" id="feReset">Undo my changes</button><span style="flex:1"></span><button class="btn ghost" type="button" data-tclose>Cancel</button></div>
-    <div class="fe-saves"><button class="btn" type="button" id="feSave"><b>Save on this graphic only</b><small>ERGS Live stays as it is</small></button>
-      <button class="btn primary" type="button" id="feLive"><b>Save here and on ERGS Live</b><small>Changes the fixture for everyone</small></button></div>`, dlg => {
+    <div class="fe-saves"><button class="btn" type="button" id="feSave"><b>Save on the graphic</b><small>Times, dates and venues go to ERGS Live when you download</small></button>
+      <button class="btn primary" type="button" id="feLive"><b>Save here and on ERGS Live now</b><small>Changes the fixture for everyone straight away</small></button></div>`, dlg => {
     const q = id => dlg.querySelector('#' + id);
     q('feDate').value = iso; q('feTime').value = r.time || ''; q('feTeam').value = r.team || ''; q('feOpp').value = r.opp || ''; q('feHa').value = r.ha === 'H' || r.ha === 'A' ? r.ha : ''; q('feComp').value = r.comp || ''; q('feVenue').value = r.venue || '';
     const m = key.startsWith('m:') ? Cloud.matches.find(x => x.id === key.slice(2)) : null;
@@ -10465,6 +10469,45 @@ function fxgEdit(key){
     setTimeout(() => q('feOpp').focus(), 30);
   });
 }
+/* ---------- Fixtures graphic → ERGS Live: kick-off times, dates, venues and competitions follow the graphic ---------- */
+// Changes made "on this graphic only" to an ERGS Live fixture are sent to ERGS Live when the coach downloads or posts the graphic,
+// so the scoreboard, calendar and reminders show the same times. A banner says what's being updated, then confirms.
+function fxgPending(){
+  const E = sheet.fxEdit || {}, out = [];
+  for (const [key, e] of Object.entries(E)){ if (!key.startsWith('m:') || !e) continue; const m = (Cloud.matches || []).find(x => x.id === key.slice(2)); if (!m || m.status !== 'pre') continue;
+    const ch = {}, curT = m.koTbc ? 'TBC' : String(m.ko || '').slice(11, 16), curD = String(m.ko || '').slice(0, 10);
+    if (e.timeSet && e.time && e.time !== curT && (/^\d{2}:\d{2}$/.test(e.time) || e.time === 'TBC')) ch.time = e.time;
+    if (e.date && e.date !== curD) ch.date = e.date;
+    if (e.venue != null && e.venue !== (m.venue || '')) ch.venue = e.venue;
+    if (e.comp != null && e.comp !== (m.comp || '')) ch.comp = e.comp;
+    if (Object.keys(ch).length) out.push({key, m, ch}); }
+  return out;
+}
+function fxgBanner(html, kind){ let b = $('#fxgLive'); if (!b){ b = document.createElement('div'); b.id = 'fxgLive'; b.setAttribute('role', 'status'); const pv = $('#fxg .tw-prev'); if (!pv) return; pv.appendChild(b); }
+  b.className = 'fxg-live ' + (kind || ''); b.innerHTML = html; b.hidden = false; clearTimeout(b._t); if (kind === 'ok' || kind === 'bad') b._t = setTimeout(() => b.hidden = true, 9000); }
+async function fxgPushLive(){
+  if (Cloud.role !== 'coach' || Cloud.mode !== 'db') return; const L = fxgPending(); if (!L.length) return;
+  const what = c => [c.time && (c.time === 'TBC' ? 'kick-off TBC' : 'kick-off ' + c.time), c.date && 'date', c.venue != null && 'venue', c.comp != null && 'competition'].filter(Boolean).join(', ');
+  fxgBanner(`<span class="fl-spin" aria-hidden="true"></span><span><b>Updating ERGS Live…</b><small>${L.map(x => esc(`${x.m.team || 'ERGS'} v ${fxOpp(x.m) || ''}: ${what(x.ch)}`)).join('<br>')}</small></span>`, 'busy');
+  let ok = 0; const E = Object.assign({}, sheet.fxEdit);
+  for (const {key, m, ch} of L){ const x = JSON.parse(JSON.stringify(m)); delete x.id;
+    const d = ch.date || String(m.ko || '').slice(0, 10), t = ch.time ? (ch.time === 'TBC' ? (String(m.ko || '').slice(11, 16) || '12:00') : ch.time) : (String(m.ko || '').slice(11, 16) || '12:00');
+    if (d) x.ko = d + 'T' + t; if (ch.time) x.koTbc = ch.time === 'TBC'; if (ch.venue != null) x.venue = ch.venue; if (ch.comp != null) x.comp = ch.comp; x.updated = Date.now();
+    try { await Cloud.set('matches/' + m.id, x); ok++; const e = Object.assign({}, E[key]); ['time', 'timeSet', 'date', 'venue', 'comp'].forEach(k => { if (k in ch || (k === 'timeSet' && ch.time)) delete e[k]; });
+      if (Object.values(e).some(v => v !== '' && v != null)) E[key] = e; else delete E[key]; } catch(err){} }
+  sheet.fxEdit = E; sheetSave();
+  if (ok === L.length) fxgBanner(`<span aria-hidden="true">✓</span><span><b>ERGS Live updated</b><small>${ok} ${ok === 1 ? 'fixture now shows' : 'fixtures now show'} the same details as this graphic.</small></span>`, 'ok');
+  else fxgBanner(`<span aria-hidden="true">⚠</span><span><b>${ok ? `${ok} of ${L.length} updated on ERGS Live` : 'ERGS Live wasn’t updated'}</b><small>Check your signal; it tries again next time you download.</small></span>`, 'bad');
+}
+(() => { const sec = $('#fxg'); if (!sec) return;
+  sec.addEventListener('click', e => { const b = e.target.closest && e.target.closest('#fxgDl, .fbs-btn, [data-gapng]'); if (b && sec.contains(b)) fxgPushLive(); }, true);
+  // and a reminder before downloading, so the coach knows it will happen
+  const note = () => { const n = fxgPending().length, pv = $('#fxg .tw-prev'); if (!pv) return; let t = $('#fxgNote');
+    if (!n || Cloud.role !== 'coach'){ if (t) t.hidden = true; return; }
+    if (!t){ t = document.createElement('p'); t.id = 'fxgNote'; t.className = 'fxg-note'; pv.appendChild(t); }
+    t.hidden = false; t.innerHTML = `↻ ${n === 1 ? '1 change' : n + ' changes'} (kick-off times, dates, venues) will also be sent to <b>ERGS Live</b> when you download or post.`; };
+  const fp = fxgPreview; fxgPreview = function(){ fp.apply(this, arguments); note(); };
+})();
 /* =============================== TODAY'S RESULTS GRAPHIC: pick the matches, download the picture =============================== */
 // Every ERGS Live match on the chosen day (or the last week); full-time ones are ticked to start with. ERGS's score is always shown first.
 const RSG_DEF = {kick:'ERGS RUGBY', t1:'TODAY’S', t2:'RESULTS', foot:'', size:'1080x1350', bgKind:'floodlit', border:'gold', c1:'#141B3D', c2:'#D9C08C', c3:'#E31F25', bg:'', dark:60, extra:true, wdl:true, dateLine:true, day:'', range:'day', pick:null, order:[]};
