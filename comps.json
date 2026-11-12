@@ -11,17 +11,21 @@
     "games": [
      {
       "date": "",
-      "time": "15:15",
-      "h": "Dromore HS",
-      "a": "Limavady GS",
-      "venue": "Barban Hill"
-     },
-     {
-      "date": "2026-11-14",
       "time": "10:00",
       "h": "Larne GS",
       "a": "Belfast High School",
       "venue": "Larne GS"
+     },
+     {
+      "date": "2026-11-11",
+      "time": "15:15",
+      "h": "Dromore HS",
+      "a": "Limavady GS",
+      "venue": "Barban Hill",
+      "hs": 26,
+      "as": 19,
+      "ht": 4,
+      "at": 3
      },
      {
       "date": "2026-11-11",
@@ -4134,5 +4138,5 @@
    }
   ]
  },
- "updated": "2026-11-11T17:57:20.553Z"
+ "updated": "2026-11-12T00:53:19.770Z"
 }
