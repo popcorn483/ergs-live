@@ -69,6 +69,7 @@ async function clubs(){
 
 // BBC Sport's rugby union scores pages: every game BBC covers (internationals, Nations Championship, URC, European cups,
 // Premiership…), one page per day, from a week ago to two weeks ahead. The match data sits in the page as JSON.
+const MAJOR = /nations championship|nations cup|six nations|international|test|world cup|autumn|united rugby championship|urc|champions cup|challenge cup|prem(iership)?( rugby)?$|gallagher|top 14|rugby championship|super rugby|lions/i;
 async function bbc(){
   const out = [], log = [], seen = new Set();
   const walk = (o, f) => { if (!o || typeof o !== 'object') return; if (Array.isArray(o.eventGroups)) f(o.eventGroups); for (const v of Object.values(o)) walk(v, f); };
@@ -77,7 +78,7 @@ async function bbc(){
     try { const h = await get(`https://www.bbc.co.uk/sport/rugby-union/scores-fixtures/${d}`), m = h.match(/__INITIAL_DATA__\s*=\s*("(?:\\.|[^"\\])*")/); if (!m) throw new Error('no data');
       let j = JSON.parse(JSON.parse(m[1]));
       walk(j, groups => groups.forEach(g => (g.secondaryGroups || []).forEach(sg => (sg.events || []).forEach(e => {
-        if (!e || !e.home || !e.away || seen.has(e.id)) return; seen.add(e.id); n++;
+        if (!e || !e.home || !e.away || seen.has(e.id)) return; seen.add(e.id); const tn = (e.tournament && e.tournament.name) || g.displayLabel || ''; if (!MAJOR.test(tn) || /national league|division|champ rugby|prem rugby cup|super rygbi|wru |arnold clark/i.test(tn)) return; n++;
         const st = String(e.status || ''), done = /post|result|full/i.test(st), live = /mid|live|half/i.test(st), sc = x => x.score === '' || x.score == null ? null : +x.score;
         out.push({lg:(e.tournament && e.tournament.name) || g.displayLabel || 'Rugby', id:e.id, date:String(e.startDateTime || '').replace(/\.000\+00:00$/, 'Z'), h:{n:e.home.fullName || e.home.shortName, s:'', logo:''}, a:{n:e.away.fullName || e.away.shortName, s:'', logo:''},
           hs:done || live ? sc(e.home) : null, as:done || live ? sc(e.away) : null, state:done ? 'post' : live ? 'in' : 'pre', detail:live ? ((e.periodLabel || {}).value || 'Live') : done ? 'FT' : '', venue:'', url:`https://www.bbc.co.uk/sport/rugby-union/scores-fixtures/${d}`});
