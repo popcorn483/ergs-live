@@ -676,13 +676,6 @@
     "games": [
      {
       "date": "",
-      "time": "14:00",
-      "h": "Larne GS",
-      "a": "Craigavon SHS",
-      "venue": "Larne GS"
-     },
-     {
-      "date": "2026-11-14",
       "time": "10:00",
       "h": "Belfast High School",
       "a": "Portadown College",
@@ -694,6 +687,17 @@
       "h": "Lurgan College",
       "a": "Drumglass High School",
       "venue": "Lurgan College"
+     },
+     {
+      "date": "2026-11-13",
+      "time": "14:00",
+      "h": "Larne GS",
+      "a": "Craigavon SHS",
+      "venue": "Larne GS",
+      "hs": 0,
+      "as": 40,
+      "ht": 0,
+      "at": 6
      },
      {
       "date": "2026-11-10",
@@ -4131,5 +4135,5 @@
    }
   ]
  },
- "updated": "2026-11-12T18:27:57.130Z"
+ "updated": "2026-11-13T17:55:02.254Z"
 }
