@@ -109,12 +109,16 @@ async function tsdb(){
   say('TheSportsDB:', log.join(' · '), `· ${out.length} games`);
   return out;
 }
+
+// probe: what BBC Sport's scores page looks like (temporary)
+async function bbcProbe(){ try { const d = new Date(Date.now() + 864e5).toISOString().slice(0, 10), h = await get(`https://www.bbc.co.uk/sport/rugby-union/scores-fixtures/${d}`);
+  const i = h.indexOf('__INITIAL_DATA__'), k = h.search(/"participants"|homeTeam|"tournament/); say('BBC probe:', h.length, 'init@' + i, 'key@' + k, JSON.stringify(h.slice(Math.max(0, k - 400), k + 1400)).slice(0, 1800)); } catch(e){ say('BBC probe failed', e.message); } }
 let old = {}; try { old = JSON.parse(fs.readFileSync(OUT, 'utf8')); } catch(e){}
-const [news, gm0, ts, cl] = await Promise.all([feeds(), games(), tsdb(), clubs()]);
+const [news, gm0, ts, cl] = await Promise.all([feeds(), games(), tsdb(), clubs(), bbcProbe()]);
 // only games from the last 10 days and the next 3 weeks (ESPN sometimes hands back last season's round)
 const lo = Date.now() - 10*864e5, hi = Date.now() + 21*864e5, key = g => (g.h.n + '|' + g.a.n + '|' + g.date.slice(0, 10)).toLowerCase();
 const gm = [], gk = new Set(); for (const g of gm0.concat(ts)){ const t = Date.parse(g.date); if (isNaN(t) || t < lo || t > hi || gk.has(key(g))) continue; gk.add(key(g)); gm.push(g); } gm.sort((a, b) => a.date.localeCompare(b.date));
 const out = {news:news.length ? news : old.news || [], games:gm.length ? gm : (old.games || []).filter(g => { const t = Date.parse(g.date); return t > lo && t < hi; }), clubs:cl.comps.length ? cl.comps : old.clubs || [], clubComps:cl.seen.length ? cl.seen : old.clubComps || []};
-out.log = LOG.map(x => x.slice(0, 1500));
+out.log = LOG.map(x => x.slice(0, 2500));
 if (JSON.stringify([out.news, out.games, out.clubs, out.log]) === JSON.stringify([old.news, old.games, old.clubs, old.log])){ console.log('No change'); process.exit(0); }
 out.updated = new Date().toISOString(); fs.writeFileSync(OUT, JSON.stringify(out)); console.log(`Written: ${out.news.length} headlines, ${out.games.length} games, ${out.clubs.length} club competitions.`);
