@@ -1864,7 +1864,7 @@ function render(){
   coachBar();
   $('#tabs').hidden = !!m;
   $$('#tabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === V.tab));
-  $('#view').innerHTML = m ? viewMatch(m) : V.tab === 'fixtures' ? viewFixtures() : V.tab === 'results' ? viewResults() : V.tab === 'cup' ? viewCup() : V.tab === 'meds' ? viewMeds() : viewMatches();
+  $('#view').innerHTML = m ? viewMatch(m) : V.tab === 'fixtures' ? viewFixtures() : V.tab === 'results' ? viewResults() : V.tab === 'cup' ? viewCup() : V.tab === 'meds' ? viewMeds() : V.tab === 'rugby' ? viewRugby() : viewMatches();
   $$('[data-unbin]').forEach(b => b.onclick = ev => { ev.stopPropagation(); const id = b.dataset.unbin; save(d => { const x = d.matches.find(y => y.id === m.id); const e = x && x.events.find(y => y.id === id); if (e) e.ret = Date.now(); }, m.id); });
   $$('[data-team]').forEach(b => b.onclick = () => { V.team = b.dataset.team; render(); });
   $$('[data-season]').forEach(b => b.onclick = () => { V.season = +b.dataset.season || 0; render(); });
@@ -3329,10 +3329,65 @@ function frSwitch(tab){ const F = FR[tab], n = frOff(tab).length || frGames(tab)
   b.onclick = () => { V.tab = 'cup'; render(); };
   tabs.addEventListener('scroll', () => tabs.classList.toggle('end', tabs.scrollLeft + tabs.clientWidth >= tabs.scrollWidth - 4), {passive:true});
   const md = document.createElement('button'); md.type = 'button'; md.dataset.v = 'meds'; md.textContent = 'Medallion'; md.hidden = true; tabs.appendChild(md); md.onclick = () => { V.tab = 'meds'; render(); };
+  const rg = document.createElement('button'); rg.type = 'button'; rg.dataset.v = 'rugby'; rg.textContent = 'Rugby'; tabs.appendChild(rg); rg.onclick = () => { V.tab = 'rugby'; render(); newsLoad(); };
   setInterval(() => { md.hidden = !(compSeasonOK() && (OFFICIAL.comps.meds || []).length) && !frGames('meds').length && !frOff('meds').length && !COACH && !PLAYER; if (md.hidden && V.tab === 'meds'){ V.tab = 'matches'; render(); } }, 700);
   setInterval(() => { b.hidden = !(cupOf() && cupOf().groups.length) && !frGames('cup').length && !frOff('cup').length && !COACH; if (b.hidden && V.tab === 'cup'){ V.tab = 'matches'; render(); } }, 700);
   document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-cup], [data-cupres]'); if (!t) return; if (t.dataset.cup === 'setup') cupSetup(); else if (t.dataset.cup === 'paste') cupPaste(); else if (t.dataset.cup === 'edit'){ V.cupEdit = !V.cupEdit; render(); } else if (t.dataset.cupres) cupResults(t.dataset.cupres); });
 })();
+
+
+/* ---------- Rugby: a newsfeed (headlines), international and pro results and fixtures, and local club rugby ---------- */
+// news.json is refreshed every hour by a GitHub workflow (BBC Sport, RTÉ and others; ESPN scores; Ulster Rugby for the Towns Cup,
+// Enniskillen RFC and Clogher Valley). Headlines open the full story on the publisher's site.
+let NEWS = null;
+async function newsLoad(){ try { const r = await fetch('news.json?t=' + Math.floor(Date.now()/300e3), {cache:'no-store'}); if (!r.ok) return; const j = await r.json(); const was = NEWS && NEWS.updated; NEWS = j; if (was !== j.updated && READY && V.tab === 'rugby') render(); } catch(e){} }
+newsLoad(); setInterval(() => { if (V.tab === 'rugby' && !document.hidden) newsLoad(); }, 10*60e3);
+const agoN = t => { const m = Math.round((Date.now() - t)/60e3); return m < 2 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m/60) + ' h ago' : Math.round(m/1440) + (Math.round(m/1440) === 1 ? ' day ago' : ' days ago'); };
+const NEWS_IRL = /BBC Sport NI|RTÉ|Ulster/;
+function rgNews(){
+  const all = (NEWS && NEWS.news) || [], f = V.rgN || 'all', L = all.filter(n => f === 'all' || (f === 'irl' ? NEWS_IRL.test(n.src) : !NEWS_IRL.test(n.src)));
+  const chips = `<div class="fx-view rg-chips" role="tablist" aria-label="News">${[['all', 'All'], ['irl', 'Ireland & Ulster'], ['int', 'International']].map(([k, t]) => `<button type="button" data-rgn="${k}" aria-pressed="${f === k}">${t}</button>`).join('')}</div>`;
+  if (!L.length) return chips + '<div class="empty">No headlines right now. They refresh every hour.</div>';
+  const [top, ...rest] = L.slice(0, 40);
+  const card = (n, big) => `<a class="rg-n${big ? ' big' : ''}" href="${esc(n.url)}" target="_blank" rel="noopener">${n.img ? `<span class="rg-im"><img src="${esc(n.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.remove()"></span>` : ''}<span class="rg-tx"><b>${esc(n.t)}</b>${big && n.sum ? `<span class="rg-sum">${esc(n.sum)}</span>` : ''}<small>${esc(n.src)}${n.at ? ' · ' + esc(agoN(n.at)) : ''}</small></span></a>`;
+  return chips + card(top, true) + `<div class="rg-list">${rest.map(n => card(n)).join('')}</div>`;
+}
+function rgGames(){
+  const G = (NEWS && NEWS.games) || [], now = Date.now();
+  if (!G.length) return '<div class="empty">International and pro results and fixtures appear here (Six Nations, Autumn Nations, URC, Champions Cup and more).</div>';
+  const live = G.filter(g => g.state === 'in'), res = G.filter(g => g.state === 'post').sort((a, b) => b.date.localeCompare(a.date)), fx = G.filter(g => g.state === 'pre' && Date.parse(g.date) > now - 3*3600e3);
+  const sub = V.rgG || (live.length ? 'live' : res.length ? 'res' : 'fx');
+  const tog = `<div class="fx-view rg-chips" role="tablist" aria-label="Games">${live.length ? `<button type="button" data-rgg="live" aria-pressed="${sub === 'live'}">Live <small>${live.length}</small></button>` : ''}<button type="button" data-rgg="res" aria-pressed="${sub === 'res'}">Results</button><button type="button" data-rgg="fx" aria-pressed="${sub === 'fx'}">Fixtures</button></div>`;
+  const list = sub === 'live' ? live : sub === 'res' ? res.slice(0, 40) : fx.slice(0, 40);
+  const by = new Map(); list.forEach(g => { if (!by.has(g.lg)) by.set(g.lg, []); by.get(g.lg).push(g); });
+  const order = ['Internationals', 'Six Nations', 'Rugby World Cup', 'Autumn Nations Series', 'United Rugby Championship', 'Champions Cup', 'Challenge Cup', 'Premiership', 'Rugby Championship'];
+  const lgs = [...by.keys()].sort((a, b) => ((order.findIndex(o => a.includes(o)) + 1) || 99) - ((order.findIndex(o => b.includes(o)) + 1) || 99));
+  const tm = (t, w) => `<span class="ko-t${w ? ' w' : ''}">${t.logo ? `<img class="rg-logo" src="${esc(t.logo)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span>${esc(t.n)}</span></span>`;
+  const row = g => { const done = g.hs != null, w = done && (g.hs > g.as ? 'h' : g.as > g.hs ? 'a' : ''), d = new Date(g.date), irl = /ireland|ulster|leinster|munster|connacht/i.test(g.h.n + g.a.n);
+    return `<${g.url ? `a href="${esc(g.url)}" target="_blank" rel="noopener"` : 'div'} class="ko-r rg-g${irl ? ' us' : ''}${g.state === 'in' ? ' live' : ''}">${tm(g.h, w === 'h')}<b class="ko-s">${done ? `${g.hs}–${g.as}` : esc(d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}))}</b>${tm(g.a, w === 'a').replace('class="ko-t', 'class="ko-t a')}<small class="ko-tr">${g.state === 'in' ? `<span class="pill live">${esc(g.detail || 'Live')}</span>` : esc(d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}))}</small></${g.url ? 'a' : 'div'}>`; };
+  return tog + (list.length ? lgs.map(l => `<div class="cup-g ko"><div class="cup-gh"><b>${esc(l)}</b></div>${by.get(l).map(row).join('')}</div>`).join('') : `<div class="empty">No ${sub === 'fx' ? 'fixtures in the next three weeks' : sub === 'res' ? 'results in the last week' : 'live games'}.</div>`);
+}
+function rgClubs(){
+  const C = (NEWS && NEWS.clubs) || [];
+  if (!C.length) return '<div class="empty">The Ulster Towns Cup and Enniskillen RFC / Clogher Valley’s leagues appear here from Ulster Rugby once their fixtures are published.</div>';
+  const ours = n => /enniskillen|clogher/i.test(n || ''), day = d => d ? new Date(d + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}) : 'Date TBC';
+  const row = g => { const done = g.hs != null, w = done && (g.hs > g.as ? 'h' : g.as > g.hs ? 'a' : '');
+    return `<div class="ko-r${ours(g.h) || ours(g.a) ? ' us' : ''}"><span class="ko-t${w === 'h' ? ' w' : ''}"><span>${esc(g.h)}</span></span><b class="ko-s">${done ? `${g.hs}–${g.as}` : esc(g.time || 'v')}</b><span class="ko-t a${w === 'a' ? ' w' : ''}"><span>${esc(g.a)}</span></span><small class="ko-tr">${esc(day(g.date))}${g.venue && !done ? ' · ' + esc(g.venue) : ''}</small></div>`; };
+  return C.map(c => { const res = c.games.filter(g => g.hs != null).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, c.towns ? 12 : 6), fx = c.games.filter(g => g.hs == null).sort((a, b) => (a.date || '9').localeCompare(b.date || '9')).slice(0, c.towns ? 12 : 6);
+    const tbl = c.table && c.table.length ? `<div class="tbl"><table class="cup-t"><thead><tr><th></th><th class="l">Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr></thead><tbody>${c.table.map((o, i) => `<tr class="${ours(o.n) ? 'us' : ''}"><td class="pos">${i + 1}</td><td class="l">${esc(o.n)}</td><td>${o.P}</td><td>${o.W}</td><td>${o.D}</td><td>${o.L}</td><td class="pts">${o.Pts}</td></tr>`).join('')}</tbody></table></div>` : '';
+    return `<div class="cup-g${c.towns ? ' ours' : ''}"><div class="cup-gh"><b>${esc(c.name)}</b>${c.url ? `<a class="lnk" href="${esc(c.url)}" target="_blank" rel="noopener">Ulster Rugby ↗</a>` : ''}</div>${tbl}
+      ${fx.length ? `<div class="ko-d">Coming up</div>${fx.map(row).join('')}` : ''}${res.length ? `<div class="ko-d">Results</div>${res.map(row).join('')}` : ''}${!fx.length && !res.length && !tbl ? '<p class="hint">No games published yet.</p>' : ''}</div>`; }).join('');
+}
+function viewRugby(){
+  if (!NEWS) newsLoad();
+  const sec = V.rg || 'news';
+  return `<div class="cup-head"><div><div class="sec" style="margin:0 0 4px">Rugby</div></div></div>
+    <div class="fx-view rg-main" role="tablist" aria-label="Rugby"><button type="button" data-rg="news" aria-pressed="${sec === 'news'}">News</button><button type="button" data-rg="games" aria-pressed="${sec === 'games'}">Scores</button><button type="button" data-rg="clubs" aria-pressed="${sec === 'clubs'}">Local clubs</button></div>
+    ${!NEWS ? '<div class="empty">Loading…</div>' : sec === 'games' ? rgGames() : sec === 'clubs' ? rgClubs() : rgNews()}
+    ${NEWS && NEWS.updated ? `<p class="hint rg-src">Headlines from BBC Sport, RTÉ and others; scores from ESPN; club rugby from <a href="https://ulsterrugby.sportlomo.com/" target="_blank" rel="noopener">Ulster Rugby</a>. Updated ${esc(agoN(Date.parse(NEWS.updated)))}.</p>` : ''}`;
+}
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-rg], [data-rgn], [data-rgg]'); if (!t || V.tab !== 'rugby') return;
+  if (t.dataset.rg) V.rg = t.dataset.rg; else if (t.dataset.rgn) V.rgN = t.dataset.rgn; else V.rgG = t.dataset.rgg; render(); });
 
 /* inline results for coaches: every fixture in the group, score and tries, saved on leaving the box */
 const cupPair = (x, y) => [cupKey(x), cupKey(y)].sort().join('|');
