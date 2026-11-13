@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = 'd84c169f23';</script>
+<script>window.ERGS_VER = '7e57e14f19';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -20245,6 +20245,656 @@ function cgHome(){
   g.querySelector('.cg-h').onclick = () => { cgOpen = !cgOpen; g.classList.toggle('open', cgOpen); g.querySelector('.cg-h').setAttribute('aria-expanded', cgOpen); try { localStorage.setItem('ergs.coachGrp', cgOpen ? '1' : '0'); } catch(e){} };
   const sc = ul.querySelector('li.mi-scores'); sc ? sc.before(g) : ul.appendChild(g);
 }
+/* =============================== TRAINING DRILLS: a tidy filter bar at the top =============================== */
+// One bar: who the drills are for, search, Filters and Group drill. Level, group, position and skill sit in a Filters panel
+// that opens and closes, and whatever is switched on shows underneath as chips you can tap off.
+(() => {
+  const page = $('#drills .page'); if (!page) return;
+  const st = document.createElement('style'); st.textContent = `
+#drTools{margin:6px 0 10px}
+.drt-top{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.drt-top #drBookBar{display:flex;flex:0 1 auto;margin:0;padding:0;border:0;background:none;gap:8px}
+.drt-top #drBookBar .bk-hint:empty{display:none}
+.drt-top #drBookBar .bk-pick span{white-space:nowrap}
+#drills .dr-err{margin:0 0 10px}
+.drt-top #drBookBar .bk-hint{flex-basis:100%;font-size:13px}
+.drt-q{position:relative;flex:1 1 220px;min-width:0;max-width:440px}
+.drt-q svg{position:absolute;left:11px;top:50%;width:16px;height:16px;transform:translateY(-50%);color:var(--mute);pointer-events:none}
+.drt-q .input{width:100%;max-width:none;padding-left:34px;min-height:40px}
+.drt-btn{display:inline-flex;align-items:center;gap:7px;min-height:40px;padding:0 14px;border-radius:10px;border:1px solid var(--rule);background:var(--panel);color:var(--chalk);font-family:var(--f-cond);font-weight:700;font-size:14px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;white-space:nowrap}
+.drt-btn svg{width:16px;height:16px}
+.drt-btn[aria-expanded="true"]{border-color:var(--gold,#DCC08A);color:var(--gold,#DCC08A)}
+.drt-n{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--gold,#DCC08A);color:#1a1630;font-size:12px;letter-spacing:0}
+.drt-n:empty{display:none}
+#drtGrp{border-style:dashed;border-color:rgba(220,192,138,.55);color:var(--gold,#DCC08A)}
+.drt-panel{margin-top:10px;padding:6px 14px;border:1px solid var(--rule);border-radius:12px;background:var(--panel)}
+.drt-row{display:grid;grid-template-columns:86px 1fr;gap:6px 12px;align-items:start;padding:9px 0;border-top:1px solid var(--rule)}
+.drt-row:first-child{border-top:0}
+.drt-row[hidden]{display:none}
+.drt-l{padding-top:8px;font-family:var(--f-cond);font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.drt-row .call-tabs,.drt-row .dr-filters,.drt-row .tag-pick{margin:0}
+.drt-row .dr-filters .seg{flex-wrap:wrap}
+.drt-row .call-row [data-lt]{min-height:32px;padding:0 12px;font-size:14px}
+.drt-row .call-manage{min-height:32px}
+.drt-row #drClear,.drt-row .dr-pos-l{display:none}
+.drt-row .tag-pick .tag{min-height:30px}
+.drt-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
+.drt-chips:empty{display:none}
+.drt-chip{display:inline-flex;align-items:center;gap:6px;min-height:30px;padding:0 10px 0 12px;border-radius:999px;border:1px solid var(--gold,#DCC08A);background:rgba(220,192,138,.12);color:var(--chalk);font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+.drt-chip i{font-style:normal;opacity:.7}
+.drt-clear{border:0;background:none;color:var(--gold,#DCC08A);font:inherit;font-size:13px;font-weight:700;text-decoration:underline;cursor:pointer;padding:4px}
+#drills #drGroup{display:none}
+#drills .page > .sub{display:none}
+body.dr-player #drtGrp,body.dr-player #drtF,body.dr-player .drt-panel,body.dr-player .drt-chips{display:none!important}
+@media (max-width:600px){
+  .drt-q{flex-basis:100%;max-width:none;order:-1}
+  #drtBook,.drt-top #drBookBar{flex-basis:100%;display:flex}
+  .drt-top #drBookBar .bk-pick{flex:1}.drt-top #drBookBar .bk-pick select{flex:1}
+  .drt-btn{flex:1;justify-content:center}
+  .drt-row{grid-template-columns:1fr;gap:6px}.drt-l{padding-top:0}
+}`;
+  document.head.appendChild(st);
+
+  const box = document.createElement('div'); box.id = 'drTools';
+  box.innerHTML = `<div class="drt-top"><span id="drtBook"></span>
+      <label class="drt-q"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span id="drtQ"></span></label>
+      <button type="button" class="drt-btn" id="drtF" aria-expanded="false" aria-controls="drtPanel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filters <span class="drt-n" id="drtN"></span></button>
+      <button type="button" class="drt-btn" id="drtGrp" title="Pick the players you have, e.g. 1, 2 and 10, and get drills for that group">Group drill</button></div>
+    <div class="drt-panel" id="drtPanel" hidden>
+      <div class="drt-row" data-r="lv"><span class="drt-l">Level</span><div data-slot></div></div>
+      <div class="drt-row" data-r="grp"><span class="drt-l">Who for</span><div data-slot></div></div>
+      <div class="drt-row" data-r="pos"><span class="drt-l">Position</span><div data-slot></div></div>
+      <div class="drt-row" data-r="tags"><span class="drt-l">Skill</span><div data-slot></div></div></div>
+    <div class="drt-chips" id="drtChips"></div>`;
+  const tabs = page.querySelector('.dr-tabs'); (tabs || page.querySelector('.page-head')).after(box);
+  const slot = r => box.querySelector(`[data-r="${r}"] [data-slot]`);
+  let open = false; try { open = localStorage.getItem('ergs.drtOpen') === '1'; } catch(e){}
+  const fBtn = $('#drtF'), panel = $('#drtPanel');
+  const setOpen = v => { open = v; panel.hidden = !v; fBtn.setAttribute('aria-expanded', v); try { localStorage.setItem('ergs.drtOpen', v ? '1' : ''); } catch(e){} };
+  fBtn.onclick = () => setOpen(!open); setOpen(open);
+  $('#drtGrp').onclick = () => { const g = $('#drGroup'); if (g) g.click(); else if (typeof gpOpen === 'function') gpOpen(); };
+
+  // put each piece where it belongs (some are rebuilt by other parts of the app, so this runs after every render)
+  const place = () => {
+    const player = document.body.classList.contains('dr-player');
+    const q = $('#drQ'); if (q && q.parentNode !== $('#drtQ')) $('#drtQ').appendChild(q);
+    const bk = $('#drBookBar'); if (bk && bk.parentNode !== $('#drtBook')) $('#drtBook').appendChild(bk); $('#drtBook').hidden = !bk;
+    const lv = $('#drLvTabs');
+    if (lv){ if (player){ if (lv.parentNode !== page) box.before(lv); } else if (lv.parentNode !== slot('lv')) slot('lv').appendChild(lv); }
+    const f = page.querySelector('.dr-filters') || box.querySelector('.dr-filters'); if (f && f.parentNode !== slot('grp')) slot('grp').appendChild(f);
+    const pos = $('#drPos'); if (pos && pos.parentNode !== slot('pos')) slot('pos').appendChild(pos);
+    box.querySelector('[data-r="pos"]').hidden = !pos;
+    const tp = $('#drTagPick'); if (tp && tp.parentNode !== slot('tags')) slot('tags').appendChild(tp);
+    const s = $('#drState'); if (s && s.previousElementSibling !== box) box.after(s);
+    // the switched-on filters, as chips
+    const chips = [], posName = k => ((typeof POS_LIST !== 'undefined' && POS_LIST.find(p => p[0] === k)) || [k, k])[1];
+    if (DLV.tab) chips.push([DLV.tab === '*mine' ? 'My drills' : DLV.tab, () => { DLV.tab = ''; try { localStorage.setItem('ergs.drTab', ''); } catch(e){} }]);
+    if (DF.grp && DF.grp !== 'any') chips.push([GRP[DF.grp] || DF.grp, () => { DF.grp = 'any'; }]);
+    if (DF.pos) chips.push([posName(DF.pos), () => { DF.pos = ''; }]);
+    [...DF.tags].forEach(t => chips.push([t, () => { DF.tags.delete(t); }]));
+    const n = chips.length; $('#drtN').textContent = n ? n : '';
+    const c = $('#drtChips'); c.innerHTML = '';
+    chips.forEach(([t, off]) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'drt-chip'; b.title = 'Remove this filter'; b.innerHTML = '<span></span><i>✕</i>'; b.firstChild.textContent = t; b.onclick = () => { off(); renderDrills(); }; c.appendChild(b); });
+    if (n > 1 || (n && DF.q)){ const x = document.createElement('button'); x.type = 'button'; x.className = 'drt-clear'; x.textContent = 'Clear all';
+      x.onclick = () => { DLV.tab = ''; DF.grp = 'any'; DF.pos = ''; DF.tags.clear(); DF.q = ''; const qi = $('#drQ'); if (qi) qi.value = ''; try { localStorage.setItem('ergs.drTab', ''); } catch(e){} renderDrills(); }; c.appendChild(x); }
+  };
+  const rd = renderDrills; renderDrills = function(){ const r = rd.apply(this, arguments); try { place(); } catch(e){} return r; };
+  place();
+})();
+/* =============================== RUGBY LAWS: the main laws for players, each with what's illegal and what's legal, animated =============================== */
+// Navy attack left to right. Each law has two animations: "Not allowed" (what the referee pings) and "Allowed" (how to do it right).
+// At the end of each animation the referee's call shows on the picture. Tackle height is the IRFU's: below the sternum.
+const LW = {from:'library', cat:'', q:'', side:{}, view:'watch'};
+const NT_ = (s, x, y, c) => ({t:'text', c:c || '#F6F3EA', pts:[[x, y]], s});   // a label for one step only
+const RED = '#EF4B45', WHT = '#F6F3EA', GLD = '#DCC08A', BLU = '#5BC0FF';
+const LAW_CATS = [['handling', 'Passing and handling'], ['tackle', 'Tackle, ruck and maul'], ['offside', 'Offside'], ['set', 'Scrum and lineout'], ['kick', 'Kicking'], ['score', 'Tries and touch'], ['pen', 'Penalties and advantage']];
+// sc spreads a tight scene out (players are drawn about 2 m across, so a ruck needs room)
+const lawScale = (o, k) => { if (!k || k === 1) return o; const q = clone(o), P = v => [Math.round(v[0]*k*10)/10, Math.round(v[1]*k*10)/10], M = m => { for (const id in m) m[id] = P(m[id]); };
+  ['A', 'B'].forEach(t => { if (Array.isArray(q[t])) q[t] = q[t].map(P); else if (q[t]) M(q[t]); });
+  if (Array.isArray(q.ball)) q.ball = P(q.ball);
+  (q.draw0 || []).forEach(d => { d.pts = d.pts.map(P); });
+  (q.steps || []).forEach(st => { if (st.mv) M(st.mv); if (st.rel) M(st.rel); if (Array.isArray(st.ball)) st.ball = P(st.ball); });
+  return q; };
+const lawP = (title, o) => { const q = lawScale(o, o.sc); (q.steps || []).forEach(st => { st.dur = (st.dur || 1)*1.3; }); return buildDrill(Object.assign({title, noFwd:true}, q)); };
+const LAWS = () => [
+  /* ---------- passing and handling ---------- */
+  {id:'fwd-pass', cat:'handling', t:'Forward pass', law:'Law 11', rule:'The ball must leave your hands going sideways or backwards. If it goes towards the opposition’s try line, it’s a forward pass.',
+   no:{ref:'Scrum to the other team', why:'12 was in front of 10 when the ball came out of 10’s hands, so the pass went forward.',
+     p:lawP('Forward pass', {A:{10:[-6,0], 12:[-8,5]}, B:{10:[4,0], 12:[4,5]}, ball:'A10', cap0:'10 has the ball. 12 runs ahead of him',
+       steps:[{dur:1, cap:'12 gets in front of 10', mv:{A10:[-2,0], A12:[0.5,5]}},
+              {dur:0.8, cap:'10 passes: the ball goes forward', ball:'A12', mv:{A10:[-1.4,0], A12:[1.6,5.2]}},
+              {dur:0.9, cap:'Forward pass. The referee stops play', mv:{A12:[2.6,5.3]}}]})},
+   ok:{ref:'Play on', why:'12 stays behind 10, so the ball goes backwards out of the hands. Hold your depth and run onto it.',
+     p:lawP('Flat pass', {A:{10:[-6,0], 12:[-8,5]}, B:{10:[4,0], 12:[4,5]}, ball:'A10', cap0:'10 has the ball. 12 stays deep',
+       steps:[{dur:1, cap:'12 holds his depth behind 10', mv:{A10:[-2,0], A12:[-4,5]}},
+              {dur:0.8, cap:'10 passes back to 12', ball:'A12', mv:{A10:[-1.4,0], A12:[-2.6,5.2]}},
+              {dur:1, cap:'12 runs onto it at pace', mv:{A12:[3,5.6], B12:[2.4,6.6]}}]})}},
+  {id:'knock-on', cat:'handling', t:'Knock-on', law:'Law 11', rule:'If you lose the ball and it goes forward and touches the ground or another player before you catch it again, it’s a knock-on.',
+   no:{ref:'Scrum to the other team', why:'The ball came out of 12’s hands forwards and hit the ground. A deliberate knock-on is a penalty.',
+     p:lawP('Knock-on', {sc:1.5, A:{12:[-8,0]}, B:{12:[4,0.5]}, ball:'A12', cap0:'12 carries into contact',
+       steps:[{dur:1, cap:'12 runs at the defender', mv:{A12:[-1.5,0], B12:[0.6,0.4]}},
+              {dur:0.6, cap:'Contact. The ball comes loose', ball:[1.2,-1.6], mv:{A12:[-0.8,0], B12:[0,0.4]}},
+              {dur:0.7, cap:'It goes forward and hits the ground: knock-on', ball:[2.6,-2.6]}]})},
+   ok:{ref:'Play on', why:'The ball went forward but 12 caught it again before it touched the ground or anyone else, so it’s not a knock-on. Knocking it backwards is fine too.',
+     p:lawP('Regather', {sc:1.5, A:{12:[-8,0]}, B:{12:[5,3]}, ball:'A12', cap0:'12 fumbles the catch',
+       steps:[{dur:1, cap:'12 runs onto the ball', mv:{A12:[-2,0]}},
+              {dur:0.5, cap:'It pops up off his hands', ball:[-0.6,0.2], mv:{A12:[-1.6,0]}},
+              {dur:0.5, cap:'He catches it again before it lands', ball:'A12', mv:{A12:[-0.4,0.2]}},
+              {dur:0.9, cap:'No knock-on. Play on', mv:{A12:[3,1]}}]})}},
+  {id:'obstruction', cat:'handling', t:'Obstruction (blocking)', law:'Law 9', rule:'You can’t block a defender, or run in front of your own ball carrier so he can hide behind you.',
+   no:{ref:'Penalty to the other team', why:'4 ran into the defender’s path and stopped him reaching the ball carrier.',
+     p:lawP('Obstruction', {sc:1.5, A:{10:[-7,0], 4:[-6,2]}, B:{7:[3,1]}, ball:'A10', cap0:'10 has the ball. 4 is beside him',
+       steps:[{dur:1, cap:'4 runs across in front of 10', mv:{A10:[-3,0.6], A4:[-0.5,0.8], B7:[1.2,0.8]}},
+              {dur:0.9, cap:'The defender is blocked: he can’t get to 10', mv:{A10:[0.8,0.8], A4:[0.6,0.8], B7:[1.6,0.8]}},
+              {dur:0.8, cap:'Obstruction. Penalty', mv:{A10:[4,0.6]}}]})},
+   ok:{ref:'Play on', why:'4 runs a decoy line into space and never gets between the defender and 10. The defender has a clear path to make his choice.',
+     p:lawP('Decoy line', {sc:1.5, A:{10:[-7,0], 4:[-6,-3]}, B:{7:[3,1]}, ball:'A10', cap0:'10 has the ball. 4 runs a decoy line',
+       steps:[{dur:1, cap:'4 runs a hard line, away from the defender', mv:{A10:[-3,0.6], A4:[0,-3.4], B7:[1.4,0.8]}},
+              {dur:0.9, cap:'The defender still has a clear path to 10', mv:{A10:[-0.6,1.6], A4:[3,-3.6], B7:[0.4,1.2]}}]})}},
+
+  /* ---------- tackle and ruck ---------- */
+  {id:'tackle-height', cat:'tackle', t:'Tackle height', law:'Law 9 (IRFU)', rule:'In Irish schools and club rugby the tackle must be below the line of the sternum (the bottom of the breastbone). Use your arms: no shoulder charges.',
+   no:{ref:'Penalty, and maybe a card', why:'The defender stayed upright and hit the ball carrier high, above the sternum. Any contact with the head is a card.',
+     p:lawP('High tackle', {sc:2, A:{8:[-7,0]}, B:{6:[4,0.4]}, ball:'A8', cap0:'8 carries. 6 comes up to tackle',
+       steps:[{dur:1, cap:'6 stays tall and doesn’t bend', mv:{A8:[-1.4,0], B6:[0.6,0.2]}},
+              {dur:0.6, cap:'He hits 8 high, around the chest and neck', mv:{A8:[-0.6,0], B6:[0,0.1]}},
+              {dur:0.8, cap:'High tackle: penalty', down:['A8'], mv:{A8:[-1.2,0], B6:[-0.4,0.3]}}]})},
+   ok:{ref:'Play on', why:'6 bends at the waist, gets low, puts his head to the side of 8’s body (not in front), wraps his arms and drives through below the sternum.',
+     p:lawP('Low tackle', {sc:2, A:{8:[-7,0]}, B:{6:[4,0.4]}, ball:'A8', cap0:'8 carries. 6 comes up to tackle',
+       steps:[{dur:1, cap:'6 bends low, eyes on the hips', mv:{A8:[-1.4,0], B6:[0.6,0.6]}},
+              {dur:0.6, cap:'Head to the side, arms wrap, below the sternum', mv:{A8:[-0.6,0], B6:[0,0.5]}},
+              {dur:0.8, cap:'Good tackle. Both players go to ground', down:['A8', 'B6'], mv:{A8:[0,0], B6:[0.6,0.7]}}]})}},
+  {id:'release', cat:'tackle', t:'Tackled player: release the ball', law:'Law 14', rule:'Once you’re tackled to the ground you must place, pass or release the ball straight away. You can’t hold on to it.',
+   no:{ref:'Penalty: holding on', why:'8 was tackled, held the ball on the ground and the defender was on his feet with his hands on it.',
+     p:lawP('Holding on', {sc:2, A:{8:[0,0], 9:[-6,3]}, B:{6:[0.8,0.6], 7:[6,-2]}, ball:'A8', pose0:{}, cap0:'8 has been tackled',
+       steps:[{dur:0.8, cap:'8 holds the ball on the ground', down:['A8', 'B6'], mv:{B7:[2.6,-0.6]}},
+              {dur:0.8, cap:'7 arrives on his feet and gets his hands on the ball', down:['A8', 'B6'], mv:{B7:[1.1,-0.2]}},
+              {dur:0.8, cap:'8 still won’t let go: holding on, penalty', down:['A8', 'B6'], mv:{A9:[-3,2]}}]})},
+   ok:{ref:'Play on', why:'8 places the ball back towards his own team at arm’s length, straight away. His support arrives to protect it.',
+     p:lawP('Place the ball', {sc:2, A:{8:[0,0], 9:[-6,3], 4:[-6,-2]}, B:{6:[0.8,0.6], 7:[6,-2]}, ball:'A8', cap0:'8 has been tackled',
+       steps:[{dur:0.8, cap:'8 places the ball back, long', down:['A8', 'B6'], ball:[-1.3,0.1], mv:{B7:[3,-0.6], A4:[-2.6,-0.6]}},
+              {dur:0.8, cap:'4 arrives and drives over the ball', down:['A8'], mv:{A4:[0.4,0], B7:[1.4,-0.2], B6:[1.6,1.6]}},
+              {dur:0.8, cap:'9 picks it from the base', down:['A8'], ball:'A9', mv:{A9:[-2.2,0.4]}}]})}},
+  {id:'roll-away', cat:'tackle', t:'Tackler: roll away', law:'Law 14', rule:'After a tackle the tackler must let go of the ball carrier and roll away or get up. He can only play the ball again once he’s back on his feet, from his own side.',
+   no:{ref:'Penalty: not rolling away', why:'6 stayed lying on the attacking side of the tackle and stopped 9 getting the ball.',
+     p:lawP('Not rolling away', {sc:2, A:{8:[0,0], 9:[-6,3]}, B:{6:[0.6,0.6]}, ball:'A8', cap0:'6 makes the tackle',
+       steps:[{dur:0.8, cap:'8 places the ball back', down:['A8', 'B6'], ball:[-1.3,0.1]},
+              {dur:0.8, cap:'6 rolls the wrong way, on top of the ball', down:['A8', 'B6'], mv:{B6:[-1.1,0.6], A9:[-3,1.4]}},
+              {dur:0.8, cap:'9 can’t get the ball. Penalty', down:['A8', 'B6'], mv:{A9:[-2.2,1]}}]})},
+   ok:{ref:'Play on', why:'6 lets go, rolls away towards his own side, gets back on his feet and only then competes, from his side of the tackle.',
+     p:lawP('Roll away', {sc:2, A:{8:[0,0], 9:[-6,3]}, B:{6:[0.6,0.6]}, ball:'A8', cap0:'6 makes the tackle',
+       steps:[{dur:0.8, cap:'6 lets go and rolls away', down:['A8', 'B6'], ball:[-1.3,0.1], mv:{B6:[1.4,1.6]}},
+              {dur:0.8, cap:'Back on his feet, on his own side', down:['A8'], mv:{B6:[1.8,1.2], A9:[-3,1]}},
+              {dur:0.8, cap:'9 clears the ball', down:['A8'], ball:'A9', mv:{A9:[-2.2,0.4]}}]})}},
+  {id:'jackal', cat:'tackle', t:'Jackal: through the gate, on your feet', law:'Law 14 and 15', rule:'To steal the ball at a tackle you must be on your feet, come in from your own side (through the “gate”), and get there before a ruck forms.',
+   no:{ref:'Penalty to the other team', why:'7 came in from the side, not through the gate, and went off his feet over the ball.',
+     p:lawP('Side entry', {sc:2, A:{8:[0,0], 4:[-7,-3]}, B:{6:[1.2,1.2], 7:[2,-7]}, ball:[-1.3,0.1], draw0:[Z_(0.8,-1.4,3.8,1.4,'#3FD18A'), T_('THE GATE',2.3,-2.2,'#3FD18A')], cap0:'8 is tackled and places the ball',
+       steps:[{dur:0.9, cap:'7 runs round the side of the tackle', down:['A8', 'B6'], mv:{B7:[-0.6,-2.6], A4:[-4,-1.2]}},
+              {dur:0.8, cap:'He comes in from the side and dives over the ball', down:['A8', 'B6', 'B7'], mv:{B7:[-1,-0.8]}},
+              {dur:0.8, cap:'Side entry, off his feet: penalty', down:['A8', 'B6', 'B7']}]})},
+   ok:{ref:'Penalty to the jackal’s team (holding on)', why:'7 comes straight through the gate from behind the tackle, stays on his feet with his hips above his shoulders, and gets his hands on the ball before any attacker binds on.',
+     p:lawP('Through the gate', {sc:2, A:{8:[0,0], 4:[-7,-3]}, B:{6:[0.6,1.6], 7:[6,-3]}, ball:'A8', draw0:[Z_(0.8,-1.4,3.8,1.4,'#3FD18A'), T_('THE GATE',2.3,-2.2,'#3FD18A')], cap0:'8 is tackled',
+       steps:[{dur:0.9, cap:'7 lines up behind the tackle', down:['A8', 'B6'], mv:{B7:[3.2,0], A4:[-4,-1.2], B6:[1.4,1.8]}},
+              {dur:0.8, cap:'Through the gate, on his feet, hands on the ball', down:['A8'], mv:{B7:[0.9,0], B6:[1.8,1.4]}},
+              {dur:0.8, cap:'8 holds on: the jackal wins the penalty', down:['A8'], mv:{A4:[-2.6,-0.6]}}]})}},
+  {id:'hands-ruck', cat:'tackle', t:'Hands in the ruck', law:'Law 15', rule:'Once a ruck forms (players from both teams on their feet, over the ball) nobody can use their hands. Win the ball with your feet, or drive the other team off it.',
+   no:{ref:'Penalty to the other team', why:'The ruck had formed (4 and 7 bound over the ball), then 7 reached in and picked the ball up with his hands.',
+     p:lawP('Hands in the ruck', {sc:2, A:{8:[0,0], 4:[-0.9,0], 9:[-4,2]}, B:{7:[0.9,0], 6:[3,2]}, ball:[-0.4,0.6], draw0:[T_('RUCK',0,-2.4)], cap0:'Ruck: 4 and 7 are bound over the ball',
+       steps:[{dur:0.9, cap:'7 reaches in and grabs the ball', down:['A8'], ball:'B7', mv:{A9:[-2.4,1.4]}},
+              {dur:0.9, cap:'Hands in the ruck: penalty', down:['A8'], mv:{B7:[1.6,0.6]}}]})},
+   ok:{ref:'Play on', why:'4 drives 7 back off the ball with his body. The ball stays at the base for 9, who is allowed to use his hands to pass it.',
+     p:lawP('Ruck with your body', {sc:2, A:{8:[0,0], 4:[-0.9,0], 9:[-4,2]}, B:{7:[0.9,0], 6:[3,2]}, ball:[-0.4,0.6], draw0:[T_('RUCK',0,-2.4)], cap0:'Ruck: 4 and 7 are bound over the ball',
+       steps:[{dur:0.9, cap:'4 drives low and pushes 7 back over the ball', down:['A8'], mv:{A4:[0.6,0], B7:[2,0]}},
+              {dur:0.8, cap:'The ball is at the base. 9 can pick it up', down:['A8'], ball:'A9', mv:{A9:[-1,0.8]}},
+              {dur:0.8, cap:'9 passes away', down:['A8'], ball:[-5,4]}]})}},
+
+  /* ---------- offside ---------- */
+  {id:'ruck-offside', cat:'offside', t:'Offside at the ruck', law:'Law 15', rule:'At a ruck or maul, players not in it must stay behind the back foot of their team’s last player in it until the ball is out.',
+   no:{ref:'Penalty to the other team', why:'6 was standing in front of the offside line (the back foot of his team in the ruck) and tackled 9 before the ball was out.',
+     p:lawP('Offside at the ruck', {sc:1.4, A:{8:[0,0], 4:[-0.9,0], 9:[-2.6,1.2], 10:[-7,5]}, B:{7:[0.9,0], 6:[0.6,2.8], 10:[4,6]}, ball:[-0.4,0.6], draw0:[L_(1.8,-4,1.8,9,RED), T_('OFFSIDE LINE',1.8,-4.8,RED)], cap0:'Ruck. 6 is standing in front of the line',
+       steps:[{dur:0.8, cap:'9 picks up the ball', down:['A8'], ball:'A9', mv:{A9:[-1.4,1]}},
+              {dur:0.6, cap:'6 was already offside and tackles him', mv:{B6:[-1.2,1.2]}, down:['A8']},
+              {dur:0.8, cap:'Offside: penalty', down:['A8', 'A9', 'B6']}]})},
+   ok:{ref:'Play on', why:'All the defenders not in the ruck stay behind their offside line until 9 has the ball out, then they can come up.',
+     p:lawP('Onside at the ruck', {sc:1.4, A:{8:[0,0], 4:[-0.9,0], 9:[-2.6,1.2], 10:[-7,5]}, B:{7:[0.9,0], 6:[2.6,2.8], 10:[4,6]}, ball:[-0.4,0.6], draw0:[L_(1.8,-4,1.8,9,RED), T_('OFFSIDE LINE',1.8,-4.8,RED)], cap0:'Ruck. 6 stays behind the line',
+       steps:[{dur:0.8, cap:'9 picks up the ball. 6 waits', down:['A8'], ball:'A9', mv:{A9:[-1.4,1]}},
+              {dur:0.7, cap:'The ball is out: now the defence can go', down:['A8'], ball:'A10', mv:{A10:[-4.6,5], B6:[0.6,3.4], B10:[1,5.8]}}]})}},
+  {id:'kick-offside', cat:'offside', t:'Offside when your team kicks', law:'Law 10', rule:'When a teammate kicks, anyone in front of him is offside. You can’t chase or play the ball until the kicker (or someone who was behind him) runs past you.',
+   no:{ref:'Penalty to the other team', why:'14 was in front of 10 when he kicked, and chased and played the ball without being put onside.',
+     p:lawP('Offside from a kick', {A:{10:[-8,0], 14:[2,6]}, B:{15:[14,1]}, ball:'A10', draw0:[L_(-8,-4,-8,9,RED), T_('KICKER',-8,-4.8,RED)], cap0:'10 kicks. 14 is in front of him',
+       steps:[{dur:1.2, cap:'10 kicks ahead', kick:true, ball:[12,3], mv:{A10:[-6,0], A14:[6,5]}},
+              {dur:0.8, cap:'14 chases straight away and catches it', ball:'A14', mv:{A14:[11.6,3.4], B15:[13.4,2]}},
+              {dur:0.6, cap:'Offside: penalty where he played it'}]})},
+   ok:{ref:'Play on', why:'14 stops and waits. 10 runs past him after the kick, which puts him onside, and now he can chase.',
+     p:lawP('Put onside', {A:{10:[-8,0], 14:[2,6]}, B:{15:[16,1]}, ball:'A10', draw0:[L_(-8,-4,-8,9,RED), T_('KICKER',-8,-4.8,RED)], cap0:'10 kicks. 14 is in front of him',
+       steps:[{dur:1.4, cap:'10 kicks ahead. 14 stands still and waits', kick:true, ball:[15,3], mv:{A10:[-2,0.8]}},
+              {dur:0.9, cap:'10 runs past 14: now he’s onside', mv:{A10:[3.4,2.4]}},
+              {dur:0.9, cap:'14 chases and puts pressure on the catcher', mv:{A14:[12,4], A10:[8,2.4], B15:[15,2.6]}, ball:'B15'}]})}},
+  {id:'scrum-offside', cat:'offside', t:'Offside at the scrum (backs)', law:'Law 19', rule:'At a scrum, the backs (everyone not in the scrum except the scrum-halves) must stay 5 m behind the back foot of their scrum until the ball is out.',
+   no:{ref:'Penalty to the other team', why:'10 crept up inside the 5 m line before the ball came out and tackled the opposition 10.',
+     p:lawP('Backs offside at a scrum', {sc:1.5, A:{8:[-2.2,0], 9:[-1.4,2.2], 10:[-9,5]}, B:{8:[2.2,0], 10:[4.8,5]}, ball:'A9', draw0:[Z_(-1.2,-2,1.2,2,WHT), T_('SCRUM',0,-2.8,WHT), L_(7.2,-3,7.2,9,RED), T_('5 M LINE',7.2,-3.8,RED)], cap0:'Scrum. Their 10 is only 2.5 m back',
+       steps:[{dur:0.8, cap:'The ball comes out to 9', mv:{A9:[-3,2]}},
+              {dur:0.6, cap:'9 passes to 10', ball:'A10', mv:{A10:[-7,5.4], B10:[-3,5.2]}},
+              {dur:0.6, cap:'Their 10 was offside and smashes him: penalty', down:['A10', 'B10'], mv:{A10:[-6.4,5.4], B10:[-5.6,5.4]}}]})},
+   ok:{ref:'Play on', why:'Their 10 stays behind his 5 m line until the ball is out of the scrum, then comes up.',
+     p:lawP('Backs onside at a scrum', {sc:1.5, A:{8:[-2.2,0], 9:[-1.4,2.2], 10:[-9,5]}, B:{8:[2.2,0], 10:[7.8,5]}, ball:'A9', draw0:[Z_(-1.2,-2,1.2,2,WHT), T_('SCRUM',0,-2.8,WHT), L_(7.2,-3,7.2,9,RED), T_('5 M LINE',7.2,-3.8,RED)], cap0:'Scrum. Their 10 is 5 m back',
+       steps:[{dur:0.8, cap:'He waits until the ball is out', mv:{A9:[-3,2]}},
+              {dur:0.8, cap:'Ball to 10: now he can come up', ball:'A10', mv:{A10:[-6,5.4], B10:[2,5.2]}}]})}},
+
+  /* ---------- scrum and lineout ---------- */
+  {id:'lineout-straight', cat:'set', t:'Lineout: throw it straight', law:'Law 18', rule:'The throw must go straight down the middle, along the line of touch between the two lines of players, and travel at least 5 m.',
+   no:{ref:'The other team chooses: their lineout or a scrum', why:'2 threw it in towards his own jumpers instead of down the middle: not straight.',
+     p:lawP('Not straight', {A:{2:[0,-35.5], 4:[-1,-29], 5:[-1,-25]}, B:{4:[1,-29], 5:[1,-25]}, ball:'A2', draw0:[L_(-4,-34,4,-34,WHT), L_(0,-33,0,-21,GLD), T_('MIDDLE',0,-20.2)], cap0:'Lineout. 2 throws in',
+       steps:[{dur:0.9, cap:'The throw drifts to his own side', ball:[-1.6,-29], kick:true},
+              {dur:0.6, cap:'4 catches it, but it wasn’t straight', ball:'A4', mv:{A4:[-0.9,-29]}},
+              {dur:0.6, cap:'Not straight'}]})},
+   ok:{ref:'Play on', why:'The ball goes straight along the middle. 4 jumps across the line to catch it, which is allowed.',
+     p:lawP('Straight throw', {A:{2:[0,-35.5], 4:[-1,-29], 5:[-1,-25]}, B:{4:[1,-29], 5:[1,-25]}, ball:'A2', draw0:[L_(-4,-34,4,-34,WHT), L_(0,-33,0,-21,GLD), T_('MIDDLE',0,-20.2)], cap0:'Lineout. 2 throws in',
+       steps:[{dur:0.9, cap:'Straight down the middle', ball:[0,-29], kick:true, mv:{A4:[-0.5,-29], B4:[0.6,-29]}},
+              {dur:0.6, cap:'4 wins it at the top of the jump', ball:'A4'},
+              {dur:0.8, cap:'Down to 9: play on', ball:[-3,-27]}]})}},
+  {id:'scrum-feed', cat:'set', t:'Scrum: binding and pushing straight', law:'Law 19', rule:'Front rows bind properly and push straight. Wheeling on purpose, collapsing, standing up or pulling down are penalties. Age-grade scrums have their own limits, so listen to your referee.',
+   no:{ref:'Penalty to the other team', why:'Their front row turned in and pulled the scrum down instead of pushing straight.',
+     p:lawP('Collapsed scrum', {sc:2, A:{1:[-1,-1.2], 2:[-1,0], 3:[-1,1.2], 9:[-0.6,2.6]}, B:{1:[1,1.2], 2:[1,0], 3:[1,-1.2]}, ball:'A9', draw0:[T_('SCRUM',0,-3)], cap0:'Crouch, bind, set',
+       steps:[{dur:0.8, cap:'Their 3 angles in and drops his bind', mv:{B3:[0.6,-0.6], B2:[1,0.4]}},
+              {dur:0.7, cap:'The scrum goes down', down:['A1', 'B3', 'B2'], mv:{A1:[-0.4,-0.8]}},
+              {dur:0.6, cap:'Collapsing: penalty', down:['A1', 'B3', 'B2']}]})},
+   ok:{ref:'Play on', why:'Both front rows bind, stay square and push straight. 9 feeds and the hooker strikes for it.',
+     p:lawP('Straight scrum', {sc:2, A:{1:[-1,-1.2], 2:[-1,0], 3:[-1,1.2], 9:[-0.6,2.6]}, B:{1:[1,1.2], 2:[1,0], 3:[1,-1.2]}, ball:'A9', draw0:[T_('SCRUM',0,-3)], cap0:'Crouch, bind, set',
+       steps:[{dur:0.8, cap:'9 feeds the ball in', ball:[0,0.4]},
+              {dur:0.8, cap:'Square and straight: the push goes forward', ball:[-2,0], rel:{A1:[0.3,0], A2:[0.3,0], A3:[0.3,0], B1:[0.3,0], B2:[0.3,0], B3:[0.3,0]}},
+              {dur:0.7, cap:'Ball out the back to 9', ball:'A9', mv:{A9:[-2.6,1.2]}}]})}},
+
+  /* ---------- kicking ---------- */
+  {id:'kickoff-10', cat:'kick', t:'Kick-off must go 10 m', law:'Law 12', rule:'A kick-off (or restart from halfway) must be a drop kick that reaches the other team’s 10 m line and lands in the field of play.',
+   no:{ref:'The other team chooses: kick again or a scrum on halfway', why:'The kick landed short of the 10 m line and nobody from the other team touched it.',
+     p:lawP('Short kick-off', {A:{10:[-1,0], 7:[-4,6]}, B:{4:[16,5]}, ball:'A10', draw0:[L_(0,-8,0,12,WHT), T_('HALFWAY',0,-8.8,WHT), L_(10,-8,10,12,GLD), T_('10 M',10,-8.8)], cap0:'Kick-off',
+       steps:[{dur:1.2, cap:'The kick only goes 7 m', kick:true, ball:[7,5], mv:{A7:[4,5.6]}},
+              {dur:0.7, cap:'Short of the 10 m line: not 10', mv:{B4:[12,5]}}]})},
+   ok:{ref:'Play on', why:'The ball goes past the 10 m line, so the chasers can compete for it.',
+     p:lawP('Good kick-off', {A:{10:[-1,0], 7:[-4,6]}, B:{4:[16,5]}, ball:'A10', draw0:[L_(0,-8,0,12,WHT), T_('HALFWAY',0,-8.8,WHT), L_(10,-8,10,12,GLD), T_('10 M',10,-8.8)], cap0:'Kick-off',
+       steps:[{dur:1.3, cap:'The kick goes 13 m, past the 10 m line', kick:true, ball:[13,5], mv:{A7:[10,5.6], B4:[14,5]}},
+              {dur:0.6, cap:'7 competes for it in the air', ball:'A7', mv:{A7:[12.6,5.2]}}]})}},
+  {id:'mark', cat:'kick', t:'Calling a mark', law:'Law 17', rule:'Catch a kick cleanly on the full, with a foot on or behind your own 22 m line, and shout “Mark!” to get a free kick.',
+   no:{ref:'No mark: play on', why:'15 was in front of his own 22 m line when he caught it, so a mark can’t be called. He gets tackled.',
+     p:lawP('No mark', {A:{15:[-12,2]}, B:{10:[14,0], 13:[11,5]}, ball:'B10', draw0:[L_(-6,-8,-6,12,WHT), T_('OUR 22',-6,-8.8,WHT)], cap0:'The other team kicks long',
+       steps:[{dur:1.3, cap:'15 catches it in front of his 22', kick:true, ball:'A15', mv:{A15:[-1,2], B13:[2,4]}},
+              {dur:0.6, cap:'He shouts “Mark!” but it doesn’t count', mv:{B13:[-0.2,2.6]}},
+              {dur:0.6, cap:'He gets tackled', down:['A15', 'B13']}]})},
+   ok:{ref:'Free kick to the catcher’s team', why:'15 catches it cleanly on the full behind his own 22 m line and shouts “Mark!”. Play stops and he gets a free kick.',
+     p:lawP('Mark', {A:{15:[-12,2]}, B:{10:[14,0], 13:[11,5]}, ball:'B10', draw0:[L_(-6,-8,-6,12,WHT), T_('OUR 22',-6,-8.8,WHT)], cap0:'The other team kicks long',
+       steps:[{dur:1.4, cap:'15 catches it behind his 22 and shouts “Mark!”', kick:true, ball:'A15', mv:{A15:[-9,2], B13:[0,4]}},
+              {dur:0.6, cap:'The chasers have to stop. Free kick'}]})}},
+
+  /* ---------- tries and touch ---------- */
+  {id:'try', cat:'score', t:'Scoring a try', law:'Law 8 and 21', rule:'Ground the ball on or over the try line by pressing it down with your hand, arm or the front of your body. If you’re tackled short you can reach, but you can’t crawl or bounce forward.',
+   no:{ref:'No try: penalty for a double movement', why:'14 was tackled short, then crawled and bounced forward to get the ball over: a double movement.',
+     p:lawP('Double movement', {A:{14:[-6,2]}, B:{11:[2,4]}, ball:'A14', draw0:[L_(1,-6,1,10,WHT), T_('TRY LINE',1,-6.8,WHT)], cap0:'14 goes for the line',
+       steps:[{dur:0.9, cap:'Tackled 1.5 m short', mv:{A14:[-1.5,2], B11:[-1,2.8]}},
+              {dur:0.6, cap:'On the ground', down:['A14', 'B11']},
+              {dur:0.9, cap:'He wriggles forward to get over the line', down:['A14', 'B11'], mv:{A14:[1.5,2]}},
+              {dur:0.5, cap:'Double movement: no try', down:['A14', 'B11']}]})},
+   ok:{ref:'Try: 5 points', why:'14 is tackled right at the line and reaches out in one movement to press the ball down on the try line. The line counts as in-goal.',
+     p:lawP('Try', {A:{14:[-6,2]}, B:{11:[2,4]}, ball:'A14', draw0:[L_(1,-6,1,10,WHT), T_('TRY LINE',1,-6.8,WHT)], cap0:'14 goes for the line',
+       steps:[{dur:0.9, cap:'Tackled right at the line', mv:{A14:[0,2], B11:[0.4,2.8]}},
+              {dur:0.6, cap:'He reaches out and presses the ball down on the line', down:['A14', 'B11'], ball:[1,2]},
+              {dur:0.6, cap:'Try!', down:['A14', 'B11']}]})}},
+  {id:'touch', cat:'score', t:'In touch', law:'Law 18', rule:'The touchline is out. If the ball carrier steps on or over the touchline, or the ball touches it, the ball is in touch.',
+   no:{ref:'Lineout to the other team', why:'11 put his foot on the touchline while holding the ball. The line itself is out.',
+     p:lawP('In touch', {A:{11:[-8,-30]}, B:{14:[2,-27]}, ball:'A11', draw0:[L_(-12,-34,8,-34,WHT), T_('TOUCHLINE',-9,-35.4,WHT)], cap0:'11 runs down the wing',
+       steps:[{dur:1, cap:'14 pushes him towards the touchline', mv:{A11:[-3,-32], B14:[-1.6,-30]}},
+              {dur:0.8, cap:'His foot lands on the line', mv:{A11:[0,-34], B14:[0,-32]}},
+              {dur:0.5, cap:'In touch: lineout to the other team'}]})},
+   ok:{ref:'Play on', why:'11 stays inside the line (or passes the ball back in before his foot lands in touch). The ball stays in play.',
+     p:lawP('Stay in', {A:{11:[-8,-30], 13:[-10,-23]}, B:{14:[2,-27]}, ball:'A11', draw0:[L_(-12,-34,8,-34,WHT), T_('TOUCHLINE',-9,-35.4,WHT)], cap0:'11 runs down the wing',
+       steps:[{dur:1, cap:'14 pushes him towards the touchline', mv:{A11:[-3,-32], B14:[-1.6,-30], A13:[-5,-26]}},
+              {dur:0.6, cap:'Feet still inside, he passes back inside', ball:'A13', mv:{A11:[-1.8,-33.2], A13:[-3.6,-26.4]}},
+              {dur:0.9, cap:'Still in play', mv:{A13:[3,-25.6]}}]})}},
+  /* ---------- more: ball on the ground, maul, penalties and advantage ---------- */
+  {id:'ground-ball', cat:'tackle', t:'Ball on the ground (no tackle)', law:'Law 13', rule:'If you go to ground to gather a loose ball and nobody tackles you, you must get up, pass or let go of it straight away. You can’t lie on it.',
+   no:{ref:'Penalty to the other team', why:'12 dived on the loose ball and then lay on it, stopping the other team playing it.',
+     p:lawP('Lying on the ball', {sc:1.5, A:{12:[-6,1]}, B:{7:[5,-1]}, ball:[0,0], cap0:'A loose ball',
+       steps:[{dur:0.8, cap:'12 dives on it', down:['A12'], ball:'A12', mv:{A12:[0,0], B7:[2.4,-0.6]}},
+              {dur:0.8, cap:'He stays down and holds it', down:['A12'], mv:{B7:[1,-0.2]}},
+              {dur:0.6, cap:'Lying on the ball: penalty', down:['A12']}]})},
+   ok:{ref:'Play on', why:'12 gathers the ball on the ground and gets straight back up on his feet with it (or pops it to a teammate).',
+     p:lawP('Up and away', {sc:1.5, A:{12:[-6,1], 13:[-7,5]}, B:{7:[5,-1]}, ball:[0,0], cap0:'A loose ball',
+       steps:[{dur:0.8, cap:'12 dives on it', down:['A12'], ball:'A12', mv:{A12:[0,0], B7:[2.4,-0.6], A13:[-3,4]}},
+              {dur:0.6, cap:'Straight back up', mv:{A12:[-0.4,0.6]}},
+              {dur:0.7, cap:'Pops it to 13: play on', ball:'A13', mv:{A13:[-1.6,3.6]}}]})}},
+  {id:'maul', cat:'tackle', t:'Maul: join from behind', law:'Law 16', rule:'A maul is the ball carrier held up by an opponent with a teammate bound on, all on their feet. Join it from behind the last player of your team, bound on. Never collapse it or join from the side.',
+   no:{ref:'Penalty to the other team', why:'6 came in from the side of the maul instead of from behind his own last player, and pulled it down.',
+     p:lawP('Side entry at a maul', {sc:2, A:{4:[0,0], 5:[-1,0.6], 6:[-1,-0.6], 2:[-2,0]}, B:{4:[1,0], 5:[2,0.4], 6:[0,-6]}, ball:'A4', draw0:[T_('MAUL',0,-2.4)], cap0:'Maul: ERGS drive forward',
+       steps:[{dur:0.9, cap:'Their 6 runs round the side', rel:{A4:[0.4,0], A5:[0.4,0], A6:[0.4,0], A2:[0.4,0], B4:[0.4,0], B5:[0.4,0]}, mv:{B6:[0.4,-2]}},
+              {dur:0.8, cap:'He joins from the side and pulls it down', mv:{B6:[0.2,-1]}, down:['A6', 'B6', 'A4']},
+              {dur:0.6, cap:'Side entry and collapsing: penalty', down:['A6', 'B6', 'A4']}]})},
+   ok:{ref:'Play on', why:'6 runs round behind his own team and binds on at the back, so he joins legally and helps hold the maul up.',
+     p:lawP('Joining from behind', {sc:2, A:{4:[0,0], 5:[-1,0.6], 6:[-1,-0.6], 2:[-2,0]}, B:{4:[1,0], 5:[2,0.4], 6:[0,-6]}, ball:'A4', draw0:[T_('MAUL',0,-2.4)], cap0:'Maul: ERGS drive forward',
+       steps:[{dur:0.9, cap:'Their 6 runs back behind his team', rel:{A4:[0.3,0], A5:[0.3,0], A6:[0.3,0], A2:[0.3,0], B4:[0.3,0], B5:[0.3,0]}, mv:{B6:[3.4,-2]}},
+              {dur:0.8, cap:'He joins from behind and binds on', mv:{B6:[3,-0.4]}},
+              {dur:0.7, cap:'The maul is stopped legally', rel:{A4:[-0.1,0]}}]})}},
+  {id:'pen-10', cat:'pen', t:'Penalty: get back 10 m', law:'Law 20', rule:'When a penalty or free kick is given against your team, every one of you must get back 10 m towards your own try line (or to your try line if that’s closer) straight away, and not stop the kick being taken.',
+   no:{ref:'Another penalty, 10 m further on', why:'7 didn’t retreat 10 m and tackled 9 when he tapped the penalty.',
+     p:lawP('Not back 10 m', {A:{9:[0,0], 8:[-3,2]}, B:{7:[2.5,-1], 6:[11,3]}, ball:'A9', draw0:[L_(10,-6,10,7,RED), T_('10 M',10,-6.8,RED)], cap0:'Penalty to ERGS. 7 doesn’t go back',
+       steps:[{dur:0.8, cap:'9 taps and goes', mv:{A9:[1,0]}},
+              {dur:0.6, cap:'7 was only 2 m away and tackles him', down:['A9', 'B7'], mv:{A9:[1.6,-0.2], B7:[2,-0.6]}},
+              {dur:0.6, cap:'Not 10 m: penalty moved 10 m on', down:['A9', 'B7']}]})},
+   ok:{ref:'Play on', why:'All the defenders run back 10 m straight away. 9 taps and the defence can only come forward once the kick is taken.',
+     p:lawP('Back 10 m', {A:{9:[0,0], 8:[-3,2]}, B:{7:[2.5,-1], 6:[11,3]}, ball:'A9', draw0:[L_(10,-6,10,7,RED), T_('10 M',10,-6.8,RED)], cap0:'Penalty to ERGS',
+       steps:[{dur:0.9, cap:'7 runs back to the 10 m line', mv:{B7:[10.6,-1]}},
+              {dur:0.6, cap:'9 taps', mv:{A9:[0.6,0]}},
+              {dur:0.8, cap:'Pass to 8 on the charge', ball:'A8', mv:{A8:[-0.4,1.6], A9:[1,0], B7:[7,0.2]}}]})}},
+  {id:'advantage', cat:'pen', t:'Advantage', law:'Law 7', noLab:'No advantage', okLab:'Advantage gained', rule:'If the other team breaks a law, the referee can let play carry on if your team gains from it. If you get nothing, he brings play back for the original offence.',
+   no:{ref:'Back for the penalty', why:'Their 6 was offside, but ERGS got nothing out of the next play (10 was tackled behind the gainline), so the referee goes back for the penalty.',
+     p:lawP('No advantage', {A:{9:[-2,1], 10:[-7,5]}, B:{6:[0.5,2.2], 10:[3,6]}, ball:'A9', draw0:[T_('6 OFFSIDE',0.5,-1.2,GLD)], cap0:'Their 6 is offside. The ref plays advantage',
+       steps:[{dur:0.8, cap:'9 passes to 10', ball:'A10', mv:{A10:[-5,5]}},
+              {dur:0.8, cap:'10 is tackled behind the gainline', down:['A10', 'B10'], mv:{A10:[-4,5], B10:[-3.4,5.4]}},
+              {dur:0.6, cap:'No advantage: back for the penalty', down:['A10', 'B10']}]})},
+   ok:{ref:'Advantage over: play on', why:'ERGS gained ground from the next play, so the advantage is over. The offence is forgotten and play goes on.',
+     p:lawP('Advantage over', {A:{9:[-2,1], 10:[-7,5]}, B:{6:[0.5,2.2], 10:[3,6]}, ball:'A9', draw0:[T_('6 OFFSIDE',0.5,-1.2,GLD)], cap0:'Their 6 is offside. The ref plays advantage',
+       steps:[{dur:0.8, cap:'9 passes to 10', ball:'A10', mv:{A10:[-5,5]}},
+              {dur:1, cap:'10 breaks through and gains 15 m', mv:{A10:[9,4], B10:[4,6.6]}},
+              {dur:0.6, cap:'Advantage over: play on'}]})}}
+];
+
+/* ---------- the law book: all 21 laws of the game, in plain words ---------- */
+// Simplified from World Rugby's Laws of the Game, with the IRFU tackle height. w: the animated cards that show the law.
+const LAW_BOOK = [
+  [1, 'The ground', [], ['The pitch is up to 100 m between the try lines and up to 70 m wide, with an in-goal area behind each try line.', 'The try line is part of in-goal, so grounding on it scores. The touchline and touch-in-goal lines are out.', 'Lines you play to: halfway, the 10 m lines, the 22s, the 5 m and 15 m dashes, and the dead-ball lines.']],
+  [2, 'The ball', [], ['An oval ball. Seniors use a size 5; younger age grades use a smaller ball.']],
+  [3, 'The team', [], ['Up to 15 players on the pitch for each team (7 in sevens), plus replacements.', 'Contested scrums need trained front-row players. If there aren’t enough, scrums go uncontested.', 'A suspected concussion means off the pitch and no return that day: recognise and remove.']],
+  [4, 'Players’ clothing', [], ['Wear a mouthguard. No jewellery, and nothing sharp or hard that could hurt someone.', 'Studs and any headgear or padding must meet World Rugby’s standards. The referee can check your boots.']],
+  [5, 'Time', [], ['A senior match is two halves of up to 40 minutes; age-grade matches are shorter.', 'The referee keeps the time. When time is up, the half ends the next time the ball goes dead.']],
+  [6, 'Match officials', [], ['The referee is the only judge of fact and law on the day. Only the captain talks to the referee about decisions.', 'Assistant referees (touch judges) flag when the ball goes into touch, judge kicks at goal and can report foul play.']],
+  [7, 'Advantage', ['advantage'], ['If the other team breaks a law, the referee can let play go on if your team gains from it.', 'If you gain nothing, play comes back for the original offence. Once you’ve gained, the advantage is over.']],
+  [8, 'Scoring', ['try'], ['Try: 5 points. Conversion: 2 points.', 'Penalty try: 7 points, no conversion. Given when foul play stops a probable try.', 'Penalty goal: 3 points. Drop goal: 3 points.']],
+  [9, 'Foul play', ['tackle-height', 'obstruction'], ['Obstruction: no blocking, no running in front of your ball carrier, no tripping or holding someone without the ball.', 'Dangerous tackles: above the sternum (IRFU), no arms (shoulder charge), tackling a player in the air, tackling someone without the ball, early or late tackles, lifting and dropping a player (tip tackle).', 'No punching, kicking, stamping or trampling. No dangerous charging into rucks or mauls.', 'Unfair play: deliberate knock-ons, time-wasting, repeated offences, and arguing with the referee.', 'Sanctions: a penalty, a yellow card (sin bin) or a red card (sent off).']],
+  [10, 'Offside and onside in open play', ['kick-offside'], ['In open play you are offside if you are in front of a teammate who last played the ball (for example, the kicker).', 'An offside player can’t play the ball, move towards it or get in an opponent’s way. If the ball lands near you (within 10 m), you must move back.', 'You are put onside by the kicker or a teammate who was behind him running past you, or by an opponent running 5 m with the ball, passing it, kicking it or deliberately touching it.']],
+  [11, 'Knock-on or throw forward', ['knock-on', 'fwd-pass'], ['A knock-on is when you lose the ball forwards and it touches the ground or another player before you catch it again. Scrum to the other team.', 'A throw forward (forward pass) is a pass that leaves the hands going forwards. Scrum to the other team.', 'A deliberate knock-on is a penalty. Charging down a kick is not a knock-on.']],
+  [12, 'Kick-off and restarts', ['kickoff-10'], ['A kick-off is a drop kick from the middle of halfway. After a score, the team that conceded kicks off.', 'It must reach the 10 m line and land in the field. If not, the other team chooses: kick again or a scrum on halfway.', '22 drop-out: when the attacking team sends the ball dead in the other team’s in-goal (except from a kick at goal). Goal-line drop-out: when the attack is held up over the line, or knocks on in in-goal.']],
+  [13, 'Ball on the ground: no tackle', ['ground-ball'], ['If you go to ground with the ball and nobody is tackling you, get up, pass or release it straight away.', 'Players on the ground can’t play the ball or stop opponents getting it. Get back on your feet.']],
+  [14, 'The tackle', ['release', 'roll-away', 'jackal', 'tackle-height'], ['A tackle is when the ball carrier is held and brought to ground.', 'The tackled player must place, pass or release the ball straight away and can’t hold on.', 'The tackler must let go, roll away and get up before playing the ball again, from his own side.', 'Others arriving must be on their feet and come in through the gate (from their own side, behind the tackle).']],
+  [15, 'Ruck', ['hands-ruck', 'ruck-offside'], ['A ruck forms when at least one player from each team is on their feet, in contact, over the ball on the ground.', 'Join from behind the back foot of your last teammate, bound on, on your feet. No hands on the ball, no collapsing it.', 'Everyone not in it stays behind the offside line (the back foot) until the ball is out. When the referee says “use it”, the ball must come out within 5 seconds.']],
+  [16, 'Maul', ['maul'], ['A maul is the ball carrier held on their feet by an opponent, with at least one teammate bound on.', 'Join from behind your last teammate, bound on. No joining from the side, no collapsing it, no dragging a player out.', 'If it stops moving forward, the referee calls “use it” and the ball must come out. If it goes to ground or the ball is unplayable, it’s a scrum.']],
+  [17, 'Mark', ['mark'], ['Catch the other team’s kick cleanly on the full, with a foot on or behind your own 22 m line, and call “Mark!”.', 'You get a free kick. You can’t call a mark from a kick-off.']],
+  [18, 'Touch, quick throw and lineout', ['touch', 'lineout-straight'], ['The ball is in touch when it, or the player carrying it, touches the touchline or the ground beyond it.', 'Kicked directly into touch from outside your 22: lineout level with where it was kicked. From inside your 22, or after a bounce: lineout where it went out.', '50:22: kick from your own half that bounces and goes out inside their 22, and you throw in.', 'Quick throw: same ball, before the lineout forms, thrown straight from between where it went out and your own try line.', 'Lineout: straight down the middle, at least 5 m. Lifters support the jumper and bring them down safely.']],
+  [19, 'Scrum', ['scrum-feed', 'scrum-offside'], ['Given for a knock-on, forward pass, unplayable ball and some other stoppages. The team that didn’t cause it feeds.', 'Front rows: crouch, bind, set. Bind properly, stay square and push straight. No collapsing, wheeling on purpose, standing up or pulling down.', 'The scrum-half feeds straight in; the hooker strikes for it.', 'Backs stay 5 m behind the back foot until the ball is out. Age-grade scrums have limits on pushing and wheeling.']],
+  [20, 'Penalty and free kicks', ['pen-10'], ['Penalty options: kick at goal (3 points), kick to touch (and throw in to the lineout), tap and go, or take a scrum.', 'A free kick is for lesser offences: you can’t kick at goal from it.', 'The team that gave it away must get back 10 m straight away. If they don’t, the kick is moved 10 m further on.']],
+  [21, 'In-goal', ['try'], ['Ground the ball in in-goal (including on the try line) with downward pressure to score or touch down.', 'A defender touching down in his own in-goal makes the ball dead: a 22 drop-out or goal-line drop-out follows, depending on who took it there.', 'The ball is dead if it touches the dead-ball line or touch-in-goal.']]
+];
+
+/* ---------- the moment that matters in each clip ---------- */
+// f: the frame where it happens (0 = the start). The clip slows down into it, freezes, rings the player (or the ball) and names it.
+const LAW_KEYS = {
+  'fwd-pass':{no:{f:2, ids:['A12'], s:'AHEAD OF 10', t:'12 is in front of 10 as the ball is passed, so it goes forward'}, ok:{f:2, ids:['A12'], s:'BEHIND 10', t:'12 is behind 10 as the ball is passed: legal'}},
+  'knock-on':{no:{f:3, ball:1, s:'LANDS FORWARD', t:'The ball goes forward off 12’s hands and hits the ground'}, ok:{f:3, ids:['A12'], s:'CAUGHT AGAIN', t:'12 catches it again before it touches the ground or anyone else'}},
+  'obstruction':{no:{f:2, ids:['A4'], s:'BLOCKING', t:'4 is between the defender and the ball carrier: obstruction'}, ok:{f:2, ids:['B7'], s:'CLEAR PATH', t:'Nobody is in the defender’s way'}},
+  'tackle-height':{no:{f:2, ids:['B6'], s:'TOO HIGH', t:'Upright, hitting high: above the sternum is illegal in Irish schools rugby'}, ok:{f:2, ids:['B6'], s:'BELOW STERNUM', t:'Bent at the waist, head to the side, arms wrapped, below the sternum'}},
+  'release':{no:{f:2, ids:['A8'], s:'HOLDING ON', t:'8 still has hold of the ball with 7 on his feet over it'}, ok:{f:1, ball:1, s:'PLACED BACK', t:'8 places the ball back straight away'}},
+  'roll-away':{no:{f:2, ids:['B6'], s:'ON THE BALL', t:'6 is lying on the wrong side, on the ball'}, ok:{f:2, ids:['B6'], s:'BACK UP', t:'6 rolled away and is back on his feet on his own side'}},
+  'jackal':{no:{f:2, ids:['B7'], s:'SIDE ENTRY', t:'7 came in from the side and is off his feet'}, ok:{f:2, ids:['B7'], s:'ON HIS FEET', t:'7 came through the gate and is on his feet'}},
+  'hands-ruck':{no:{f:1, ids:['B7'], s:'HANDS IN', t:'The ruck has formed, so 7 can’t use his hands'}, ok:{f:1, ids:['A4'], s:'NO HANDS', t:'4 drives 7 off the ball with his body, not his hands'}},
+  'ruck-offside':{no:{f:0, ids:['B6'], s:'OFFSIDE', t:'6 is in front of the offside line (the back foot of the ruck)'}, ok:{f:1, ids:['B6'], s:'ONSIDE', t:'6 waits behind the offside line until the ball is out'}},
+  'kick-offside':{no:{f:2, ids:['A14'], s:'OFFSIDE', t:'14 was in front of the kicker and played the ball'}, ok:{f:2, ids:['A14'], s:'ONSIDE NOW', t:'10 has run past 14, so now 14 can chase'}},
+  'scrum-offside':{no:{f:0, ids:['B10'], s:'INSIDE 5 M', t:'Their 10 is closer than 5 m to the scrum'}, ok:{f:0, ids:['B10'], s:'5 M BACK', t:'Their 10 is 5 m back and waits for the ball to come out'}},
+  'lineout-straight':{no:{f:1, ball:1, s:'NOT STRAIGHT', t:'The throw has drifted towards the throwing team’s side'}, ok:{f:1, ball:1, s:'STRAIGHT', t:'The throw goes straight down the middle'}},
+  'scrum-feed':{no:{f:1, ids:['B3'], s:'ANGLING IN', t:'Their 3 angles in and drops his bind'}, ok:{f:2, ids:['A2'], s:'SQUARE', t:'Both packs bound, square and pushing straight'}},
+  'kickoff-10':{no:{f:1, ball:1, s:'SHORT', t:'The kick-off lands short of the 10 m line'}, ok:{f:1, ball:1, s:'PAST 10 M', t:'The kick-off goes past the 10 m line'}},
+  'mark':{no:{f:1, ids:['A15'], s:'NOT IN HIS 22', t:'15 catches it in front of his own 22: no mark'}, ok:{f:1, ids:['A15'], s:'MARK!', t:'A clean catch behind his own 22, and he calls “Mark!”'}},
+  'try':{no:{f:3, ids:['A14'], s:'CRAWLING', t:'14 was tackled short and crawled forward'}, ok:{f:2, ball:1, s:'GROUNDED', t:'Pressed down on the try line in one movement'}},
+  'touch':{no:{f:2, ids:['A11'], s:'ON THE LINE', t:'11’s foot is on the touchline: he’s in touch'}, ok:{f:2, ids:['A11'], s:'FEET IN', t:'11 is still in the field when he passes'}},
+  'ground-ball':{no:{f:2, ids:['A12'], s:'LYING ON IT', t:'12 stays on the ground holding the ball'}, ok:{f:2, ids:['A12'], s:'BACK UP', t:'12 gets straight back up with the ball'}},
+  'maul':{no:{f:2, ids:['B6'], s:'FROM THE SIDE', t:'6 joins from the side and pulls the maul down'}, ok:{f:2, ids:['B6'], s:'FROM BEHIND', t:'6 joins from behind his last teammate, bound on'}},
+  'pen-10':{no:{f:2, ids:['B7'], s:'NOT 10 M', t:'7 didn’t get back 10 m and stops the tap'}, ok:{f:1, ids:['B7'], s:'BACK 10 M', t:'7 runs back to the 10 m line straight away'}},
+  'advantage':{no:{f:2, ids:['A10'], s:'NO GAIN', t:'ERGS gained nothing, so play comes back for the penalty'}, ok:{f:2, ids:['A10'], s:'GAINED', t:'ERGS have gained ground: the advantage is over'}}
+};
+// body shapes for the 3D view (the flat view leaves them out)
+const LAW_POSES = {
+  'tackle-height':{no:{B6:'lw-high'}, ok:{B6:'tackle'}}, 'jackal':{ok:{B7:'jackal'}}, 'release':{no:{B7:'jackal'}}, 'hands-ruck':{no:{A4:'drive', B7:'jackal'}, ok:{A4:'drive', B7:'drive'}},
+  'ruck-offside':{no:{A4:'drive', B7:'drive'}, ok:{A4:'drive', B7:'drive'}}, 'maul':{no:{A4:'drive', A5:'drive', A6:'drive', A2:'drive', B4:'drive', B5:'drive'}, ok:{A4:'drive', A5:'drive', A6:'drive', A2:'drive', B4:'drive', B5:'drive'}},
+  'scrum-feed':{no:{A1:'scrum', A2:'scrum', A3:'scrum', B1:'scrum', B2:'scrum', B3:'scrum'}, ok:{A1:'scrum', A2:'scrum', A3:'scrum', B1:'scrum', B2:'scrum', B3:'scrum'}},
+  'scrum-offside':{no:{A8:'scrum', B8:'scrum'}, ok:{A8:'scrum', B8:'scrum'}}, 'lineout-straight':{no:{A2:'throw'}, ok:{A2:'throw'}}
+};
+if (typeof POSES !== 'undefined' && !POSES['lw-high']) POSES['lw-high'] = {v:'m', n:'Upright tackle', sp:0.02, sL:-1.75, sR:-1.75, eL:-0.7, eR:-0.7, oL:-0.25, oR:0.25, m:[]};
+const lawKeyT = p => { const k = p.key; if (!k) return 0; let t = 0; for (let i = 1; i <= Math.min(k.f, p.frames.length - 1); i++) t += Math.max(0.2, p.frames[i].dur); return t; };
+// a ring on the ground round the player (or the ball) and the name of what's happening, as pinned drawings, at the key frame
+function lawKeyNotes(p, side){
+  const k = p.key; if (!k) return []; const f = p.frames[Math.min(k.f, p.frames.length - 1)], col = side === 'no' ? '#EF4B45' : '#3FD18A', out = [];
+  const pts = k.ball ? [f.ball.carrier ? f.pos[f.ball.carrier] : [f.ball.x, f.ball.y]] : (k.ids || []).map(id => f.pos[id]).filter(Boolean);
+  pts.forEach(q => out.push({t:'pen', c:col, pin:true, pts:Array.from({length:25}, (_, i) => [Math.round((q[0] + 1.7*Math.cos(i/24*Math.PI*2))*100)/100, Math.round((q[1] + 1.7*Math.sin(i/24*Math.PI*2))*100)/100])}));
+  if (pts.length){ const top = pts.reduce((a, q) => q[1] < a[1] ? q : a); out.push({t:'text', c:col, pin:true, pts:[[top[0], top[1] - 3.1]], s:(side === 'no' ? '✗ ' : '✓ ') + k.s}); }
+  return out;
+}
+// the clock for one clip: slow into the key moment, hold it, play on, hold the end
+function lawTick(c, p, dt){
+  const tot = totalTime(p), kT = lawKeyT(p), rate = c.slow ? 0.5 : 1;
+  if (c.hold > 0){ c.hold -= dt; if (c.hold > 0 || c.T < tot) return;
+    if (!c.ended){ c.ended = true; c.hold = 2.6; return; } c.T = -0.7; c.keyed = false; c.ended = false; return; }
+  const near = p.key && !c.keyed && c.T > kT - 0.9 && c.T < kT;
+  c.T += dt*rate*(near ? 0.4 : 1);
+  if (p.key && !c.keyed && c.T >= kT){ c.T = kT; c.keyed = true; c.hold = 1.8; return; }
+  if (c.T >= tot){ c.T = tot; c.ended = true; c.hold = 2.6; }
+}
+const lawCap = (c, p) => { const tot = totalTime(p), sd = c.side, L = c.law[sd];
+  if (c.ended) return {t:(sd === 'no' ? '✗ ' : '✓ ') + 'Referee: ' + L.ref, cls:'lw-called'};
+  if (c.keyed && p.key) return {t:(sd === 'no' ? '✗ ' : '✓ ') + p.key.t, cls:'lw-key'};
+  const seg = segAt(p, clamp(c.T, 0, tot)), fi = c.T <= 0 ? 0 : Math.min(seg.i + 1, p.frames.length - 1); return {t:p.frames[fi].caption || '', cls:''}; };
+const lawNotes = (c, p, seg) => notesFor(p, {live:true, i:seg.i, t:seg.t}).concat(c.keyed ? lawKeyNotes(p, c.side).map(d => ({d, a:1, k:0})) : []);
+
+(() => {
+  NEEDS.laws = 'squad';
+  const st = document.createElement('style'); st.textContent = `
+.lw-cats{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 4px}
+.lw-note{margin:0 0 12px;color:var(--mute);font-size:13px;line-height:1.45}
+.lw-sec{margin:18px 0 8px}
+.law .term-b h3{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.lw-ref{flex:0 0 auto;font-family:var(--f-body,inherit);font-size:12px;font-weight:600;letter-spacing:.02em;text-transform:none;color:var(--mute)}
+.lw-rule{margin:0;color:var(--chalk)!important;font-size:14px;line-height:1.5}
+.lw-sw{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--rule)}
+.lw-sw button{min-height:42px;border:0;border-bottom:3px solid transparent;background:var(--deck);color:var(--mute);font-family:var(--f-cond);font-weight:700;font-size:15px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer}
+.lw-sw button[data-s="no"][aria-pressed="true"]{color:#FF8A84;border-bottom-color:#EF4B45;background:rgba(239,75,69,.12)}
+.lw-sw button[data-s="ok"][aria-pressed="true"]{color:#5BE39E;border-bottom-color:#3FD18A;background:rgba(63,209,138,.12)}
+.law.is-no .term-pic{box-shadow:inset 0 0 0 3px rgba(239,75,69,.7)}
+.law.is-ok .term-pic{box-shadow:inset 0 0 0 3px rgba(63,209,138,.7)}
+.law .term-cap{transition:background .2s,color .2s}
+.law.is-no .term-cap.lw-key{background:rgba(239,75,69,.22);color:#FFB1AD;font-weight:700}
+.law.is-ok .term-cap.lw-key{background:rgba(63,209,138,.2);color:#9BF0C4;font-weight:700}
+.lw-3dbtn{position:absolute;right:8px;bottom:8px;min-height:30px;padding:0 11px;border-radius:8px;border:1px solid rgba(255,255,255,.5);background:rgba(10,16,34,.72);color:#fff;font-family:var(--f-cond);font-weight:700;font-size:14px;letter-spacing:.06em;cursor:pointer}
+.lw-3dbtn:hover{background:rgba(10,16,34,.9)}
+#lwPlayer{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(4,8,20,.78)}
+#lwPlayer[hidden]{display:none}
+.lp-box{width:min(1100px,100%);max-height:100%;overflow:auto;border-radius:14px;border:1px solid var(--rule);background:var(--panel);display:flex;flex-direction:column}
+.lp-head{display:flex;align-items:center;gap:10px;padding:12px 14px}
+.lp-head h2{margin:0;font-family:var(--f-cond);font-size:24px;text-transform:uppercase;letter-spacing:.02em;flex:1}
+.lp-head small{color:var(--mute);font-weight:600}
+.lp-x{width:38px;height:38px;border-radius:10px;border:1px solid var(--rule);background:none;color:var(--chalk);font-size:18px;cursor:pointer}
+.lp-view{position:relative;aspect-ratio:16/9;max-height:62vh;background:#245f3a;overflow:hidden}
+.lp-view canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block}
+.lp-cap{padding:10px 14px;font-size:15px;line-height:1.4;background:var(--deck);min-height:2.6em;box-sizing:border-box}
+#lwPlayer.is-no .lp-cap.lw-key{background:rgba(239,75,69,.22);color:#FFB1AD;font-weight:700}#lwPlayer.is-ok .lp-cap.lw-key{background:rgba(63,209,138,.2);color:#9BF0C4;font-weight:700}
+#lwPlayer.is-no .lp-cap.lw-called{background:#D63E38;color:#fff;font-weight:700}#lwPlayer.is-ok .lp-cap.lw-called{background:#23A267;color:#fff;font-weight:700}
+.lp-ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px}
+.lp-ctl .seg button{min-height:34px}
+.lp-why{margin:0 14px 14px;padding:10px 12px;border-radius:10px;font-size:15px;line-height:1.5}
+#lwPlayer.is-no .lp-why{background:rgba(239,75,69,.1);border-left:3px solid #EF4B45}#lwPlayer.is-ok .lp-why{background:rgba(63,209,138,.1);border-left:3px solid #3FD18A}
+#lwPlayer .lw-sw{border:0}
+@media (max-width:600px){#lwPlayer{padding:0}.lp-box{border-radius:0;height:100%}.lp-view{aspect-ratio:4/3;max-height:none}}
+.law.is-no .term-cap.lw-called{background:#D63E38;color:#fff;font-weight:700}
+.law.is-ok .term-cap.lw-called{background:#23A267;color:#fff;font-weight:700}
+.term-b .lw-why{margin:0;padding:10px 12px;border-radius:10px;font-size:14px;line-height:1.5;color:var(--chalk)}
+.law.is-no .lw-why{background:rgba(239,75,69,.1);border-left:3px solid #EF4B45}.law.is-ok .lw-why{background:rgba(63,209,138,.1);border-left:3px solid #3FD18A}
+.lw-why b{display:block;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin-bottom:2px}
+.law.is-no .lw-why b{color:#FF8A84}.law.is-ok .lw-why b{color:#5BE39E}
+.lw-empty{padding:24px;text-align:center;color:var(--mute)}
+#lwBook{display:grid;gap:8px;margin-top:4px}
+.lw-law{border:1px solid var(--rule);border-radius:12px;background:var(--panel);overflow:hidden}
+.lw-law summary{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;list-style:none;font-family:var(--f-cond);font-weight:700;font-size:19px;letter-spacing:.03em;text-transform:uppercase}
+.lw-law summary::-webkit-details-marker{display:none}
+.lw-law summary::after{content:'+';margin-left:auto;font-size:22px;color:var(--mute)}
+.lw-law[open] summary::after{content:'–'}
+.lw-n{display:inline-grid;place-items:center;flex:0 0 auto;width:34px;height:34px;border-radius:8px;background:var(--gold,#DCC08A);color:#1a1630;font-size:16px}
+.lw-law ul{margin:0;padding:0 16px 4px 36px;display:grid;gap:6px;color:var(--chalk);font-size:15px;line-height:1.5}
+.lw-watch{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px 14px}
+.lw-watch .tag{cursor:pointer;min-height:30px}
+.law.lw-flash{outline:3px solid var(--gold,#DCC08A);outline-offset:2px;transition:outline-color 1.2s}`;
+  document.head.appendChild(st);
+
+  const sec = document.createElement('section'); sec.id = 'laws'; sec.className = 'screen'; sec.hidden = true; sec.setAttribute('aria-label', 'Rugby laws');
+  sec.innerHTML = `<div class="page gutter">
+    <div class="page-head"><button class="btn ghost" data-go="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>Back</button><h1>Rugby laws</h1><span class="sp"></span></div>
+    <div class="seg dr-tabs" id="lwTabs" role="tablist" aria-label="Rugby laws"></div>
+    <p class="lw-note">Every law of the game is in <b>All 21 laws</b>, in plain words. <b>Watch them</b> animates the ones you’ll see most on a Saturday: each shows what gets penalised (<b style="color:#FF8A84">Not allowed</b>) and how to do it right (<b style="color:#5BE39E">Allowed</b>). Each clip slows down and freezes on the moment that matters. Tap the picture to replay it, or ▶ 3D to watch it in the stadium view from any camera. Navy attack left to right. The tackle height is the IRFU’s: below the sternum. Age-grade rules (scrums especially) can differ, and the referee always has the final say.</p>
+    <div class="dr-filters"><div class="seg" id="lwView" role="tablist" aria-label="How to see the laws"><button type="button" role="tab" data-v="watch">Watch them</button><button type="button" role="tab" data-v="book">All 21 laws</button></div>
+      <input class="input" id="lwQ" type="search" placeholder="Search laws, e.g. offside" aria-label="Search laws"></div>
+    <div class="tag-pick lw-cats" id="lwCats"></div>
+    <div id="lwList"></div><div id="lwBook" hidden></div></div>`;
+  ($('#terms') || $('#drills')).after(sec);
+  $('#lwQ').oninput = e => { LW.q = e.target.value.trim().toLowerCase(); lawsFilter(); };
+
+  let CARDS = null;
+  const setSide = (c, s) => { LW.side[c.law.id] = s; c.side = s; c.T = -0.6; c.hold = 0; c.keyed = false; c.ended = false; c.view = null; c.el.classList.toggle('is-no', s === 'no'); c.el.classList.toggle('is-ok', s === 'ok');
+    c.el.querySelectorAll('.lw-sw button').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === s));
+    const L = c.law[s]; c.cap.classList.remove('lw-called', 'lw-key'); c.capTxt = null;
+    c.why.innerHTML = `<b>${s === 'no' ? 'Why it’s penalised' : 'Why it’s fine'}</b>${esc(L.why)}`; };
+  // each side of each law: the clip with its key moment, a 3D copy with body shapes and a flat copy without
+  const prep = law => ['no', 'ok'].forEach(sd => { const L = law[sd], p = L.p; p.key = (LAW_KEYS[law.id] || {})[sd] || null;
+    const ps = (LAW_POSES[law.id] || {})[sd]; L.p3 = clone(p); if (ps) L.p3.frames.forEach(f => { const P = {}; for (const id in ps) if (!(f.down || []).includes(id)) P[id] = ps[id]; f.pose = Object.assign(P, f.pose || {}); });
+    L.p3.key = p.key; p.frames.forEach(f => { f.pose = {}; }); });
+  function build(){
+    const list = $('#lwList'); list.innerHTML = ''; CARDS = [];
+    LAW_CATS.forEach(([k, name]) => {
+      const laws = LAWS().filter(l => l.cat === k); if (!laws.length) return;
+      const h = document.createElement('div'); h.className = 'lib-sec lw-sec'; h.dataset.cat = k; h.textContent = name; list.appendChild(h);
+      const g = document.createElement('div'); g.className = 'term-grid'; g.dataset.cat = k; list.appendChild(g);
+      laws.forEach(law => { prep(law);
+        const el = document.createElement('article'); el.className = 'term law'; el.id = 'lw-' + law.id;
+        el.innerHTML = `<div class="lw-sw" role="group" aria-label="Show"><button type="button" data-s="no">✗ ${esc(law.noLab || 'Not allowed')}</button><button type="button" data-s="ok">✓ ${esc(law.okLab || 'Allowed')}</button></div>
+          <div class="term-pic"><canvas></canvas><button type="button" class="lw-3dbtn">▶ 3D</button></div><span class="term-cap"></span>
+          <div class="term-b"><h3><span></span><span class="lw-ref"></span></h3><p class="lw-rule"></p><p class="lw-why"></p></div>`;
+        el.querySelector('h3 span').textContent = law.t; el.querySelector('.lw-ref').textContent = law.law; el.querySelector('.lw-rule').textContent = law.rule;
+        const c = {el, law, cv:el.querySelector('canvas'), cap:el.querySelector('.term-cap'), why:el.querySelector('.lw-why'), T:-0.6, vis:false, cat:k,
+          text:(law.t + ' ' + law.law + ' ' + law.rule + ' ' + law.no.why + ' ' + law.ok.why + ' ' + name).toLowerCase()};
+        el.querySelectorAll('.lw-sw button').forEach(b => b.onclick = () => setSide(c, b.dataset.s));
+        el.querySelector('.term-pic').onclick = e => { if (e.target.closest('.lw-3dbtn')) return; c.T = -0.4; c.hold = 0; c.keyed = false; c.ended = false; };
+        el.querySelector('.lw-3dbtn').onclick = () => lawPlayer(law, c.side);
+        setSide(c, LW.side[law.id] || 'no'); g.appendChild(el); CARDS.push(c);
+      });
+    });
+    const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(e => { const c = CARDS.find(x => x.el === e.target); if (c) c.vis = e.isIntersecting; }), {rootMargin:'100px'}) : null;
+    CARDS.forEach(c => { if (io) io.observe(c.el); else c.vis = true; });
+    requestAnimationFrame(loop);
+  }
+  const ALL = () => LAWS();
+  function buildBook(){
+    const host = $('#lwBook'); if (host.dataset.built) return; host.dataset.built = 1; const L = ALL();
+    LAW_BOOK.forEach(([n, t, w, pts]) => {
+      const d = document.createElement('details'); d.className = 'lw-law'; d.dataset.text = (n + ' ' + t + ' ' + pts.join(' ')).toLowerCase();
+      d.innerHTML = `<summary><span class="lw-n">${n}</span><span>${esc(t)}</span></summary><ul>${pts.map(x => `<li>${esc(x)}</li>`).join('')}</ul>${w.length ? `<div class="lw-watch">${w.map(id => { const l = L.find(x => x.id === id); return l ? `<button type="button" class="tag" data-w="${id}">▶ Watch: ${esc(l.t)}</button>` : ''; }).join('')}</div>` : ''}`;
+      d.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { LW.view = 'watch'; LW.cat = ''; LW.q = ''; $('#lwQ').value = ''; lawsFilter();
+        const el = $('#lw-' + b.dataset.w); if (el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.classList.add('lw-flash'); setTimeout(() => el.classList.remove('lw-flash'), 1600); } });
+      host.appendChild(d); });
+  }
+  function lawsFilter(){
+    if (!CARDS) return; const q = LW.q, book = LW.view === 'book';
+    $$('#lwView [data-v]').forEach(b => { b.setAttribute('aria-pressed', b.dataset.v === LW.view); b.onclick = () => { LW.view = b.dataset.v; lawsFilter(); }; });
+    $('#lwList').hidden = book; $('#lwBook').hidden = !book; $('#lwCats').hidden = book;
+    if (book){ buildBook(); let any = false; $$('#lwBook .lw-law').forEach(d => { d.hidden = !!q && !d.dataset.text.includes(q); if (!d.hidden) any = true; if (q && !d.hidden) d.open = true; });
+      let e = $('#lwBook .lw-empty'); if (!any && !e){ e = document.createElement('div'); e.className = 'empty lw-empty'; e.textContent = 'No laws match. Try another word.'; $('#lwBook').appendChild(e); } else if (any && e) e.remove(); return; }
+    CARDS.forEach(c => { c.el.hidden = (LW.cat && c.cat !== LW.cat) || (!!q && !c.text.includes(q)); });
+    $$('#lwList .term-grid').forEach(g => { const any = [...g.children].some(x => !x.hidden); g.hidden = !any; g.previousElementSibling.hidden = !any; });
+    let e = $('#lwList .lw-empty'); const none = CARDS.every(c => c.el.hidden);
+    if (none && !e){ e = document.createElement('div'); e.className = 'empty lw-empty'; e.textContent = 'No laws match. Try another word.'; $('#lwList').appendChild(e); } else if (!none && e) e.remove();
+    $('#lwCats').innerHTML = [['', 'All']].concat(LAW_CATS).map(([k, t]) => `<button type="button" class="tag" data-c="${k}" aria-pressed="${LW.cat === k}">${esc(t)}</button>`).join('');
+    $$('#lwCats [data-c]').forEach(b => b.onclick = () => { LW.cat = b.dataset.c; lawsFilter(); });
+  }
+  // like drillView, but never closer than about 20 m across, so small scenes (a ruck, a tackle) keep their surroundings
+  const lawView = (p, W, H) => { const v = drillView(p, W, H), base = Math.min(W/PITCH.len, H/PITCH.wid), z = Math.max(1, Math.min(v.z, W/(20*base), H/(12*base))), sc = base*z, hw = W/2/sc, hh = H/2/sc;
+    return {z, cx:hw >= 63 ? 0 : clamp(v.cx, -63 + hw, 63 - hw), cy:hh >= 40 ? 0 : clamp(v.cy, -40 + hh, 40 - hh)}; };
+
+  /* ---------- the big player: 3D (the app's stadium engine) when it's available, otherwise the flat view ---------- */
+  const LP = {open:false, law:null, c:null, cam:'broadcast', first:true, host:null, cv:null, view:null};
+  const CAMS = [['broadcast', 'TV'], ['behind', 'Behind'], ['top', 'Above'], ['orbit', 'Orbit']];
+  const lp = document.createElement('div'); lp.id = 'lwPlayer'; lp.hidden = true; lp.setAttribute('role', 'dialog'); lp.setAttribute('aria-modal', 'true');
+  lp.innerHTML = `<div class="lp-box"><div class="lp-head"><h2></h2><small></small><button type="button" class="lp-x" aria-label="Close">✕</button></div>
+    <div class="lw-sw" role="group" aria-label="Show"><button type="button" data-s="no"></button><button type="button" data-s="ok"></button></div>
+    <div class="lp-view"></div><div class="lp-cap"></div>
+    <div class="lp-ctl"><div class="seg" role="group" aria-label="Camera">${CAMS.map(([k, t]) => `<button type="button" data-cam="${k}">${t}</button>`).join('')}</div><span class="sp" style="flex:1"></span>
+      <button type="button" class="btn ghost" id="lpSlow">Slow motion</button><button type="button" class="btn" id="lpAgain">⟲ Again</button></div>
+    <p class="lp-why"></p></div>`;
+  document.body.appendChild(lp);
+  const lpClose = () => { LP.open = false; lp.hidden = true; document.removeEventListener('keydown', lpKey); };
+  const lpKey = e => { if (e.key === 'Escape') lpClose(); };
+  addEventListener('resize', () => { if (LP.open) LP.resized = true; });
+  lp.querySelector('.lp-x').onclick = lpClose; lp.onclick = e => { if (e.target === lp) lpClose(); };
+  lp.querySelector('#lpAgain').onclick = () => { const c = LP.c; c.T = -0.5; c.hold = 0; c.keyed = false; c.ended = false; LP.first = true; };
+  lp.querySelector('#lpSlow').onclick = e => { LP.c.slow = !LP.c.slow; e.target.classList.toggle('primary', LP.c.slow); };
+  lp.querySelectorAll('[data-cam]').forEach(b => b.onclick = () => { LP.cam = b.dataset.cam; lp.querySelectorAll('[data-cam]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+  lp.querySelectorAll('.lw-sw [data-s]').forEach(b => b.onclick = () => lpSide(b.dataset.s));
+  function lpSide(sd){ const law = LP.law; if (!law) return; const L = law[sd]; LP.c = {law, side:sd, T:-0.6, hold:0, keyed:false, ended:false, slow:LP.c && LP.c.slow}; LP.first = true; LP.view = null; LP.capTxt = null;
+    lp.classList.toggle('is-no', sd === 'no'); lp.classList.toggle('is-ok', sd === 'ok');
+    lp.querySelectorAll('.lw-sw [data-s]').forEach(b => b.setAttribute('aria-pressed', b.dataset.s === sd));
+    lp.querySelector('.lp-why').innerHTML = `<b>${sd === 'no' ? 'Why it’s penalised: ' : 'Why it’s fine: '}</b>${esc(L.why)}`; }
+  window.lawPlayer = function(law, sd){
+    LP.law = law; lp.querySelector('h2').textContent = law.t; lp.querySelector('small').textContent = law.law;
+    lp.querySelector('[data-s="no"]').textContent = '✗ ' + (law.noLab || 'Not allowed'); lp.querySelector('[data-s="ok"]').textContent = '✓ ' + (law.okLab || 'Allowed');
+    const host = lp.querySelector('.lp-view'); LP.host = host; lp.hidden = false; LP.open = true; document.addEventListener('keydown', lpKey);
+    lp.querySelectorAll('[data-cam]').forEach(x => x.setAttribute('aria-pressed', x.dataset.cam === LP.cam)); lp.querySelector('.lp-ctl .seg').hidden = !stage;
+    if (stage){ stage.mount(host); stage.resize(); stage.focus = null; stage.labelKeys = {}; }
+    else if (!LP.cv){ LP.cv = document.createElement('canvas'); host.appendChild(LP.cv); }
+    lpSide(sd || 'no'); lp.querySelector('#lpSlow').classList.toggle('primary', !!LP.c.slow);
+  };
+  LP.tick = dt => { if (!LP.open) return; const c = LP.c, L = c.law[c.side], p = stage ? L.p3 : L.p; lawTick(c, p, dt);
+    const tot = totalTime(p), snap = snapAtT(p, clamp(c.T, 0, tot)), seg = snap.seg, notes = lawNotes(c, p, seg);
+    try {
+      if (stage){ if (LP.first || LP.resized){ stage.mount(LP.host); stage.resize(); LP.resized = false; }
+        stage.setNotes(notes); stage.update(p, snap, dt, {labels:'num', teleport:LP.first, runs:true, from:p.frames[seg.i], to:p.frames[seg.i + 1]}); stage.render(LP.cam, dt, LP.first); LP.first = false; }
+      else { const cv = LP.cv, w = cv.clientWidth, h = cv.clientHeight, dpr = Math.min(2, devicePixelRatio || 1); if (!w || !h) return;
+        if (cv.width !== Math.round(w*dpr)){ cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); LP.view = null; } if (!LP.view) LP.view = lawView(p, w, h);
+        const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        draw2D(g, w, h, {play:p, snap, view:LP.view, labels:'num', fromFrame:p.frames[seg.i], toFrame:p.frames[seg.i + 1], runs:true, ghost:false, pad:0, minR:Math.max(8, h/28), notes}); }
+    } catch(e){}
+    const cp = lawCap(c, p), el = lp.querySelector('.lp-cap'); if (LP.capTxt !== cp.t){ LP.capTxt = cp.t; el.textContent = cp.t; el.classList.toggle('lw-called', cp.cls === 'lw-called'); el.classList.toggle('lw-key', cp.cls === 'lw-key'); } };
+  let last = 0;
+  function loop(now){
+    const dt = Math.min(0.05, (now - (last || now))/1000); last = now;
+    if (S.screen === 'laws') LP.tick(dt);
+    if (S.screen === 'laws' && !LP.open) for (const c of CARDS){ if (!c.vis || c.el.hidden) continue;
+      const cv = c.cv, w = cv.clientWidth, h = cv.clientHeight; if (!w || !h) continue;
+      const dpr = Math.min(2, devicePixelRatio || 1); if (cv.width !== Math.round(w*dpr)){ cv.width = Math.round(w*dpr); cv.height = Math.round(h*dpr); c.view = null; }
+      const p = c.law[c.side].p, tot = totalTime(p); if (!c.view) c.view = lawView(p, w, h);
+      lawTick(c, p, dt);
+      try { const snap = snapAtT(p, clamp(c.T, 0, tot)), seg = snap.seg, g = cv.getContext('2d');
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        draw2D(g, w, h, {play:p, snap, view:c.view, labels:'num', fromFrame:p.frames[seg.i], toFrame:p.frames[seg.i + 1], runs:true, ghost:false, pad:0, minR:Math.max(6, h/30), notes:lawNotes(c, p, seg)});
+        // the strip under the picture: the caption, then what's happening at the key moment, then the referee's call
+        const cp = lawCap(c, p); if (c.capTxt !== cp.t){ c.capTxt = cp.t; c.cap.textContent = cp.t; c.cap.classList.toggle('lw-called', cp.cls === 'lw-called'); c.cap.classList.toggle('lw-key', cp.cls === 'lw-key'); } } catch(e){}
+    }
+    requestAnimationFrame(loop);
+  }
+  window.renderLaws = function(){ if (!CARDS) build(); lawsFilter(); };
+
+  // Laws as a tab beside Rugby terms, on the Playbook, Training drills and Rugby terms pages
+  const lawTab = host => { if (!host || host.querySelector('[data-go="laws"]')) return; const b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'tab'); b.dataset.go = 'laws'; b.setAttribute('aria-pressed', 'false'); b.textContent = 'Laws'; host.appendChild(b); };
+  const tabsUp = () => {
+    lawTab($('#libTabs')); lawTab($('#drills .dr-tabs')); lawTab($('#tmTabs'));
+    const t = $('#lwTabs'); if (!t) return; const from = LW.from === 'drills' && allowed('drills') ? ['drills', 'Training drills'] : allowed('library') ? ['library', 'Playbook'] : null;
+    t.innerHTML = `${from ? `<button type="button" role="tab" data-go="${from[0]}" aria-pressed="false">${from[1]}</button>` : ''}${allowed('terms') ? '<button type="button" role="tab" data-go="terms" aria-pressed="false">Rugby terms</button>' : ''}<button type="button" role="tab" data-go="laws" aria-pressed="true">Laws</button>`;
+  };
+  const g = go; go = function(screen){ const was = S.screen; g.apply(this, arguments);
+    sec.hidden = S.screen !== 'laws'; if (S.screen !== 'laws' && LP.open) lpClose();
+    if (S.screen === 'laws'){ if (was === 'library' || was === 'drills') LW.from = was; else if (was === 'terms' && typeof TM !== 'undefined') LW.from = TM.from; renderLaws(); }
+    if (S.screen === 'terms' && was === 'laws' && typeof TM !== 'undefined'){ TM.from = LW.from; }
+    tabsUp(); };
+  tabsUp();
+  // and on the home menu, for players and coaches
+  const rm = renderMenu; renderMenu = function(){ rm.apply(this, arguments); if (!(Cloud.role === 'coach' || Cloud.role === 'player') || !allowed('laws')) return;
+    const ul = $('#menuList'); if (!ul || ul.querySelector('[data-k="laws"]')) return;
+    const li = document.createElement('li'); li.style.animationDelay = (0.9 + ul.children.length*0.09) + 's';
+    const b = document.createElement('button'); b.className = 'menu-item'; b.dataset.k = 'laws';
+    b.innerHTML = `<span><span class="t">Rugby laws</span><span class="d">The main laws, animated: what gets penalised and how to do it right</span></span><svg class="arr" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
+    b.onclick = () => go('laws'); li.appendChild(b);
+    const sc = ul.querySelector('li.mi-scores'); sc ? sc.before(li) : ul.appendChild(li); };
+})();
 (() => { const rm = renderMenu; renderMenu = function(){ rm.apply(this, arguments); cgHome(); }; if (typeof whenRole === 'function') whenRole(() => { if (S.screen === 'menu') cgHome(); }); })();
 })();
 
