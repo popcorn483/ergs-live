@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = 'aeefffd3be';</script>
+<script>window.ERGS_VER = '7bb3df6f78';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -8530,7 +8530,7 @@ Cloud.on(() => {
 function drillTags(){ const set = new Set(Array.isArray(drillMeta().tags) ? drillMeta().tags : DRILL_TAGS); drillList().forEach(d => (d.tags || []).forEach(t => set.add(t))); return [...set]; }
 
 /* ---------- the drills page ---------- */
-const DF = {grp:'any', tags:new Set(), q:'', hidden:false};
+const DF = {grp:'any', pos:'', tags:new Set(), q:'', hidden:false};
 (() => {
   const sec = document.createElement('section'); sec.id = 'drills'; sec.className = 'screen'; sec.hidden = true; sec.setAttribute('aria-label', 'Training drills');
   sec.innerHTML = `<div class="page gutter">
@@ -8568,7 +8568,7 @@ function renderDrills(keepFocus){
   [...DF.tags].forEach(t => { if (!tags.includes(t)) DF.tags.delete(t); });
   $('#drTagPick').innerHTML = tags.map(t => `<button type="button" class="tag" data-dt="${esc(t)}" aria-pressed="${DF.tags.has(t)}">${esc(t)}</button>`).join('');
   $$('#drTagPick [data-dt]').forEach(b => b.onclick = () => { const t = b.dataset.dt; DF.tags.has(t) ? DF.tags.delete(t) : DF.tags.add(t); renderDrills(); });
-  const shown = all.filter(d => (DF.grp === 'any' || (d.grp || 'all') === DF.grp) && (!DF.tags.size || (d.tags || []).some(t => DF.tags.has(t))) && (!DF.q || (d.title + ' ' + (d.tags || []).join(' ') + ' ' + (d.desc || '')).toLowerCase().includes(DF.q)));
+  const shown = all.filter(d => (DF.grp === 'any' || (d.grp || 'all') === DF.grp) && (!DF.pos || d.pos === DF.pos) && (!DF.tags.size || (d.tags || []).some(t => DF.tags.has(t))) && (!DF.q || (d.title + ' ' + (d.tags || []).join(' ') + ' ' + (d.desc || '')).toLowerCase().includes(DF.q)));
   $('#drState').innerHTML = Cloud.role === 'pending' ? 'Loading drills…' : `${shown.length} of ${all.length} drills${DF.tags.size ? ' · ' + esc([...DF.tags].join(', ')) : ''}${coach && nHidden ? ` · <button type="button" class="lnk-btn" id="drHid">${DF.hidden ? 'Hide the hidden drills' : `Show hidden drills (${nHidden})`}</button>` : ''}`;
   const hb = $('#drHid'); if (hb) hb.onclick = () => { DF.hidden = !DF.hidden; renderDrills(); };
   const list = $('#drList'); list.innerHTML = '';
@@ -18375,6 +18375,81 @@ const PRE_DRILLS6 = () => [
       const m2 = drillMeta(); await Cloud.set('team/drills', Object.assign({}, m2, {fit6:1, tags:[...new Set((m2.tags || DRILL_TAGS).concat(['Fitness', 'Warm-up', 'Speed', 'Agility', 'Mobility', 'Cool-down']))]}));
       if (todo.length) toast(`${todo.length} fitness, speed and warm-up drills added to Training drills.`); } catch(e){ busy = false; } })();
   });
+})();
+/* =============================== DRILL PACK: 500 solo drills by position and 100 forwards/backs drills =============================== */
+// The drills live in drill-pack.js (data only), loaded when needed. Solo drills pick an animation from SOLO_T; the team drills are
+// written like the other premade drills. A full-access coach adds them all to Training drills once (meta pack7).
+const POS_LIST = [['prop', 'Prop'], ['hooker', 'Hooker'], ['lock', 'Lock'], ['flanker', 'Flanker'], ['no8', 'Number 8'], ['sh', 'Scrum-half'], ['fh', 'Fly-half'], ['centre', 'Centre'], ['wing', 'Wing'], ['fb', 'Full-back']];
+const POS_NAME = Object.fromEntries(POS_LIST), POS_FWD = new Set(['prop', 'hooker', 'lock', 'flanker', 'no8']);
+// each template: start positions, cones, kit and a few animated steps (captions can be replaced per drill with caps:[...])
+const SOLO_T = {
+  sprint:   () => ({A:[[-12, 0]], ball:[-13, 1], cones:[[-12, -2, 'w'], [-12, 2, 'w'], [8, -2, 'r'], [8, 2, 'r']], steps:[{dur:1, cap:'Drive out: low, arms pumping', mv:{A1:[8, 0]}}, {dur:1.6, cap:'Walk back, recover', mv:{A1:[-12, 0]}}]}),
+  shuttle:  () => ({A:[[0, 0]], ball:[0, 8], cones:[[0, 0, 'y'], [-5, 0, 'r'], [5, 0, 'r']], steps:[{dur:0.6, cap:'5 m one way, touch the line', mv:{A1:[-5, 0]}}, {dur:0.9, cap:'Turn and go 10 m', mv:{A1:[5, 0]}}, {dur:0.6, cap:'Back through the middle', mv:{A1:[0, 0]}}]}),
+  zigzag:   () => ({A:[[-12, 0]], ball:[-13, 1], cones:[[-8, -3, 'o'], [-4, 3, 'o'], [0, -3, 'o'], [4, 3, 'o'], [8, -3, 'o']], steps:[{dur:0.6, cap:'Plant and cut at each cone', mv:{A1:[-8, -3]}}, {dur:0.6, cap:'Low hips, quick feet', mv:{A1:[-4, 3]}}, {dur:0.6, cap:'Accelerate out of the cut', mv:{A1:[0, -3]}}, {dur:0.6, cap:'Keep the speed', mv:{A1:[4, 3]}}, {dur:0.7, cap:'Finish strong', mv:{A1:[10, -3]}}]}),
+  ladder:   () => ({A:[[-10, 0]], ball:[-11, 1], cones:[...coneRow(-8, -1, 2, -1, 6, 'y'), ...coneRow(-8, 1, 2, 1, 6, 'y')], steps:[{dur:1.2, cap:'Quick feet: one foot in each gap', mv:{A1:[2, 0]}}, {dur:0.6, cap:'Explode out for 5 m', mv:{A1:[8, 0]}}, {dur:1.4, cap:'Jog back to the start', mv:{A1:[-10, 0]}}]}),
+  carry:    () => ({A:[[-12, 0]], ball:'A1', cones:[[-4, -1.5, 'o'], [-4, 1.5, 'o'], [4, -1.5, 'o'], [4, 1.5, 'o']], steps:[{dur:0.9, cap:'Ball in two hands, run hard', mv:{A1:[-4, 0]}}, {dur:0.8, cap:'Drop the height into the gate: ball to the chest', mv:{A1:[4, 0]}}, {dur:0.8, cap:'Leg drive through, five more metres', mv:{A1:[9, 0]}}]}),
+  pass:     () => ({A:[[-4, 2]], ball:'A1', cones:[[4, -4, 'b'], [4, 8, 'b']], draw0:[], steps:[{dur:0.7, cap:'Pass to the target: hands to the target', ball:[4, -4]}, {dur:0.6, cap:'It comes back: hands up early', ball:'A1'}, {dur:0.7, cap:'Other side: same height, same speed', ball:[4, 8]}, {dur:0.6, cap:'Catch, reset, again', ball:'A1'}]}),
+  longpass: () => ({A:[[-6, 0]], ball:'A1', cones:[[-6, 12, 'b'], [-2, 12, 'b']], steps:[{dur:0.5, cap:'Turn the hips, ball low to the hip', rel:{A1:[0.3, 0]}}, {dur:1.0, cap:'Spin pass: flat and in front of the target', ball:[-4, 12]}, {dur:0.8, cap:'Fetch it, swap hands, go the other way', mv:{A1:[-4, 10]}}]}),
+  catchhigh:() => ({A:[[0, 0]], ball:[-10, 0], cones:[[0, -3, 'y'], [0, 3, 'y']], steps:[{dur:1.2, cap:'Ball goes up: call “mine”, get under it early', ball:[0, 1], mv:{A1:[-1, 0]}}, {dur:0.6, cap:'Jump: knee up, arms up, catch it at the top', lift:['A1']}, {dur:0.8, cap:'Land, turn the shoulder, secure the ball', ball:'A1', mv:{A1:[2, 0]}}]}),
+  boxkick:  () => ({A:[[-8, 0]], ball:[-9, 0.5], cones:[[6, -3, 'r'], [6, 3, 'r'], [10, -3, 'r'], [10, 3, 'r']], steps:[{dur:0.6, cap:'Pick, step back, body open to the target', ball:'A1', mv:{A1:[-9, 0]}}, {dur:1.4, cap:'Kick high into the box: hang time over distance', kick:true, ball:[8, 0]}, {dur:1.2, cap:'Chase your own kick', mv:{A1:[4, 0]}}]}),
+  grubber:  () => ({A:[[-10, 0]], ball:'A1', cones:[[-2, -2, 'w'], [-2, 2, 'w']], steps:[{dur:0.8, cap:'Run onto it, ball over the kicking foot', mv:{A1:[-4, 0]}}, {dur:0.9, cap:'Grubber through the gate: low, end over end', kick:true, ball:[6, 0]}, {dur:1, cap:'Chase and regather in stride', mv:{A1:[6, 0]}, ball:'A1'}]}),
+  chip:     () => ({A:[[-10, 0]], ball:'A1', cones:[[-1, -1, 'r'], [-1, 1, 'r']], steps:[{dur:0.8, cap:'Run at the cone defender', mv:{A1:[-4, 0]}}, {dur:1, cap:'Chip it over: soft, short, just over head height', kick:true, ball:[4, 0]}, {dur:0.9, cap:'Round the cone and catch it on the full', mv:{A1:[4, 0]}, ball:'A1'}]}),
+  goalkick: () => ({A:[[-10, -4]], ball:[-8, -3], posts:[[12, 0]], cones:[[-8, -3, 'y']], steps:[{dur:1, cap:'Tee it up, line up the posts, step back and across', mv:{A1:[-11, -5]}}, {dur:0.5, cap:'Same routine every time: breathe, look, go', mv:{A1:[-8.6, -3.4]}}, {dur:1.3, cap:'Strike through the sweet spot, follow through', kick:true, ball:[12, 0]}]}),
+  touchkick:() => ({A:[[-10, 2]], ball:'A1', cones:[[6, 10, 'r'], [10, 10, 'r']], steps:[{dur:0.6, cap:'Drop it onto the foot, angle to the line', mv:{A1:[-9, 2.5]}}, {dur:1.3, cap:'Kick to touch: find the line between the cones', kick:true, ball:[8, 10.5]}, {dur:1, cap:'Fetch, swap feet, kick off the other side', mv:{A1:[-9, -2]}}]}),
+  kickcatch:() => ({A:[[-6, 0]], ball:'A1', cones:[[-6, -2, 'b'], [-6, 2, 'b']], steps:[{dur:1, cap:'Kick it up to yourself', kick:true, ball:[-4, 0]}, {dur:0.6, cap:'Get under it, call it', mv:{A1:[-4.5, 0]}}, {dur:0.7, cap:'Catch it at the top, chest to the ball', lift:['A1'], ball:'A1'}]}),
+  bag:      () => ({A:[[-10, 0]], ball:[-11, 1], bags:[[0, 0, 'pillar']], steps:[{dur:0.8, cap:'Close the space: short steps in the last 2 m', mv:{A1:[-2.5, 0]}}, {dur:0.6, cap:'Cheek to cheek, wrap both arms', mv:{A1:[-1, 0]}}, {dur:0.9, cap:'Drive the legs, land on top', mv:{A1:[0.8, 0]}, down:['A1']}, {dur:0.9, cap:'Back to your feet, back in the line', mv:{A1:[-8, 0]}}]}),
+  donut:    () => ({A:[[-10, -4]], ball:[-11, -3], bags:[[2, 6, 'donut', null, [[2, 6], [1, 3], [0, -0.5], [-0.5, -2]]]], steps:[{dur:0.9, cap:'Watch the roll: track it, don’t chase it', mv:{A1:[-4, -2]}}, {dur:0.9, cap:'Short steps, head on the right side', mv:{A1:[-1.6, -1.2]}}, {dur:0.9, cap:'Wrap and roll it to the ground', mv:{A1:[-0.8, -1.8]}, down:['A1']}]}),
+  getup:    () => ({A:[[-8, 0]], ball:[-9, 1], cones:[[-8, -2, 'w'], [0, -2, 'w'], [8, -2, 'w']], steps:[{dur:0.6, cap:'Down: chest to the floor', down:['A1']}, {dur:0.6, cap:'Up fast, first step forward', mv:{A1:[0, 0]}}, {dur:0.6, cap:'Down again', down:['A1']}, {dur:0.7, cap:'Up and sprint through', mv:{A1:[9, 0]}}]}),
+  pickgo:   () => ({A:[[-8, 0]], ball:[-6, 0], cones:[[-2, -1.5, 'r'], [-2, 1.5, 'r'], [2, -1.5, 'r'], [2, 1.5, 'r']], steps:[{dur:0.6, cap:'Low over the ball', mv:{A1:[-6.4, 0]}}, {dur:0.8, cap:'Pick and go: low, both hands, legs pumping', ball:'A1', mv:{A1:[-1, 0]}}, {dur:0.7, cap:'Place it long: body between ball and opposition', mv:{A1:[2, 0]}, down:['A1'], ball:[3.2, 0]}]}),
+  jackal:   () => ({A:[[-8, -3]], ball:[0, 0], cones:[[-1.5, -1.5, 'w'], [1.5, -1.5, 'w'], [-1.5, 1.5, 'w'], [1.5, 1.5, 'w']], steps:[{dur:0.9, cap:'Arrive through the gate, not from the side', mv:{A1:[-1, -0.3]}}, {dur:0.7, cap:'Feet wide, hips low, hands on the ball', rel:{A1:[0.5, 0.2]}}, {dur:0.8, cap:'Lift it clean, or hold on for the penalty', ball:'A1'}]}),
+  pad:      () => ({A:[[-4, 0]], B:[[0, 0]], ball:[-6, 2], bags:[[-0.6, 0, 'shield', 'B1']], steps:[{dur:0.7, cap:'Feet set, flat back, hips under the shoulders', mv:{A1:[-1.6, 0]}}, {dur:0.8, cap:'Bind, sink and drive the pad 2 m', mv:{A1:[0.4, 0], B1:[2, 0]}}, {dur:0.8, cap:'Reset and go again', mv:{A1:[-4, 0], B1:[0, 0]}}]}),
+  throw:    () => ({A:[[-8, 10]], ball:'A1', cones:[[-6, 6, 'w'], [-6, 0, 'b'], [-6, -4, 'b'], [-6, -8, 'b']], steps:[{dur:0.6, cap:'Ball above the head, two hands, feet square', rel:{A1:[0, 0.2]}}, {dur:1, cap:'Throw to the target: spiral, flat, no loop', ball:[-6, 0]}, {dur:1, cap:'Next throw: further target', ball:[-6, -4]}, {dur:1, cap:'Back marker', ball:[-6, -8]}]}),
+  jump:     () => ({A:[[-6, 2]], ball:[-9, 10], cones:[[-6, 0, 'b'], [-6, 4, 'b']], steps:[{dur:0.6, cap:'Footwork: dummy one way', mv:{A1:[-6, 3]}}, {dur:0.6, cap:'Step and drive up off both feet', mv:{A1:[-6, 0.5]}}, {dur:0.8, cap:'Arms up, take it at the top', lift:['A1'], ball:'A1'}, {dur:0.6, cap:'Land balanced, ball secured', rel:{A1:[0.3, 0]}}]}),
+  step:     () => ({A:[[-10, 0]], ball:'A1', cones:[[-1, 0, 'r']], steps:[{dur:0.8, cap:'Run straight at the cone', mv:{A1:[-3, 0]}}, {dur:0.5, cap:'Plant the outside foot hard', mv:{A1:[-1.6, -1.4]}}, {dur:0.7, cap:'Push off and accelerate past', mv:{A1:[4, 1.6]}}]}),
+  fend:     () => ({A:[[-10, 0]], ball:'A1', bags:[[0, 1, 'pillar']], steps:[{dur:0.8, cap:'Ball in the far arm', mv:{A1:[-2.5, -0.5]}}, {dur:0.6, cap:'Fend: straight arm, palm to the pad', mv:{A1:[-0.5, -0.2]}}, {dur:0.8, cap:'Drive past and away', mv:{A1:[6, -1]}}]}),
+  dive:     () => ({A:[[-4, 0]], ball:[-2, 0], cones:[[6, -6, 'b'], [6, 6, 'b']], steps:[{dur:0.6, cap:'Feet beside the ball, low', mv:{A1:[-2.6, 0]}}, {dur:0.9, cap:'Pass straight off the ground: no back-lift', ball:[6, -6]}, {dur:0.9, cap:'Next ball: the other way', ball:[6, 6]}]}),
+  offload:  () => ({A:[[-10, 0]], ball:'A1', bags:[[0, 0, 'pillar']], cones:[[2, 3, 'b']], steps:[{dur:0.8, cap:'Carry into contact', mv:{A1:[-1, 0]}}, {dur:0.6, cap:'Keep the arms free, fight to the side', rel:{A1:[0.4, 0.4]}}, {dur:0.7, cap:'Offload to the target: soft hands', ball:[2, 3]}]}),
+  clearout: () => ({A:[[-8, 0]], ball:[0, 0], bags:[[0.8, 0, 'shield']], steps:[{dur:0.8, cap:'Arrive low through the gate', mv:{A1:[-1, 0]}}, {dur:0.7, cap:'Shoulder on the pad, hips below the shoulders', mv:{A1:[0.4, 0]}}, {dur:0.8, cap:'Drive it 2 m past the ball', mv:{A1:[2.6, 0]}}]}),
+  mobility: () => ({A:[[0, 0]], ball:[2, 2], cones:[[-2, -2, 'w'], [2, -2, 'w']], steps:[{dur:1.5, cap:'Hold the position, breathe', rel:{A1:[0, 0]}}, {dur:1.5, cap:'Change side, same time', rel:{A1:[0.4, 0]}}]}),
+  strength: () => ({A:[[0, 0]], ball:[2, 1], cones:[[-2, -2, 'y'], [2, -2, 'y']], steps:[{dur:1.2, cap:'Controlled reps: quality over speed', down:['A1']}, {dur:1.2, cap:'Rest, then the next set', rel:{A1:[0, 0]}}]}),
+};
+function soloDrill(d){
+  const T = (SOLO_T[d.anim] || SOLO_T.sprint)(), steps = T.steps.map((s, i) => Object.assign({}, s, d.caps && d.caps[i] ? {cap:d.caps[i]} : {}));
+  const p = (T.bags ? bagDrill : buildDrill)({id:d.id, title:d.title, tags:[...new Set([POS_NAME[d.pos] || 'Solo'].concat(d.tags || [], ['Solo']))], grp:POS_FWD.has(d.pos) ? 'forwards' : 'backs', mins:d.mins || 8,
+    desc:d.desc, A:T.A, B:T.B, ball:T.ball, cones:T.cones, posts:T.posts, bags:T.bags, cap0:d.cap0 || T.cap0 || '', steps, lv:d.lv || []});
+  p.pos = d.pos; p.solo = true; p.lv = d.lv || []; return p;
+}
+function teamDrill(d){ const p = (d.bags ? bagDrill : buildDrill)(d); p.lv = d.lv || []; return p; }
+
+// the pack is a separate file, fetched only when it is needed (offline list, or a full-access coach adding it once)
+let PACK = window.ERGS_DRILL_PACK || null, packP = null, PACK_D = null;
+const packLoad = () => PACK ? Promise.resolve(PACK) : (packP = packP || new Promise((res, rej) => {
+  const s = document.createElement('script'); s.src = 'drill-pack.js?v=' + encodeURIComponent(window.ERGS_VER || '');
+  s.onload = () => { PACK = window.ERGS_DRILL_PACK || null; res(PACK); if (S.screen === 'drills') renderDrills(); };
+  s.onerror = () => { packP = null; rej(new Error('pack')); }; document.head.appendChild(s); }));
+const PRE_DRILLS7 = () => { if (!PACK) return []; if (!PACK_D){ PACK_D = []; (PACK.team || []).forEach(d => { try { PACK_D.push(teamDrill(d)); } catch(e){} }); (PACK.solo || []).forEach(d => { try { PACK_D.push(soloDrill(d)); } catch(e){} }); } return PACK_D; };
+(() => {
+  const dl = drillList; drillList = function(){ const L = dl.apply(this, arguments); if (!(Cloud.drillErr || Cloud.mode === 'pending')) return L; if (!PACK){ packLoad().catch(() => {}); return L; } const have = new Set(L.map(d => d.id)); return L.concat(PRE_DRILLS7().filter(d => !have.has(d.id)).map(d => Object.assign(d, {_local:true}))); };
+  const dt = drillTags; drillTags = function(){ const P = new Set(POS_LIST.map(p => p[1])); return dt.apply(this, arguments).filter(t => !P.has(t)); };   // positions have their own row
+  let busy = false;
+  Cloud.on(() => {
+    if (busy || Cloud.role !== 'coach' || Cloud.drillErr || !(typeof isAdminCoach === 'function' && isAdminCoach())) return;
+    const ok = Cloud.loaded.all || (Cloud.loaded.drills && Cloud.loaded['team/drills']); if (!ok || drillSeeding === true) return;
+    const m = drillMeta(); if ((m.seedV || 0) < 5 || (m.fit6 || 0) < 1 || (m.pack7 || 0) >= 1) return;
+    busy = true; (async () => { try { await packLoad(); const have = new Set((Cloud.drills || []).map(d => d.id)), todo = PRE_DRILLS7().filter(d => !have.has(d.id));
+      if (todo.length) toast(`Adding ${todo.length} new drills to Training drills…`);
+      for (let i = 0; i < todo.length; i += 20) await Promise.all(todo.slice(i, i + 20).map(d => Cloud.set('drills/' + d.id, {drill:stripDrill(d), updated:Date.now(), pre:1})));
+      const m2 = drillMeta(); await Cloud.set('team/drills', Object.assign({}, m2, {pack7:1, tags:[...new Set((m2.tags || DRILL_TAGS).concat(['Maul', 'Solo', 'Speed', 'Agility', 'Mobility', 'Strength']))]}));
+      if (todo.length) toast(`${todo.length} drills added: solo drills for every position, plus forwards and backs drills.`); } catch(e){ busy = false; } })();
+  });
+  // a position row on the drills page
+  const row = document.createElement('div'); row.className = 'tag-pick dr-pos'; row.id = 'drPos'; row.setAttribute('aria-label', 'Filter by position');
+  row.innerHTML = `<span class="dr-pos-l">Position</span>` + [['', 'Any']].concat(POS_LIST).map(([k, t]) => `<button type="button" class="tag" data-pos="${k}">${esc(t)}</button>`).join('');
+  const tp = $('#drTagPick'); if (tp) tp.before(row);
+  row.querySelectorAll('[data-pos]').forEach(b => b.onclick = () => { DF.pos = b.dataset.pos; if (DF.pos) DF.grp = 'any'; renderDrills(); });
+  const st = document.createElement('style'); st.textContent = '.dr-pos{align-items:center}.dr-pos-l{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted,#667);margin-right:4px}';
+  document.head.appendChild(st);
+  const rd = renderDrills; renderDrills = function(){ const r = rd.apply(this, arguments); $$('#drPos [data-pos]').forEach(b => b.setAttribute('aria-pressed', b.dataset.pos === (DF.pos || ''))); return r; };
 })();
 /* =============================== A CLEAN HOME SCREEN: running the club lives in Settings (⚙ in the top corner) =============================== */
 // Settings opens on "Manage": players and access, approvals, coaches, sponsors, photo seasons and approval emails,
