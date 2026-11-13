@@ -1,7 +1,7 @@
 name: Rugby newsfeed
 
-# Every hour: rugby headlines (BBC, RTÉ, World Rugby, Ulster Rugby, RugbyPass) and international / pro fixtures and results
-# (ESPN), saved as news.json for ERGS Live's Rugby tab. Commits only when something changed.
+# Every hour: rugby headlines (BBC, RTÉ, World Rugby, Ulster Rugby, RugbyPass) and international / pro scores and fixtures
+# (BBC Sport), saved as news.json for ERGS Live's Rugby tab. Commits only when something changed.
 on:
   schedule:
     - cron: '41 * * * *'

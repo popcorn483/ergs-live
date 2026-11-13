@@ -3337,7 +3337,7 @@ function frSwitch(tab){ const F = FR[tab], n = frOff(tab).length || frGames(tab)
 
 
 /* ---------- Rugby: a newsfeed (headlines), international and pro results and fixtures, and local club rugby ---------- */
-// news.json is refreshed every hour by a GitHub workflow (BBC Sport, RTÉ and others; ESPN scores; Ulster Rugby for the Towns Cup,
+// news.json is refreshed every hour by a GitHub workflow (BBC Sport and RTÉ headlines; BBC Sport scores; Ulster Rugby for the Towns Cup,
 // Enniskillen RFC and Clogher Valley). Headlines open the full story on the publisher's site.
 let NEWS = null;
 async function newsLoad(){ try { const r = await fetch('news.json?t=' + Math.floor(Date.now()/300e3), {cache:'no-store'}); if (!r.ok) return; const j = await r.json(); const was = NEWS && NEWS.updated; NEWS = j; if (was !== j.updated && READY && V.tab === 'rugby') render(); } catch(e){} }
@@ -3360,7 +3360,7 @@ function rgGames(){
   const tog = `<div class="fx-view rg-chips" role="tablist" aria-label="Games">${live.length ? `<button type="button" data-rgg="live" aria-pressed="${sub === 'live'}">Live <small>${live.length}</small></button>` : ''}<button type="button" data-rgg="res" aria-pressed="${sub === 'res'}">Results</button><button type="button" data-rgg="fx" aria-pressed="${sub === 'fx'}">Fixtures</button></div>`;
   const list = sub === 'live' ? live : sub === 'res' ? res.slice(0, 40) : fx.slice(0, 40);
   const by = new Map(); list.forEach(g => { if (!by.has(g.lg)) by.set(g.lg, []); by.get(g.lg).push(g); });
-  const order = ['Internationals', 'Six Nations', 'Rugby World Cup', 'Autumn Nations Series', 'United Rugby Championship', 'Champions Cup', 'Challenge Cup', 'Premiership', 'Rugby Championship'];
+  const order = ['Nations Championship', 'International', 'Six Nations', 'Rugby World Cup', 'Autumn Nations Series', 'United Rugby Championship', 'Champions Cup', 'Challenge Cup', 'Premiership', 'Rugby Championship'];
   const lgs = [...by.keys()].sort((a, b) => ((order.findIndex(o => a.includes(o)) + 1) || 99) - ((order.findIndex(o => b.includes(o)) + 1) || 99));
   const tm = (t, w) => `<span class="ko-t${w ? ' w' : ''}">${t.logo ? `<img class="rg-logo" src="${esc(t.logo)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span>${esc(t.n)}</span></span>`;
   const row = g => { const done = g.hs != null, w = done && (g.hs > g.as ? 'h' : g.as > g.hs ? 'a' : ''), d = new Date(g.date), irl = /ireland|ulster|leinster|munster|connacht/i.test(g.h.n + g.a.n);
@@ -3384,7 +3384,7 @@ function viewRugby(){
   return `<div class="cup-head"><div><div class="sec" style="margin:0 0 4px">Rugby</div></div></div>
     <div class="fx-view rg-main" role="tablist" aria-label="Rugby"><button type="button" data-rg="news" aria-pressed="${sec === 'news'}">News</button><button type="button" data-rg="games" aria-pressed="${sec === 'games'}">Scores</button><button type="button" data-rg="clubs" aria-pressed="${sec === 'clubs'}">Local clubs</button></div>
     ${!NEWS ? '<div class="empty">Loading…</div>' : sec === 'games' ? rgGames() : sec === 'clubs' ? rgClubs() : rgNews()}
-    ${NEWS && NEWS.updated ? `<p class="hint rg-src">Headlines from BBC Sport, RTÉ and others; scores from ESPN; club rugby from <a href="https://ulsterrugby.sportlomo.com/" target="_blank" rel="noopener">Ulster Rugby</a>. Updated ${esc(agoN(Date.parse(NEWS.updated)))}.</p>` : ''}`;
+    ${NEWS && NEWS.updated ? `<p class="hint rg-src">Headlines and scores from BBC Sport and RTÉ; club rugby from <a href="https://ulsterrugby.sportlomo.com/" target="_blank" rel="noopener">Ulster Rugby</a>. Updated ${esc(agoN(Date.parse(NEWS.updated)))}.</p>` : ''}`;
 }
 document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-rg], [data-rgn], [data-rgg]'); if (!t || V.tab !== 'rugby') return;
   if (t.dataset.rg) V.rg = t.dataset.rg; else if (t.dataset.rgn) V.rgN = t.dataset.rgn; else V.rgG = t.dataset.rgg; render(); });
