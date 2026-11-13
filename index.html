@@ -740,6 +740,8 @@ body.dr-lock{overflow:hidden}
 @media (max-width:560px){.tabs{-webkit-mask-image:linear-gradient(90deg,#000 85%,transparent);mask-image:linear-gradient(90deg,#000 85%,transparent)}.tabs.end{-webkit-mask-image:none;mask-image:none}}
 .last3 div span:last-child{color:var(--chalk)}
 
+/* Cup and Medallion are in the menu, not the tab bar */
+#tabs [data-v="cup"],#tabs [data-v="meds"]{display:none!important}
 /* Rugby tab */
 .rf{margin:0 0 18px;padding:14px;border:1px solid rgba(217,192,140,.55);border-radius:18px;background:linear-gradient(180deg,rgba(217,192,140,.08),rgba(255,255,255,.02))}
 .rf-pick{display:grid;grid-template-columns:1fr 1fr;margin:0 0 12px}.rf-pick button{white-space:nowrap}
@@ -767,7 +769,7 @@ details.rg-cd>summary>b{display:grid;gap:3px;position:relative;padding-right:22p
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = 'fbfb218062';</script>
+<script>window.ERGS_VER = 'fbd3febc7c';</script>
 <script src="config.js?v=b61c3e8a59"></script>
 <script src="crest.js?v=b61c3e8a59"></script>
 <script src="app.js?v=b61c3e8a59"></script>

@@ -1864,7 +1864,7 @@ function render(){
   coachBar();
   $('#tabs').hidden = !!m;
   $$('#tabs button').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === V.tab));
-  $('#view').innerHTML = m ? viewMatch(m) : V.tab === 'fixtures' ? viewFixtures() : V.tab === 'results' ? viewResults() : V.tab === 'cup' ? viewCup() : V.tab === 'meds' ? viewMeds() : V.tab === 'rugby' ? viewRugby() : viewMatches();
+  $('#view').innerHTML = m ? viewMatch(m) : V.tab === 'fixtures' ? viewFixtures() : V.tab === 'results' ? viewResults() : V.tab === 'cup' ? compBack('Schools’ Cup') + viewCup() : V.tab === 'meds' ? compBack('Medallion') + viewMeds() : V.tab === 'rugby' ? viewRugby() : viewMatches();
   $$('[data-unbin]').forEach(b => b.onclick = ev => { ev.stopPropagation(); const id = b.dataset.unbin; save(d => { const x = d.matches.find(y => y.id === m.id); const e = x && x.events.find(y => y.id === id); if (e) e.ret = Date.now(); }, m.id); });
   $$('[data-team]').forEach(b => b.onclick = () => { V.team = b.dataset.team; render(); });
   $$('[data-season]').forEach(b => b.onclick = () => { V.season = +b.dataset.season || 0; render(); });
@@ -1877,6 +1877,7 @@ function render(){
   $$('[data-clear]').forEach(b => b.onclick = () => { if (b.dataset.clear === 'latest'){ V.lPeriod = ''; V.lTeam = ''; } else { V.team = ''; V.season = 0; V.period = ''; V.res = ''; } render(); });
   { const nm = $('.cal-m.now'); if (nm && !V.calJumped && innerWidth < 760){ V.calJumped = true; setTimeout(() => nm.scrollIntoView({block:'start', behavior:'smooth'}), 60); } }   // phones open on this month
   wxFill();
+  { const tb = $('#tabs'); if (tb) tb.classList.toggle('end', tb.scrollLeft + tb.clientWidth >= tb.scrollWidth - 4); }
   { const tb = $('#tabs'), at = tb && tb.querySelector('[aria-pressed="true"]'); if (at && tb.scrollWidth > tb.clientWidth){ const l = at.offsetLeft - tb.offsetLeft; if (l < tb.scrollLeft || l + at.offsetWidth > tb.scrollLeft + tb.clientWidth) tb.scrollLeft = l - 16; } }
   vwFill(); { const k = vwWatching().join(); if (k !== VW.k){ VW.k = k; vwKick(); } }
   $$('[data-fxclear]').forEach(b => b.onclick = () => { V.ha = ''; V.calTeams.clear(); try { localStorage.setItem('ergs.calTeams', '[]'); } catch(e){} render(); });
@@ -3008,6 +3009,8 @@ function menuOpen(){
     ${COACH && !SANDBOX ? `<div class="dr-sec">Matches</div>${item('plus', 'New match', 'Add a fixture to score', 'data-mact="new"')}${item('past', 'Add a past result', 'A score from before ERGS Live', 'data-mact="past"')}${item('share', 'Share a match link', 'Send supporters straight to a match', 'data-mact="sharem"')}${item('video', 'Match videos', 'Add VEO or other links to recent matches', 'data-mact="videos"')}${item('past', 'Add past results in bulk', 'Type a table or paste a list', 'data-mact="pastbulk"')}${item('imp', 'Import fixtures', 'From a photo, PDF or list', 'data-mact="import"')}
       <div class="dr-sec">Manage</div>${item('crest', 'School crests', 'Crests, colours, merge and delete', 'data-mact="schools"')}${item('people', 'Coaches', 'Who can score and manage', 'data-mact="coaches"')}` : ''}
     ${(real.COACH || real.PLAYER) ? `<div class="dr-sec">Learn</div>${SANDBOX ? item('demo', 'Leave the demo', 'Back to the real scoreboard', 'data-mdemo="out"') : item('demo', real.COACH ? 'Practise in the demo' : 'Try the demo', 'Score a match and see the animations. Nothing is saved', 'data-mdemo="in"')}` : ''}
+    ${(() => { const c = document.querySelector('#tabs [data-v="cup"]'), m = document.querySelector('#tabs [data-v="meds"]'), cOn = c && !c.hidden, mOn = m && !m.hidden;
+      return cOn || mOn ? `<div class="dr-sec">Competitions</div>${cOn ? item('crest', 'Schools’ Cup', '1st XV groups, results, fixtures and friendlies', 'data-mcomp="cup"') : ''}${mOn ? item('crest', 'Medallion Shield', 'Medallion results, fixtures and friendlies', 'data-mcomp="meds"') : ''}` : ''; })()}
     <div class="dr-sec">More</div>${item('news', 'Rugby news', 'Headlines, international scores and local clubs', 'data-mnews')}${item('share', 'Share the app', 'Link and QR code', 'data-mshare')}${document.querySelector('#installSlot button, #installSlot a') ? item('imp', 'Install the app', 'On your phone or computer', 'data-minst') : ''}
     ${EMAIL ? item('out', 'Sign out', '', 'data-mout') : item('in', 'Coach & player sign in', 'With your Google account', 'data-min')}</nav>`;
   dr.querySelector('.dr-x').onclick = menuClose;
@@ -3018,7 +3021,8 @@ function menuOpen(){
   dr.querySelectorAll('[data-mact]').forEach(b => b.onclick = () => { menuClose(); act(b.dataset.mact, null); });
   dr.querySelectorAll('[data-mdemo]').forEach(b => b.onclick = () => { menuClose(); b.dataset.mdemo === 'in' ? sbEnter() : sbExit(); });
   const sh = dr.querySelector('[data-mshare]'); if (sh) sh.onclick = () => { menuClose(); shareBtn.click(); };
-  const mn = dr.querySelector('[data-mnews]'); if (mn) mn.onclick = () => { menuClose(); V.tabBefore = V.tab === 'rugby' ? V.tabBefore : V.tab; V.tab = 'rugby'; newsLoad(); render(); scrollTo(0, 0); };
+  const mn = dr.querySelector('[data-mnews]'); if (mn) mn.onclick = () => { menuClose(); compOpen('rugby'); };
+  dr.querySelectorAll('[data-mcomp]').forEach(b => b.onclick = () => { menuClose(); compOpen(b.dataset.mcomp); });
   const so = dr.querySelector('[data-mout]'); if (so) so.onclick = () => { menuClose(); if (SANDBOX) sbExit(); act('signout', null); };
   const ins = dr.querySelector('[data-minst]'); if (ins) ins.onclick = () => { menuClose(); const t = document.querySelector('#installSlot button, #installSlot a'); if (t) t.click(); };
   const si = dr.querySelector('[data-min]'); if (si) si.onclick = () => { menuClose(); signLink.click(); };
@@ -3336,6 +3340,11 @@ function frSwitch(tab){ const F = FR[tab], n = frOff(tab).length || frGames(tab)
 })();
 
 
+/* Cup and Medallion live in the menu: their pages get the same way back as Rugby news */
+const compBack = t => `<div class="rg-top"><button type="button" class="rg-back" data-compback>‹ ERGS Live</button><h2>${esc(t)}</h2></div>`;
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-compback]'); if (!b) return; V.tab = V.tabBefore && !['cup', 'meds', 'rugby'].includes(V.tabBefore) ? V.tabBefore : 'matches'; render(); scrollTo(0, 0); });
+const compOpen = k => { if (!['cup', 'meds', 'rugby'].includes(V.tab)) V.tabBefore = V.tab; V.tab = k; if (k === 'rugby') newsLoad(); render(); scrollTo(0, 0); };
+
 /* ---------- Rugby: a newsfeed (headlines), international and pro results and fixtures, and local club rugby ---------- */
 // news.json is refreshed every hour by a GitHub workflow (BBC Sport and RTÉ headlines; BBC Sport scores; Ulster Rugby for the Towns Cup,
 // Enniskillen RFC and Clogher Valley). Headlines open the full story on the publisher's site.
@@ -3424,7 +3433,7 @@ function viewRugby(){
     ${NEWS && NEWS.updated ? `<p class="hint rg-src">Headlines and scores from BBC Sport and RTÉ; club rugby from <a href="https://ulsterrugby.sportlomo.com/" target="_blank" rel="noopener">Ulster Rugby</a>. Updated ${esc(agoN(Date.parse(NEWS.updated)))}.</p>` : ''}`;
 }
 document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-rg], [data-rgn], [data-rgg], [data-rgc], [data-rgf], [data-rgfs], [data-rgback]'); if (!t || V.tab !== 'rugby') return;
-  if (t.hasAttribute('data-rgback')){ V.tab = V.tabBefore && V.tabBefore !== 'rugby' ? V.tabBefore : 'matches'; render(); scrollTo(0, 0); return; }
+  if (t.hasAttribute('data-rgback')){ V.tab = V.tabBefore && !['cup', 'meds', 'rugby'].includes(V.tabBefore) ? V.tabBefore : 'matches'; render(); scrollTo(0, 0); return; }
   if (t.dataset.rgf) V.rgF = t.dataset.rgf; else if (t.dataset.rgfs) V.rgFS = t.dataset.rgfs; else if (t.dataset.rgc != null) V.rgC = t.dataset.rgc; else if (t.dataset.rg) V.rg = t.dataset.rg; else if (t.dataset.rgn) V.rgN = t.dataset.rgn; else V.rgG = t.dataset.rgg; render(); });
 
 /* inline results for coaches: every fixture in the group, score and tries, saved on leaving the box */
