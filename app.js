@@ -3367,16 +3367,25 @@ function rgGames(){
     return `<${g.url ? `a href="${esc(g.url)}" target="_blank" rel="noopener"` : 'div'} class="ko-r rg-g${irl ? ' us' : ''}${g.state === 'in' ? ' live' : ''}">${tm(g.h, w === 'h')}<b class="ko-s">${done ? `${g.hs}–${g.as}` : esc(d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}))}</b>${tm(g.a, w === 'a').replace('class="ko-t', 'class="ko-t a')}<small class="ko-tr">${g.state === 'in' ? `<span class="pill live">${esc(g.detail || 'Live')}</span>` : esc(d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}))}</small></${g.url ? 'a' : 'div'}>`; };
   return tog + (list.length ? lgs.map(l => `<div class="cup-g ko"><div class="cup-gh"><b>${esc(l)}</b></div>${by.get(l).map(row).join('')}</div>`).join('') : `<div class="empty">No ${sub === 'fx' ? 'fixtures in the next three weeks' : sub === 'res' ? 'results in the last week' : 'live games'}.</div>`);
 }
+const RG_CLUB_ORDER = [/enniskillen/i, /clogher/i, /omagh/i, /dungannon/i, /strabane/i, /cookstown/i];
 function rgClubs(){
-  const C = (NEWS && NEWS.clubs) || [];
-  if (!C.length) return '<div class="empty">The Ulster Towns Cup and Enniskillen RFC / Clogher Valley’s leagues appear here from Ulster Rugby once their fixtures are published.</div>';
-  const ours = n => /enniskillen|clogher/i.test(n || ''), day = d => d ? new Date(d + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}) : 'Date TBC';
+  const C0 = (NEWS && NEWS.clubs) || [];
+  if (!C0.length) return '<div class="empty">The Ulster Towns Cup and the leagues of Enniskillen RFC, Clogher Valley and the other town clubs appear here from Ulster Rugby once their fixtures are published.</div>';
+  const base = n => String(n || '').replace(/\s+(2nd|3rd|4th|1st)\s*XV$|\s+U\d{2}s?$|\s+(Women|Ladies|Girls|Youth)$/i, '').trim();
+  const clubs = [...new Set(C0.flatMap(c => (c.ours || []).map(base)))].sort((x, y) => { const i = n => { const k = RG_CLUB_ORDER.findIndex(r => r.test(n)); return k < 0 ? 99 : k; }; return i(x) - i(y) || x.localeCompare(y); });
+  const pick = clubs.includes(V.rgC) ? V.rgC : '', isPick = n => pick ? base(n) === pick : RG_CLUB_ORDER.slice(0, 2).some(r => r.test(n || ''));
+  const chips = clubs.length > 1 ? `<div class="fx-view rg-chips rg-clubs" role="tablist" aria-label="Club">${['', ...clubs].map(k => `<button type="button" data-rgc="${esc(k)}" aria-pressed="${pick === k}">${k ? esc(k.replace(/\s+RFC$/i, '')) : 'All'}</button>`).join('')}</div>` : '';
+  const C = C0.filter(c => !pick || (c.ours || []).some(n => base(n) === pick));
+  const day = d => d ? new Date(d + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}) : 'Date TBC';
   const row = g => { const done = g.hs != null, w = done && (g.hs > g.as ? 'h' : g.as > g.hs ? 'a' : '');
-    return `<div class="ko-r${ours(g.h) || ours(g.a) ? ' us' : ''}"><span class="ko-t${w === 'h' ? ' w' : ''}"><span>${esc(g.h)}</span></span><b class="ko-s">${done ? `${g.hs}–${g.as}` : esc(g.time || 'v')}</b><span class="ko-t a${w === 'a' ? ' w' : ''}"><span>${esc(g.a)}</span></span><small class="ko-tr">${esc(day(g.date))}${g.venue && !done ? ' · ' + esc(g.venue) : ''}</small></div>`; };
-  return C.map(c => { const res = c.games.filter(g => g.hs != null).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, c.towns ? 12 : 6), fx = c.games.filter(g => g.hs == null).sort((a, b) => (a.date || '9').localeCompare(b.date || '9')).slice(0, c.towns ? 12 : 6);
-    const tbl = c.table && c.table.length ? `<div class="tbl"><table class="cup-t"><thead><tr><th></th><th class="l">Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr></thead><tbody>${c.table.map((o, i) => `<tr class="${ours(o.n) ? 'us' : ''}"><td class="pos">${i + 1}</td><td class="l">${esc(o.n)}</td><td>${o.P}</td><td>${o.W}</td><td>${o.D}</td><td>${o.L}</td><td class="pts">${o.Pts}</td></tr>`).join('')}</tbody></table></div>` : '';
-    return `<div class="cup-g${c.towns ? ' ours' : ''}"><div class="cup-gh"><b>${esc(c.name)}</b>${c.url ? `<a class="lnk" href="${esc(c.url)}" target="_blank" rel="noopener">Ulster Rugby ↗</a>` : ''}</div>${tbl}
-      ${fx.length ? `<div class="ko-d">Coming up</div>${fx.map(row).join('')}` : ''}${res.length ? `<div class="ko-d">Results</div>${res.map(row).join('')}` : ''}${!fx.length && !res.length && !tbl ? '<p class="hint">No games published yet.</p>' : ''}</div>`; }).join('');
+    return `<div class="ko-r${isPick(g.h) || isPick(g.a) ? ' us' : ''}"><span class="ko-t${w === 'h' ? ' w' : ''}"><span>${esc(g.h)}</span></span><b class="ko-s">${done ? `${g.hs}–${g.as}` : esc(g.time || 'v')}</b><span class="ko-t a${w === 'a' ? ' w' : ''}"><span>${esc(g.a)}</span></span><small class="ko-tr">${esc(day(g.date))}${g.venue && !done ? ' · ' + esc(g.venue) : ''}</small></div>`; };
+  const grpName = g => /adult men/i.test(g || '') ? '' : String(g || '').replace(/\s+/g, ' ').trim();
+  return chips + (C.length ? C.map(c => { const gs = c.games.filter(g => !pick || base(g.h) === pick || base(g.a) === pick || c.towns && !pick);
+    const res = gs.filter(g => g.hs != null).sort((a, b) => (b.date || '').localeCompare(a.date || '')).slice(0, c.towns && !pick ? 12 : 6), fx = gs.filter(g => g.hs == null).sort((a, b) => (a.date || '9').localeCompare(b.date || '9')).slice(0, c.towns && !pick ? 12 : 6);
+    const tbl = c.table && c.table.length ? `<div class="tbl"><table class="cup-t"><thead><tr><th></th><th class="l">Club</th><th>P</th><th>W</th><th>D</th><th>L</th><th>Pts</th></tr></thead><tbody>${c.table.map((o, i) => `<tr class="${isPick(o.n) ? 'us' : ''}"><td class="pos">${i + 1}</td><td class="l">${esc(o.n)}</td><td>${o.P}</td><td>${o.W}</td><td>${o.D}</td><td>${o.L}</td><td class="pts">${o.Pts}</td></tr>`).join('')}</tbody></table></div>` : '';
+    const gl = grpName(c.group);
+    return `<div class="cup-g${c.towns ? ' ours' : ''}"><div class="cup-gh"><b>${gl ? `<small class="rg-grp">${esc(gl)}</small>` : ''}${esc(c.name)}</b>${c.url ? `<a class="lnk" href="${esc(c.url)}" target="_blank" rel="noopener">Ulster Rugby ↗</a>` : ''}</div>${tbl}
+      ${fx.length ? `<div class="ko-d">Coming up</div>${fx.map(row).join('')}` : ''}${res.length ? `<div class="ko-d">Results</div>${res.map(row).join('')}` : ''}${!fx.length && !res.length && !tbl ? '<p class="hint">No games published yet.</p>' : ''}</div>`; }).join('') : '<div class="empty">Nothing for that club yet.</div>');
 }
 function viewRugby(){
   if (!NEWS) newsLoad();
@@ -3386,8 +3395,8 @@ function viewRugby(){
     ${!NEWS ? '<div class="empty">Loading…</div>' : sec === 'games' ? rgGames() : sec === 'clubs' ? rgClubs() : rgNews()}
     ${NEWS && NEWS.updated ? `<p class="hint rg-src">Headlines and scores from BBC Sport and RTÉ; club rugby from <a href="https://ulsterrugby.sportlomo.com/" target="_blank" rel="noopener">Ulster Rugby</a>. Updated ${esc(agoN(Date.parse(NEWS.updated)))}.</p>` : ''}`;
 }
-document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-rg], [data-rgn], [data-rgg]'); if (!t || V.tab !== 'rugby') return;
-  if (t.dataset.rg) V.rg = t.dataset.rg; else if (t.dataset.rgn) V.rgN = t.dataset.rgn; else V.rgG = t.dataset.rgg; render(); });
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-rg], [data-rgn], [data-rgg], [data-rgc]'); if (!t || V.tab !== 'rugby') return;
+  if (t.dataset.rgc != null) V.rgC = t.dataset.rgc; else if (t.dataset.rg) V.rg = t.dataset.rg; else if (t.dataset.rgn) V.rgN = t.dataset.rgn; else V.rgG = t.dataset.rgg; render(); });
 
 /* inline results for coaches: every fixture in the group, score and tries, saved on leaving the box */
 const cupPair = (x, y) => [cupKey(x), cupKey(y)].sort().join('|');

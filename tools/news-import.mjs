@@ -34,36 +34,41 @@ async function feeds(){
 }
 
 // Local club rugby from Ulster Rugby (SportLoMo): the Towns Cup and any club competition Fermanagh/Tyrone clubs play in
-const LOCAL_CLUBS = /enniskillen|clogher|fermanagh|lisnaskea|omagh|dungannon|cooke|cookstown|strabane|monaghan|armagh/i, OURS = /enniskillen|clogher/i;
+// the local town clubs followed in ERGS Live (Enniskillen and Clogher Valley first, then the nearby towns)
+const OURS = /enniskillen|clogher valley|omagh|dungannon|strabane|cookstown/i;
 async function clubs(){
   const log = [], out = [], names = [];
   try {
     const home = await slGet('/'), season = home.match(/<option value="(\d+)"\s*selected>([^<]*)<\/option>/) || [];
     if (!season[1]) throw new Error('no season');
     const gj = JSON.parse(await slGet('/wp-admin/admin-ajax.php?action=comp', `seasonid=${season[1]}&userid=6941`) || '{}');
-    const groups = ((gj.data || [])[0] || []).filter(g => !/school|youth|age grade|women|girl|mini|u1[0-9]|tag|touch/i.test(g.group_name || ''));
+    const groups = ((gj.data || [])[0] || []).filter(g => !/school|representative|tag|touch/i.test(g.group_name || ''));
     log.push('groups: ' + groups.map(g => g.group_name).join(' | '));
     for (const g of groups){
       const lj = JSON.parse(await slGet('/wp-admin/admin-ajax.php?action=competitions', `resetgroup=&group=${g.group_id}&groups=${g.group_id}&action=competitions&userid=6941&season=${season[1]}`) || '{}');
       const links = [...String(lj.competitions || '').matchAll(/href="https:\/\/ulsterrugby\.sportlomo\.com(\/(league|competition_fixtures_results)\/\d+\/)"[^>]*>([\s\S]*?)<\/a>/g)].map(x => ({path:x[1], kind:x[2] === 'league' ? 'league' : 'ko', name:slDec(x[3]), group:g.group_name}));
       names.push(...links.map(l => `${g.group_name} › ${l.name}`));
       for (const l of links){
-        if (/friendl|women|girl|u1[0-9]|u2[01]|youth|vets?|veteran/i.test(l.name)) continue;
+        if (/^ulster\b|vets?\b|veteran|mixed ability/i.test(l.name)) continue;
         await sleep(600);
         try { const c = parseComp(await slGet(l.path), SITE + l.path, l.kind); c.name = c.name || l.name; c.group = l.group;
           const teams = c.table.map(r => r.n).concat(c.games.flatMap(x => [x.h, x.a]));
-          const towns = /towns?\s*cup|fermanagh/i.test(c.name), local = teams.some(t => OURS.test(t));
+          const towns = /towns?\s*cup/i.test(c.name), local = teams.some(t => OURS.test(t));
           if (!towns && !local) continue;
           // keep it small: the table, and games in the last 3 weeks / next 6 weeks (all of them for the Towns Cup)
           const lo = new Date(Date.now() - 21*864e5).toISOString().slice(0, 10), hi = new Date(Date.now() + 42*864e5).toISOString().slice(0, 10);
-          c.games = c.games.filter(x => towns || !x.date || (x.date >= lo && x.date <= hi));
-          c.towns = towns; c.ours = teams.filter(t => OURS.test(t)).filter((t, i, a) => a.indexOf(t) === i);
+          const big = !towns && (c.games.length > 40 || /friendl/i.test(c.name));
+          c.games = c.games.filter(x => (towns || !x.date || (x.date >= lo && x.date <= hi)) && (!big || OURS.test(x.h) || OURS.test(x.a)));
+          if (/friendl/i.test(c.name)) c.table = [];
+          c.towns = towns; c.ours = teams.filter(t => OURS.test(t)).filter((t, i, a) => a.indexOf(t) === i); c.group = String(l.group || '').trim();
+          if (!towns && !c.table.length && !c.games.length) continue;
           out.push(c); } catch(e){ log.push('skip ' + l.name); }
       }
     }
   } catch(e){ log.push('clubs failed: ' + e.message); }
   say('Club rugby:', log.join(' · '), `· kept ${out.length}`);
-  return {comps:out.sort((a, b) => (b.towns - a.towns) || a.name.localeCompare(b.name, undefined, {numeric:true})), seen:names.slice(0, 400)};
+  const gOrd = g => /adult men/i.test(g) ? 0 : /women/i.test(g) ? 2 : 1;
+  return {comps:out.sort((a, b) => (b.towns - a.towns) || gOrd(a.group) - gOrd(b.group) || String(a.group).localeCompare(String(b.group)) || a.name.localeCompare(b.name, undefined, {numeric:true})), seen:names.slice(0, 600)};
 }
 
 
