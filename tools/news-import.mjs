@@ -10,8 +10,6 @@ const FEEDS = [
   ['BBC Sport', 'https://feeds.bbci.co.uk/sport/rugby-union/rss.xml'],
   ['BBC Sport NI', 'https://feeds.bbci.co.uk/sport/rugby-union/irish/rss.xml'],
   ['RTÉ', 'https://www.rte.ie/feeds/rss/?index=/sport/rugby/'],
-  ['Irish Rugby', 'https://www.irishrugby.ie/feed/'],
-  ['Ulster Rugby', 'https://www.ulsterrugby.com/feed/'],
 ];
 const LEAGUES = [   // ESPN league ids
   [289234, 'Internationals'], [180659, 'Six Nations'], [164205, 'Rugby World Cup'], [270557, 'United Rugby Championship'],
@@ -90,9 +88,33 @@ async function clubs(){
   say('Club rugby:', log.join(' · '), `· kept ${out.length}`);
   return {comps:out.sort((a, b) => (b.towns - a.towns) || a.name.localeCompare(b.name, undefined, {numeric:true})), seen:names.slice(0, 400)};
 }
+
+// TheSportsDB (free tier): recent results and next fixtures for the main competitions
+const TSDB_WANT = /six nations|united rugby championship|urc|champions cup|challenge cup|premiership|autumn nations|nations championship|rugby championship|world cup|international|test match|super rugby|top 14/i;
+async function tsdb(){
+  const out = [], log = [], B = 'https://www.thesportsdb.com/api/v1/json/3/';
+  try {
+    const all = await get(B + 'search_all_leagues.php?s=Rugby', true), lgs = (all.countries || all.leagues || []).filter(l => TSDB_WANT.test(l.strLeague || '') && !/women|u20|sevens|7s/i.test(l.strLeague || ''));
+    log.push('leagues: ' + lgs.map(l => `${l.strLeague} (${l.idLeague})`).join(', '));
+    for (const l of lgs.slice(0, 14)){
+      for (const kind of ['eventspastleague', 'eventsnextleague']){
+        try { const j = await get(`${B}${kind}.php?id=${l.idLeague}`, true), ev = j.events || j.results || [];
+          ev.forEach(e => { const date = e.strTimestamp ? e.strTimestamp.replace(/\+00:00$/, '') + 'Z' : (e.dateEvent ? e.dateEvent + 'T' + (e.strTime || '12:00:00').slice(0, 8) + 'Z' : ''); if (!date || !e.strHomeTeam) return;
+            const done = e.intHomeScore != null && e.intHomeScore !== '' && /finish|ft|match finished/i.test(e.strStatus || 'FT') || (kind === 'eventspastleague' && e.intHomeScore != null && e.intHomeScore !== '');
+            out.push({lg:l.strLeague, id:'t' + e.idEvent, date, h:{n:e.strHomeTeam, s:'', logo:e.strHomeTeamBadge || ''}, a:{n:e.strAwayTeam, s:'', logo:e.strAwayTeamBadge || ''}, hs:done ? +e.intHomeScore : null, as:done ? +e.intAwayScore : null, state:done ? 'post' : 'pre', detail:done ? 'FT' : '', venue:e.strVenue || '', url:''}); });
+          await new Promise(r => setTimeout(r, 1200)); } catch(err){ log.push(`${l.strLeague} ${kind}: failed (${err.message})`); }
+      }
+    }
+  } catch(e){ log.push('failed: ' + e.message); }
+  say('TheSportsDB:', log.join(' · '), `· ${out.length} games`);
+  return out;
+}
 let old = {}; try { old = JSON.parse(fs.readFileSync(OUT, 'utf8')); } catch(e){}
-const [news, gm, cl] = await Promise.all([feeds(), games(), clubs()]);
-const out = {news:news.length ? news : old.news || [], games:gm.length ? gm : old.games || [], clubs:cl.comps.length ? cl.comps : old.clubs || [], clubComps:cl.seen.length ? cl.seen : old.clubComps || []};
+const [news, gm0, ts, cl] = await Promise.all([feeds(), games(), tsdb(), clubs()]);
+// only games from the last 10 days and the next 3 weeks (ESPN sometimes hands back last season's round)
+const lo = Date.now() - 10*864e5, hi = Date.now() + 21*864e5, key = g => (g.h.n + '|' + g.a.n + '|' + g.date.slice(0, 10)).toLowerCase();
+const gm = [], gk = new Set(); for (const g of gm0.concat(ts)){ const t = Date.parse(g.date); if (isNaN(t) || t < lo || t > hi || gk.has(key(g))) continue; gk.add(key(g)); gm.push(g); } gm.sort((a, b) => a.date.localeCompare(b.date));
+const out = {news:news.length ? news : old.news || [], games:gm.length ? gm : (old.games || []).filter(g => { const t = Date.parse(g.date); return t > lo && t < hi; }), clubs:cl.comps.length ? cl.comps : old.clubs || [], clubComps:cl.seen.length ? cl.seen : old.clubComps || []};
 out.log = LOG.map(x => x.slice(0, 1500));
 if (JSON.stringify([out.news, out.games, out.clubs, out.log]) === JSON.stringify([old.news, old.games, old.clubs, old.log])){ console.log('No change'); process.exit(0); }
 out.updated = new Date().toISOString(); fs.writeFileSync(OUT, JSON.stringify(out)); console.log(`Written: ${out.news.length} headlines, ${out.games.length} games, ${out.clubs.length} club competitions.`);

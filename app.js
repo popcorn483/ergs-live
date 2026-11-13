@@ -3353,7 +3353,7 @@ function rgNews(){
   return chips + card(top, true) + `<div class="rg-list">${rest.map(n => card(n)).join('')}</div>`;
 }
 function rgGames(){
-  const G = (NEWS && NEWS.games) || [], now = Date.now();
+  const now = Date.now(), G = ((NEWS && NEWS.games) || []).filter(g => { const t = Date.parse(g.date); return t > now - 10*864e5 && t < now + 21*864e5; });
   if (!G.length) return '<div class="empty">International and pro results and fixtures appear here (Six Nations, Autumn Nations, URC, Champions Cup and more).</div>';
   const live = G.filter(g => g.state === 'in'), res = G.filter(g => g.state === 'post').sort((a, b) => b.date.localeCompare(a.date)), fx = G.filter(g => g.state === 'pre' && Date.parse(g.date) > now - 3*3600e3);
   const sub = V.rgG || (live.length ? 'live' : res.length ? 'res' : 'fx');
