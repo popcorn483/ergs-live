@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['tools/news-import.mjs', '.github/workflows/news.yml']
+    paths: ['tools/news-import.mjs', 'tools/sportlomo.mjs', '.github/workflows/news.yml']
 
 permissions:
   contents: write
