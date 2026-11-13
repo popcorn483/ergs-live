@@ -741,6 +741,15 @@ body.dr-lock{overflow:hidden}
 .last3 div span:last-child{color:var(--chalk)}
 
 /* Rugby tab */
+.rf{margin:0 0 18px;padding:14px;border:1px solid rgba(217,192,140,.55);border-radius:18px;background:linear-gradient(180deg,rgba(217,192,140,.08),rgba(255,255,255,.02))}
+.rf-pick{display:grid;grid-template-columns:1fr 1fr;margin:0 0 12px}.rf-pick button{white-space:nowrap}
+.rf-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px}.rf-h b{display:block;font-size:18px;font-weight:800}.rf-h small{color:var(--mute);font-size:13px}
+.rf-form{display:flex;gap:4px;flex:none}.rf-form i,.rf-s i{font-style:normal;display:inline-grid;place-items:center;width:22px;height:22px;border-radius:6px;font-size:11px;font-weight:800;background:#6b7280;color:#fff}.rf-form i.W,.rf-s.W i{background:#2e7d32}.rf-form i.L,.rf-s.L i{background:#c62828}
+.rf-next{display:grid;gap:2px;padding:12px 14px;margin:0 0 12px;border-radius:12px;background:rgba(0,0,0,.25)}.rf-next small{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);font-weight:800}.rf-next b{font-size:18px}.rf-next span{color:var(--mute);font-size:13.5px}
+.rf-list{display:grid;gap:2px}.rf-r{display:grid;grid-template-columns:86px 1fr auto;gap:10px;align-items:center;padding:9px 6px;border-top:1px solid var(--rule)}.rf-r:first-child{border-top:0}
+.rf-d{font-size:13px;color:var(--mute)}.rf-m{display:grid;gap:1px;min-width:0}.rf-m b{font-weight:700;font-size:15px}.rf-m small{color:var(--dim);font-size:12px}
+.rf-s{display:inline-flex;align-items:center;gap:6px;font-weight:800;font-variant-numeric:tabular-nums}
+
 .rg-main{margin:0 0 14px;display:grid;grid-template-columns:repeat(3,1fr)}.rg-chips{margin:0 0 12px}.rg-chips button small{opacity:.75}
 .rg-n{display:flex;gap:12px;align-items:flex-start;padding:10px;border-radius:14px;color:inherit;text-decoration:none;transition:background .2s}.rg-n:hover{background:rgba(255,255,255,.04)}
 .rg-im{flex:none;width:112px;aspect-ratio:16/9;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.06)}.rg-im img{width:100%;height:100%;object-fit:cover;display:block}
@@ -750,11 +759,14 @@ body.dr-lock{overflow:hidden}
 .rg-logo{width:22px;height:22px;object-fit:contain;flex:none}a.ko-r{color:inherit;text-decoration:none}a.ko-r:hover{background:rgba(255,255,255,.04)}
 .rg-src{margin-top:18px}
 .rg-clubs{overflow-x:auto;scrollbar-width:none;max-width:100%;flex-wrap:nowrap}.rg-clubs::-webkit-scrollbar{display:none}.rg-clubs button{white-space:nowrap;flex:none}
-.rg-grp{display:block;font-size:11px;letter-spacing:.12em;color:var(--gold);margin-bottom:2px}
+.rg-gh{margin:20px 0 8px;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}.rg-gh small{color:var(--dim);font-weight:600;margin-left:4px}
+details.rg-cd{padding-bottom:4px}details.rg-cd>summary{list-style:none;cursor:pointer;align-items:flex-start}details.rg-cd>summary::-webkit-details-marker{display:none}
+details.rg-cd>summary>b{display:grid;gap:3px;position:relative;padding-right:22px}details.rg-cd>summary>b::after{content:'';position:absolute;right:4px;top:6px;width:8px;height:8px;border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);transform:rotate(45deg);transition:transform .2s}details.rg-cd[open]>summary>b::after{transform:rotate(-135deg);top:10px}
+.rg-sub{font-family:system-ui,sans-serif;font-size:12.5px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--mute)}details.rg-cd[open] .rg-sub{display:none}details.rg-cd:not([open]){padding-bottom:0}
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = 'f7cebc258e';</script>
+<script>window.ERGS_VER = 'dc50651d7b';</script>
 <script src="config.js?v=b61c3e8a59"></script>
 <script src="crest.js?v=b61c3e8a59"></script>
 <script src="app.js?v=b61c3e8a59"></script>

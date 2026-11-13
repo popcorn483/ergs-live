@@ -58,7 +58,10 @@ async function clubs(){
           // keep it small: the table, and games in the last 3 weeks / next 6 weeks (all of them for the Towns Cup)
           const lo = new Date(Date.now() - 21*864e5).toISOString().slice(0, 10), hi = new Date(Date.now() + 42*864e5).toISOString().slice(0, 10);
           const big = !towns && (c.games.length > 40 || /friendl/i.test(c.name));
-          c.games = c.games.filter(x => (towns || !x.date || (x.date >= lo && x.date <= hi)) && (!big || OURS.test(x.h) || OURS.test(x.a)));
+          // 1st XV competitions (All-Ireland League, Towns Cup, Senior Cup and Shield): the whole season's games for the local clubs
+          const firsts = /all.?ireland|towns?\s*cup|senior cup|senior shield/i.test(c.name) && !/women|u\d\d/i.test(c.name + ' ' + (l.group || ''));
+          c.first = firsts;
+          c.games = c.games.filter(x => firsts && (OURS.test(x.h) || OURS.test(x.a)) || ((towns || !x.date || (x.date >= lo && x.date <= hi)) && (!big || OURS.test(x.h) || OURS.test(x.a))));
           if (/friendl/i.test(c.name)) c.table = [];
           c.towns = towns; c.ours = teams.filter(t => OURS.test(t)).filter((t, i, a) => a.indexOf(t) === i); c.group = String(l.group || '').trim();
           if (!towns && !c.table.length && !c.games.length) continue;
