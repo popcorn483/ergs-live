@@ -2994,7 +2994,7 @@ function schDeleteDialog(n){
 }
 
 /* ---------- the ☰ menu: the team app first, then everything else, so the coach view stays clean ---------- */
-const ICON = {video:'<rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/>', photo:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>', app:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/>', plus:'<path d="M12 5v14M5 12h14"/>', past:'<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/>', imp:'<path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v3h16v-3"/>', crest:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>', people:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5c2.6.2 4.6 1.9 5.3 5"/>', demo:'<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/>', share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>', out:'<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h11"/>', in:'<path d="M9 4H5v16h4"/><path d="M14 8l4 4-4 4M18 12H7"/>'};
+const ICON = {news:'<path d="M4 5h13v14H5a1 1 0 0 1-1-1z"/><path d="M17 9h3v9a1 1 0 0 1-1 1h-2M7 9h7M7 12h7M7 15h4"/>', video:'<rect x="2" y="6" width="14" height="12" rx="2"/><path d="M16 10l6-3v10l-6-3z"/>', photo:'<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 8"/>', app:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/>', plus:'<path d="M12 5v14M5 12h14"/>', past:'<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 2"/>', imp:'<path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v3h16v-3"/>', crest:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>', people:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14.5c2.6.2 4.6 1.9 5.3 5"/>', demo:'<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/>', share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/>', out:'<path d="M15 4h4v16h-4"/><path d="M10 8l-4 4 4 4M6 12h11"/>', in:'<path d="M9 4H5v16h4"/><path d="M14 8l4 4-4 4M18 12H7"/>'};
 const ic = k => `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
 function menuOpen(){
   let dr = $('#drawer'); if (!dr){ dr = document.createElement('div'); dr.id = 'drawer'; dr.className = 'drawer'; dr.hidden = true; document.body.appendChild(dr);
@@ -3008,7 +3008,7 @@ function menuOpen(){
     ${COACH && !SANDBOX ? `<div class="dr-sec">Matches</div>${item('plus', 'New match', 'Add a fixture to score', 'data-mact="new"')}${item('past', 'Add a past result', 'A score from before ERGS Live', 'data-mact="past"')}${item('share', 'Share a match link', 'Send supporters straight to a match', 'data-mact="sharem"')}${item('video', 'Match videos', 'Add VEO or other links to recent matches', 'data-mact="videos"')}${item('past', 'Add past results in bulk', 'Type a table or paste a list', 'data-mact="pastbulk"')}${item('imp', 'Import fixtures', 'From a photo, PDF or list', 'data-mact="import"')}
       <div class="dr-sec">Manage</div>${item('crest', 'School crests', 'Crests, colours, merge and delete', 'data-mact="schools"')}${item('people', 'Coaches', 'Who can score and manage', 'data-mact="coaches"')}` : ''}
     ${(real.COACH || real.PLAYER) ? `<div class="dr-sec">Learn</div>${SANDBOX ? item('demo', 'Leave the demo', 'Back to the real scoreboard', 'data-mdemo="out"') : item('demo', real.COACH ? 'Practise in the demo' : 'Try the demo', 'Score a match and see the animations. Nothing is saved', 'data-mdemo="in"')}` : ''}
-    <div class="dr-sec">More</div>${item('share', 'Share the app', 'Link and QR code', 'data-mshare')}${document.querySelector('#installSlot button, #installSlot a') ? item('imp', 'Install the app', 'On your phone or computer', 'data-minst') : ''}
+    <div class="dr-sec">More</div>${item('news', 'Rugby news', 'Headlines, international scores and local clubs', 'data-mnews')}${item('share', 'Share the app', 'Link and QR code', 'data-mshare')}${document.querySelector('#installSlot button, #installSlot a') ? item('imp', 'Install the app', 'On your phone or computer', 'data-minst') : ''}
     ${EMAIL ? item('out', 'Sign out', '', 'data-mout') : item('in', 'Coach & player sign in', 'With your Google account', 'data-min')}</nav>`;
   dr.querySelector('.dr-x').onclick = menuClose;
   const mf = dr.querySelector('[data-mfollow]'); if (mf) mf.onclick = () => { menuClose(); followDialog(false); };
@@ -3018,6 +3018,7 @@ function menuOpen(){
   dr.querySelectorAll('[data-mact]').forEach(b => b.onclick = () => { menuClose(); act(b.dataset.mact, null); });
   dr.querySelectorAll('[data-mdemo]').forEach(b => b.onclick = () => { menuClose(); b.dataset.mdemo === 'in' ? sbEnter() : sbExit(); });
   const sh = dr.querySelector('[data-mshare]'); if (sh) sh.onclick = () => { menuClose(); shareBtn.click(); };
+  const mn = dr.querySelector('[data-mnews]'); if (mn) mn.onclick = () => { menuClose(); V.tabBefore = V.tab === 'rugby' ? V.tabBefore : V.tab; V.tab = 'rugby'; newsLoad(); render(); scrollTo(0, 0); };
   const so = dr.querySelector('[data-mout]'); if (so) so.onclick = () => { menuClose(); if (SANDBOX) sbExit(); act('signout', null); };
   const ins = dr.querySelector('[data-minst]'); if (ins) ins.onclick = () => { menuClose(); const t = document.querySelector('#installSlot button, #installSlot a'); if (t) t.click(); };
   const si = dr.querySelector('[data-min]'); if (si) si.onclick = () => { menuClose(); signLink.click(); };
@@ -3329,7 +3330,6 @@ function frSwitch(tab){ const F = FR[tab], n = frOff(tab).length || frGames(tab)
   b.onclick = () => { V.tab = 'cup'; render(); };
   tabs.addEventListener('scroll', () => tabs.classList.toggle('end', tabs.scrollLeft + tabs.clientWidth >= tabs.scrollWidth - 4), {passive:true});
   const md = document.createElement('button'); md.type = 'button'; md.dataset.v = 'meds'; md.textContent = 'Medallion'; md.hidden = true; tabs.appendChild(md); md.onclick = () => { V.tab = 'meds'; render(); };
-  const rg = document.createElement('button'); rg.type = 'button'; rg.dataset.v = 'rugby'; rg.textContent = 'Rugby'; tabs.appendChild(rg); rg.onclick = () => { V.tab = 'rugby'; render(); newsLoad(); };
   setInterval(() => { md.hidden = !(compSeasonOK() && (OFFICIAL.comps.meds || []).length) && !frGames('meds').length && !frOff('meds').length && !COACH && !PLAYER; if (md.hidden && V.tab === 'meds'){ V.tab = 'matches'; render(); } }, 700);
   setInterval(() => { b.hidden = !(cupOf() && cupOf().groups.length) && !frGames('cup').length && !frOff('cup').length && !COACH; if (b.hidden && V.tab === 'cup'){ V.tab = 'matches'; render(); } }, 700);
   document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-cup], [data-cupres]'); if (!t) return; if (t.dataset.cup === 'setup') cupSetup(); else if (t.dataset.cup === 'paste') cupPaste(); else if (t.dataset.cup === 'edit'){ V.cupEdit = !V.cupEdit; render(); } else if (t.dataset.cupres) cupResults(t.dataset.cupres); });
@@ -3418,12 +3418,13 @@ function rgClubs(){
 function viewRugby(){
   if (!NEWS) newsLoad();
   const sec = V.rg || 'news';
-  return `<div class="cup-head"><div><div class="sec" style="margin:0 0 4px">Rugby</div></div></div>
+  return `<div class="rg-top"><button type="button" class="rg-back" data-rgback>‹ ERGS Live</button><h2>Rugby news</h2></div>
     <div class="fx-view rg-main" role="tablist" aria-label="Rugby"><button type="button" data-rg="news" aria-pressed="${sec === 'news'}">News</button><button type="button" data-rg="games" aria-pressed="${sec === 'games'}">Scores</button><button type="button" data-rg="clubs" aria-pressed="${sec === 'clubs'}">Local clubs</button></div>
     ${!NEWS ? '<div class="empty">Loading…</div>' : sec === 'games' ? rgGames() : sec === 'clubs' ? rgClubs() : rgNews()}
     ${NEWS && NEWS.updated ? `<p class="hint rg-src">Headlines and scores from BBC Sport and RTÉ; club rugby from <a href="https://ulsterrugby.sportlomo.com/" target="_blank" rel="noopener">Ulster Rugby</a>. Updated ${esc(agoN(Date.parse(NEWS.updated)))}.</p>` : ''}`;
 }
-document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-rg], [data-rgn], [data-rgg], [data-rgc], [data-rgf], [data-rgfs]'); if (!t || V.tab !== 'rugby') return;
+document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-rg], [data-rgn], [data-rgg], [data-rgc], [data-rgf], [data-rgfs], [data-rgback]'); if (!t || V.tab !== 'rugby') return;
+  if (t.hasAttribute('data-rgback')){ V.tab = V.tabBefore && V.tabBefore !== 'rugby' ? V.tabBefore : 'matches'; render(); scrollTo(0, 0); return; }
   if (t.dataset.rgf) V.rgF = t.dataset.rgf; else if (t.dataset.rgfs) V.rgFS = t.dataset.rgfs; else if (t.dataset.rgc != null) V.rgC = t.dataset.rgc; else if (t.dataset.rg) V.rg = t.dataset.rg; else if (t.dataset.rgn) V.rgN = t.dataset.rgn; else V.rgG = t.dataset.rgg; render(); });
 
 /* inline results for coaches: every fixture in the group, score and tries, saved on leaving the box */
