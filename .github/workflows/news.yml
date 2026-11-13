@@ -1,0 +1,31 @@
+name: Rugby newsfeed
+
+# Every hour: rugby headlines (BBC, RTÉ, World Rugby, Ulster Rugby, RugbyPass) and international / pro fixtures and results
+# (ESPN), saved as news.json for ERGS Live's Rugby tab. Commits only when something changed.
+on:
+  schedule:
+    - cron: '41 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['tools/news-import.mjs', '.github/workflows/news.yml']
+
+permissions:
+  contents: write
+
+concurrency: comps
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node tools/news-import.mjs news.json
+      - run: |
+          if [ -z "$(git status --porcelain -- news.json)" ]; then echo "No change"; exit 0; fi
+          git config user.name "ERGS Live newsfeed"; git config user.email "ergsrugby@gmail.com"
+          git pull -q --rebase || true
+          git add news.json && git commit -q -m "Rugby newsfeed updated" && git push -q
