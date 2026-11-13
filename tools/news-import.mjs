@@ -10,8 +10,7 @@ const FEEDS = [
   ['BBC Sport', 'https://feeds.bbci.co.uk/sport/rugby-union/rss.xml'],
   ['BBC Sport NI', 'https://feeds.bbci.co.uk/sport/rugby-union/irish/rss.xml'],
   ['RTÉ', 'https://www.rte.ie/feeds/rss/?index=/sport/rugby/'],
-  ['World Rugby', 'https://www.world.rugby/news/rss'],
-  ['RugbyPass', 'https://www.rugbypass.com/feed/'],
+  ['Irish Rugby', 'https://www.irishrugby.ie/feed/'],
   ['Ulster Rugby', 'https://www.ulsterrugby.com/feed/'],
 ];
 const LEAGUES = [   // ESPN league ids
@@ -41,9 +40,13 @@ async function feeds(){
 }
 const ymd = d => d.toISOString().slice(0, 10).replace(/-/g, '');
 async function games(){
-  const out = [], log = [], from = new Date(Date.now() - 8*864e5), to = new Date(Date.now() + 21*864e5);
+  const out = [], log = [], from = new Date(Date.now() - 7*864e5), to = new Date(Date.now() + 14*864e5);
   for (const [id, name] of LEAGUES){
-    try { const j = await get(`https://site.api.espn.com/apis/site/v2/sports/rugby/${id}/scoreboard?dates=${ymd(from)}-${ymd(to)}&limit=200`, true);
+    try { // the current round, then day by day around today (ESPN's rugby scoreboard won't take a date range)
+      const evs = []; const add = j => (j.events || []).forEach(e => { if (!evs.some(x => x.id === e.id)) evs.push(e); }); let lgName = '';
+      try { const j0 = await get(`https://site.api.espn.com/apis/site/v2/sports/rugby/${id}/scoreboard`, true); add(j0); lgName = (j0.leagues || [])[0]?.name || ''; } catch(e){}
+      for (let d = new Date(from); d <= to; d = new Date(+d + 864e5)){ try { add(await get(`https://site.api.espn.com/apis/site/v2/sports/rugby/${id}/scoreboard?dates=${ymd(d)}`, true)); } catch(e){} }
+      const j = {events:evs, leagues:[{name:lgName || name}]};
       const ev = (j.events || []).map(e => { const c = (e.competitions || [])[0] || {}, cs = c.competitors || [], h = cs.find(x => x.homeAway === 'home') || cs[0] || {}, a = cs.find(x => x.homeAway === 'away') || cs[1] || {}, st = (e.status || c.status || {}).type || {};
         const tm = x => ({n:(x.team || {}).displayName || (x.team || {}).name || '', s:(x.team || {}).abbreviation || '', logo:(x.team || {}).logo || ((x.team || {}).logos || [])[0]?.href || ''});
         return {lg:(j.leagues || [])[0]?.name || name, id:String(e.id), date:e.date, h:tm(h), a:tm(a), hs:st.state === 'pre' ? null : +h.score, as:st.state === 'pre' ? null : +a.score, state:st.state || '', detail:st.shortDetail || st.detail || '', venue:(c.venue || {}).fullName || '', url:((e.links || []).find(l => /gamecast|summary/i.test((l.rel || []).join(' ') + l.text)) || {}).href || ''}; })
