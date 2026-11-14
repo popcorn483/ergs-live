@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '62bb434d6a';</script>
+<script>window.ERGS_VER = '8d7e8637e6';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -9742,6 +9742,7 @@ function renderPhotos(){
         el.innerHTML = `<button type="button" class="ph-cover" aria-label="Open ${esc(f.name)}"><span class="ph-cover-ph"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></span></button>
           <div class="ph-fb"><b></b><span class="ph-meta"><small class="ph-when"></small><small class="ph-n">Loading…</small></span></div>${coach ? `<button type="button" class="ph-eye" aria-pressed="${!!hid[f.id]}" title="${hid[f.id] ? 'Show this folder to players' : 'Hide this folder from players'}">${hid[f.id] ? 'Hidden' : 'Hide'}</button>` : ''}`;
         { const nm = phName(f.name); el.querySelector('b').textContent = nm.title; el.querySelector('.ph-when').textContent = nm.when; el.title = f.name; }
+        if (albIsNew(f)) el.insertAdjacentHTML('beforeend', '<span class="ph-new">New</span>');
         el.querySelector('.ph-cover').onclick = () => { PH.path.push({id:f.id, name:f.name}); renderPhotos(); scrollTo(0, 0); };
         const eye = el.querySelector('.ph-eye'); if (eye) eye.onclick = () => phSetHidden(f.id, !hid[f.id], f.name);
         g.appendChild(el);
@@ -9749,12 +9750,15 @@ function renderPhotos(){
         const io = new IntersectionObserver(es => { if (!es.some(e => e.isIntersecting)) return; io.disconnect();
           driveList(f.id).then(list => { const ims = list.filter(x => isImage(x) && (coach || !hid[x.id])), subs = list.filter(x => isFolder(x) && (coach || !hid[x.id]));
             el.querySelector('.ph-n').textContent = [ims.length ? `${ims.length} photo${ims.length === 1 ? '' : 's'}` : '', subs.length ? `${subs.length} folder${subs.length === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ') || 'Empty';
-            if (ims[0]){ const im = new Image(); im.alt = ''; im.loading = 'lazy'; im.referrerPolicy = 'no-referrer'; im.src = thumbOf(ims[0], 600); el.querySelector('.ph-cover-ph').replaceWith(im); } }).catch(() => { el.querySelector('.ph-n').textContent = ''; }); });
+            const pick = phCoverOf(f.id, ims), potm = phPotm(ims);
+            if (pick){ const im = new Image(); im.alt = ''; im.loading = 'lazy'; im.referrerPolicy = 'no-referrer'; im.src = thumbOf(pick, 600); el.querySelector('.ph-cover-ph').replaceWith(im); }
+            if (potm && pick && potm.id === pick.id) el.insertAdjacentHTML('beforeend', '<span class="ph-potm" title="The most liked photo from this match">★ Photo of the match</span>'); }).catch(() => { el.querySelector('.ph-n').textContent = ''; }); });
         io.observe(el);
       });
       body.appendChild(g);
     }
     if (pShow.length){
+      const potmNow = PH.path.length ? phPotm(pShow) : null; PH.potm = potmNow;
       const g = document.createElement('div'); g.className = 'ph-grid' + (PH.sel.on ? ' selecting' : '');
       pShow.forEach((f, i) => {
         const el = document.createElement('div'); el.className = 'ph-tile' + (hid[f.id] ? ' is-hidden' : '') + (PH.sel.ids.has(f.id) ? ' picked' : ''); el.dataset.fid = f.id;
@@ -9764,6 +9768,7 @@ function renderPhotos(){
         if (PH.sel.on) el.insertAdjacentHTML('beforeend', '<span class="ph-tick" aria-hidden="true"></span>');
         const eye = el.querySelector('.ph-eye'); if (eye) eye.onclick = () => phSetHidden(f.id, !hid[f.id]);
         if (typeof lkTile === 'function') lkTile(el, f, here);
+        if (potmNow && potmNow.id === f.id){ el.classList.add('potm'); el.insertAdjacentHTML('beforeend', '<span class="ph-star" title="Photo of the match: the most liked">★</span>'); }
         g.appendChild(el);
       });
       body.appendChild(g);
@@ -9813,15 +9818,35 @@ function phView(list, i, title){
   if (!v){ v = document.createElement('div'); v.id = 'phView'; v.className = 'ph-view'; v.setAttribute('role', 'dialog'); v.setAttribute('aria-modal', 'true'); v.setAttribute('aria-label', 'Photo');
     v.innerHTML = `<div class="ph-vbar"><button type="button" class="ph-ib" id="phClose" aria-label="Close" title="Close (Esc)">${PH_IC.x}</button>
         <div class="ph-vt"><b id="phTitle"></b><span id="phCount"></span></div><span class="sp"></span>
-        <button type="button" class="ph-ib ph-share" id="phShare" title="Share or add a frame"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M5 13v6h14v-6"/></svg><span>Share</span></button><button type="button" class="ph-ib ph-save" id="phSave1" title="Save photo">${PH_IC.dl}<span>Save</span></button></div>
+        <button type="button" class="ph-ib ph-cover-b" id="phCover" title="Use this photo as the album’s cover" hidden><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 15l5-4 4 3 3-2 6 5"/><circle cx="9" cy="9.5" r="1.3"/></svg><span>Set as cover</span></button><button type="button" class="ph-ib ph-share" id="phShare" title="Share or add a frame"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M5 13v6h14v-6"/></svg><span>Share</span></button><button type="button" class="ph-ib ph-save" id="phSave1" title="Save photo">${PH_IC.dl}<span>Save</span></button></div>
       <div class="ph-stage"><button type="button" class="ph-nav prev" aria-label="Previous photo">${PH_IC.l}</button><img id="phImg" alt="" referrerpolicy="no-referrer"><button type="button" class="ph-nav next" aria-label="Next photo">${PH_IC.r}</button><div class="ph-spin" id="phSpin" hidden></div></div>
       <div class="ph-strip" id="phStrip" role="listbox" aria-label="Photos in this album"></div>`;
     document.body.appendChild(v);
-    v.querySelector('#phClose').onclick = () => { v.hidden = true; document.body.classList.remove('ph-lock'); };
+    v.querySelector('#phClose').onclick = () => { v.hidden = true; document.body.classList.remove('ph-lock'); clearInterval(v._auto); if (typeof TGC === 'object'){ TGC.multi = false; TGC.point = null; } };
     v.querySelector('.prev').onclick = () => v._go(-1); v.querySelector('.next').onclick = () => v._go(1);
     let sx = null, sy = null; const st = v.querySelector('.ph-stage'), img = v.querySelector('#phImg');
-    st.addEventListener('touchstart', e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, {passive:true});
-    st.addEventListener('touchend', e => { if (sx === null) return; const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; sx = null; if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) v._go(dx < 0 ? 1 : -1); else if (dy > 90 && Math.abs(dy) > Math.abs(dx)*1.5) v.querySelector('#phClose').click(); });
+    // zoom: double-click or double-tap, pinch, or the mouse wheel; drag to move around when zoomed in
+    const Z = v._z = {s:1, x:0, y:0}, tagging = () => (typeof TG === 'object' && TG.placing) || (typeof TGC === 'object' && TGC.multi);
+    const zApply = () => { const W = st.clientWidth, H = st.clientHeight, mx = Math.max(0, (img.offsetWidth*Z.s - W)/2), my = Math.max(0, (img.offsetHeight*Z.s - H)/2); Z.x = clamp(Z.x, -mx, mx); Z.y = clamp(Z.y, -my, my);
+      img.style.transform = Z.s === 1 ? '' : `translate(${Z.x}px,${Z.y}px) scale(${Z.s})`; v.classList.toggle('zoomed', Z.s > 1); if (typeof tgDots === 'function' && v._tgf) tgDots(v); };
+    const zAt = (s2, cx, cy) => { s2 = clamp(s2, 1, 5); const r = st.getBoundingClientRect(), px = cx - r.left - r.width/2, py = cy - r.top - r.height/2, k = s2/Z.s; Z.x = px - (px - Z.x)*k; Z.y = py - (py - Z.y)*k; Z.s = s2; if (s2 < 1.02){ Z.s = 1; Z.x = Z.y = 0; } zApply(); };
+    v._zReset = () => { Z.s = 1; Z.x = Z.y = 0; img.style.transform = ''; v.classList.remove('zoomed'); };
+    st.addEventListener('dblclick', e => { if (tagging() || e.target.closest('button')) return; zAt(Z.s > 1 ? 1 : 2.5, e.clientX, e.clientY); });
+    st.addEventListener('wheel', e => { e.preventDefault(); zAt(Z.s*(e.deltaY < 0 ? 1.18 : 1/1.18), e.clientX, e.clientY); }, {passive:false});
+    let md = null, moved = false; st.addEventListener('mousedown', e => { if (Z.s <= 1 || e.button) return; md = {x:e.clientX, y:e.clientY, zx:Z.x, zy:Z.y}; moved = false; e.preventDefault(); });
+    addEventListener('mousemove', e => { if (!md) return; const dx = e.clientX - md.x, dy = e.clientY - md.y; if (Math.abs(dx) + Math.abs(dy) > 5) moved = true; Z.x = md.zx + dx; Z.y = md.zy + dy; zApply(); });
+    addEventListener('mouseup', () => { md = null; });
+    st.addEventListener('click', e => { if (moved){ moved = false; e.stopPropagation(); e.preventDefault(); } }, true);
+    let pin = null, pan = null, lastTap = 0, tapXY = null;
+    const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    st.addEventListener('touchstart', e => { if (e.touches.length === 2){ pin = {d:dist(e.touches), s:Z.s}; pan = null; sx = null; return; }
+      sx = e.touches[0].clientX; sy = e.touches[0].clientY; pan = Z.s > 1 ? {x:sx, y:sy, zx:Z.x, zy:Z.y} : null; }, {passive:true});
+    st.addEventListener('touchmove', e => { if (pin && e.touches.length === 2){ e.preventDefault(); zAt(pin.s*dist(e.touches)/pin.d, (e.touches[0].clientX + e.touches[1].clientX)/2, (e.touches[0].clientY + e.touches[1].clientY)/2); return; }
+      if (pan && e.touches.length === 1){ e.preventDefault(); Z.x = pan.zx + e.touches[0].clientX - pan.x; Z.y = pan.zy + e.touches[0].clientY - pan.y; zApply(); } }, {passive:false});
+    st.addEventListener('touchend', e => { if (pin){ if (!e.touches.length) pin = null; sx = null; return; } if (sx === null) return; const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; sx = null;
+      if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && !tagging() && !e.target.closest('button')){ const now = Date.now(); if (now - lastTap < 300 && tapXY && Math.hypot(t.clientX - tapXY[0], t.clientY - tapXY[1]) < 40){ lastTap = 0; e.preventDefault(); zAt(Z.s > 1 ? 1 : 2.5, t.clientX, t.clientY); return; } lastTap = now; tapXY = [t.clientX, t.clientY]; }
+      if (Z.s > 1) return;   // zoomed in: a drag moves the photo, it doesn't change photo
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) v._go(dx < 0 ? 1 : -1); else if (dy > 90 && Math.abs(dy) > Math.abs(dx)*1.5) v.querySelector('#phClose').click(); });
     document.addEventListener('keydown', e => { if (v.hidden) return; if (e.key === 'Escape') v.querySelector('#phClose').click(); if (e.key === 'ArrowRight') v._go(1); if (e.key === 'ArrowLeft') v._go(-1); });
     // always the whole photo: fitted to the space between the bars, never cropped
     v._fit = () => { const W = st.clientWidth, H = st.clientHeight, nw = img.naturalWidth, nh = img.naturalHeight; if (!W || !H || !nw || !nh) return;
@@ -9836,13 +9861,14 @@ function phView(list, i, title){
   strip.hidden = list.length < 2;
   strip.innerHTML = list.length < 2 ? '' : list.map((f, n) => `<button type="button" class="ph-th" role="option" data-k="${n}" aria-label="Photo ${n + 1}"><img alt="" loading="lazy" referrerpolicy="no-referrer" src="${esc(thumbOf(f, 160))}"></button>`).join('');
   strip.querySelectorAll('.ph-th').forEach(b => b.onclick = () => { k = +b.dataset.k; show(); });
-  const show = () => { const f = list[k]; img.classList.remove('in'); clearTimeout(v._spT); v._spT = setTimeout(() => { spin.hidden = false; }, 250);
+  const show = () => { const f = list[k]; v._cur = f; if (v._zReset) v._zReset(); img.classList.remove('in'); clearTimeout(v._spT); v._spT = setTimeout(() => { spin.hidden = false; }, 250);
     img.src = thumbOf(f, 2000); if (img.complete && img.naturalWidth) img.dispatchEvent(new Event('load'));
     v.querySelector('#phCount').textContent = `${k + 1} / ${list.length}`; v.querySelector('.prev').hidden = k === 0; v.querySelector('.next').hidden = k === list.length - 1;
     strip.querySelectorAll('.ph-th').forEach(b => { const on = +b.dataset.k === k; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); if (on) b.scrollIntoView({block:'nearest', inline:'center', behavior:v.hidden ? 'auto' : 'smooth'}); });
     phPrefetch(f); if (list[k + 1]) { const n = new Image(); n.referrerPolicy = 'no-referrer'; n.src = thumbOf(list[k + 1], 2000); }
     if (typeof lkViewer === 'function') lkViewer(v, f); };
-  v._go = d => { const n = clamp(k + d, 0, list.length - 1); if (n === k) return; k = n; show(); };
+  v._go = d => { const n = clamp(k + d, 0, list.length - 1); if (n === k) return; k = n; show(); }; v._len = list.length; v._at = () => k; clearInterval(v._auto);
+  { const cb = v.querySelector('#phCover'); if (cb){ cb.hidden = !(phCoach() && PH.path && PH.path.length && S.screen === 'photos' && list.some(x => x.thumbnailLink)); cb.onclick = () => phSetCover(PH.path[PH.path.length - 1], list[k]); } }
   v.querySelector('#phSave1').onclick = () => phSave(list[k]);
   v.querySelector('#phShare').onclick = () => phShareOpen(list[k], v.querySelector('#phTitle').textContent);
   v.hidden = false; document.body.classList.add('ph-lock'); show();
@@ -9936,7 +9962,7 @@ async function phShareBitmap(f){
   let bmp; try { bmp = await to(thumb(), 15000); } catch(e){ bmp = await to(orig(), 60000); }
   PH_BMP.set(f.id, bmp); if (PH_BMP.size > 6) PH_BMP.delete(PH_BMP.keys().next().value); return bmp;
 }
-async function phShareOpen(f, title){
+async function phShareOpen(f, title, preset){
   let o = $('#phShareBox');
   if (!o){ o = document.createElement('div'); o.id = 'phShareBox'; o.className = 'ph-sh'; o.innerHTML = `<div class="ph-sh-card" role="dialog" aria-modal="true" aria-labelledby="phShH">
       <div class="ph-sh-head"><b id="phShH">Share this photo</b><button type="button" class="ph-ib" id="phShX" aria-label="Close">${PH_IC.x}</button></div>
@@ -9960,7 +9986,7 @@ async function phShareOpen(f, title){
   const DM = phDayMatches(f), rs = o.querySelector('#phShRes'), rrow = o.querySelector('#phShResRow'); let res = DM.best ? phResOf(DM.best) : null, edited = false;
   rs.innerHTML = DM.list.map((m, n) => `<option value="${n}" ${m === DM.best ? 'selected' : ''}>${esc(phResOf(m).label)}</option>`).join('') + '<option value="">No result</option>';
   rrow.hidden = !DM.list.length;
-  cap.value = (res && res.title) || title || nm.title || 'ERGS Rugby'; note.textContent = ''; o.hidden = false; spin.hidden = false; go.disabled = sv.disabled = true; o._blob = null;
+  cap.value = (preset && preset.cap) || (res && res.title) || title || nm.title || 'ERGS Rugby'; if (preset && preset.cap) edited = true; note.textContent = ''; o.hidden = false; spin.hidden = false; go.disabled = sv.disabled = true; o._blob = null;
   const mobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
   note.textContent = mobile ? 'Your phone’s share menu opens: choose Facebook to post it to your own account.' : '';
   o.querySelectorAll('[data-fr]').forEach(b => b.setAttribute('aria-checked', b.dataset.fr === frame)); arow.hidden = frame !== 'gold';
@@ -18655,7 +18681,7 @@ function lkTile(el, f){ if (!lkOK()) return; const b = document.createElement('b
 function lkViewer(v, f){
   if (!lkOK()) return; let b = v.querySelector('#lkV');
   if (!b){ b = document.createElement('button'); b.type = 'button'; b.id = 'lkV'; b.className = 'btn lk-v'; v.querySelector('#phSave1').before(b);
-    const img = v.querySelector('#phImg'); let last = 0; img.addEventListener('click', e => { const now = Date.now(); if (now - last < 320){ const ff = v._lkf; if (ff && !LK.mine[ff.id]) { lkToggle(ff, PH.season); } lkBurst(v.querySelector('.ph-stage'), e); last = 0; } else last = now; }); }
+    const img = v.querySelector('#phImg'); let last = 0; }
   v._lkf = f; b.dataset.lk = f.id; lkPaint(b, f.id); b.onclick = () => { lkPop(b); lkToggle(f, PH.season); };
 }
 const lkPop = b => { b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); };
@@ -19571,6 +19597,72 @@ async function auLoad(force){
   const st = document.createElement('style'); st.textContent = `.au-top{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 8px}.au-top .input{flex:1;min-width:200px}.au-wrap{max-height:min(60vh,520px);overflow:auto;border-radius:10px;border:1px solid rgba(255,255,255,.08)}
 .au-tbl{width:100%;border-collapse:collapse;font-size:13.5px}.au-tbl th{position:sticky;top:0;background:#141a3c;text-align:left;padding:8px 10px;font:700 12px var(--f-cond);letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
 .au-tbl td{padding:8px 10px;border-top:1px solid rgba(255,255,255,.06);vertical-align:top}.au-tbl td small{display:block;color:var(--mute);font-size:12px}.au-t{white-space:nowrap;color:var(--mute)}`; document.head.appendChild(st); })();
+/* =============================== PHOTOS: new-album alerts, album covers, photo of the match, season highlights =============================== */
+// --- which albums someone hasn't opened yet (kept on this phone or computer): albums added in the last 14 days ---
+const ALBS = {K:'ergs.albSeen', get(){ try { return JSON.parse(localStorage.getItem(this.K) || '{}') || {}; } catch(e){ return {}; } }, add(id){ const d = this.get(); if (d[id]) return; d[id] = Date.now(); try { localStorage.setItem(this.K, JSON.stringify(Object.fromEntries(Object.entries(d).sort((a, b) => b[1] - a[1]).slice(0, 300)))); } catch(e){} }};
+function albIsNew(f){ const t = Date.parse(f.createdTime || ''); return !isNaN(t) && Date.now() - t < 14*864e5 && !ALBS.get()[f.id]; }
+// --- a coach's chosen cover (team/photos.covers), else the photo of the match, else the first photo ---
+function phCoverOf(folderId, ims){ const id = (phDoc().covers || {})[folderId], c = id && ims.find(x => x.id === id); return c || phPotm(ims) || ims[0] || null; }
+// the most liked photo of an album (needs at least one like); ties go to the most recent like
+function phPotm(ims){ if (typeof lkOK !== 'function' || !lkOK() || typeof lkCounts !== 'function') return null; let c; try { c = lkCounts(0, ''); } catch(e){ return null; } let best = null, bo = null;
+  ims.forEach(f => { const o = c.get(f.id); if (o && (!bo || o.n > bo.n || (o.n === bo.n && o.last > bo.last))){ best = f; bo = o; } }); return best; }
+async function phSetCover(folder, f){ if (!folder || !f) return; const d = Object.assign({seasons:[], hidden:{}}, clone(phDoc())); d.covers = Object.assign({}, d.covers, {[folder.id]:f.id}); d.updated = Date.now();
+  try { await Cloud.set('team/photos', d); toast(`This photo is now the cover of “${phName(folder.name).title}”.`); } catch(e){ toast('That didn’t save. Try again.'); } }
+// --- the home-screen card for players and parents: "New photos: 1st XV v RBAI" ---
+const ALBN = {at:0, list:null, busy:false};
+async function albNewLoad(){ const seasons = phSeasons(); if (!seasons.length) return []; if (ALBN.list && Date.now() - ALBN.at < 5*60000) return ALBN.list; if (ALBN.busy) return ALBN.list || []; ALBN.busy = true;
+  try { const s0 = seasons[0], L = await driveList(s0.folder), hid = phHidden(); ALBN.list = L.filter(f => isFolder(f) && !hid[f.id]).map(f => Object.assign({season:s0.folder}, f)); ALBN.at = Date.now(); } catch(e){ ALBN.list = ALBN.list || []; } ALBN.busy = false; return ALBN.list; }
+async function albNewHome(){
+  const ml = $('#menuList'); let box = $('#albNew'); const on = Cloud.role === 'player' && S.screen === 'menu' && ml && (typeof allowed !== 'function' || allowed('photos')) && !(typeof inArtifact === 'function' && inArtifact()) && !(typeof VA !== 'undefined' && VA.on);
+  if (!on){ if (box) box.remove(); return; }
+  const L = (await albNewLoad()).filter(albIsNew).sort((a, b) => (b.createdTime || '').localeCompare(a.createdTime || '')); box = $('#albNew');
+  if (!L.length || S.screen !== 'menu'){ if (box) box.remove(); return; }
+  if (!box){ box = document.createElement('button'); box.type = 'button'; box.id = 'albNew'; box.className = 'hs-home pa-home alb-new'; ml.before(box); }
+  const f = L[0], nm = phName(f.name);
+  box.innerHTML = `<span class="pa-ic">📸</span><span><b>New photos: ${esc(nm.title)}</b><small>${esc([nm.when, L.length > 1 ? `and ${L.length - 1} more new album${L.length === 2 ? '' : 's'}` : 'Tap to see them'].filter(Boolean).join(' · '))}</small></span><span class="mc-go">›</span>`;
+  box.onclick = () => { PH.season = f.season; PH.path = L.length > 1 ? [] : [{id:f.id, name:f.name}]; go('photos'); if (S.screen === 'photos') renderPhotos(); };
+}
+// --- season highlights: a player's best-liked photos of themselves, as a slideshow or a collage ---
+function hlList(){ const seasons = phSeasons(), season = (seasons[0] || {}).folder || '', c = typeof lkCounts === 'function' && lkOK() ? lkCounts(0, '') : new Map();
+  return Object.entries(tgMineAll()).filter(([, v]) => !v.s || !season || v.s === season).map(([id, v]) => ({id, n:(c.get(id) || {}).n || 0, t:v.t || 0})).sort((a, b) => b.n - a.n || b.t - a.t); }
+function hlOpen(){
+  const P = myPlayer(), L = hlList(), first = P ? P.name.split(/\s+/)[0] : '', who = nwIsGuardian() ? first + '’s' : 'Your', sl = (phSeasons()[0] || {}).label || '';
+  if (!L.length){ toast('No tagged photos from this season yet.'); return; }
+  const top = L.slice(0, 12);
+  tagModal(`<h2>⭐ ${esc(who)} season highlights</h2><p class="as-sub">${esc(sl ? sl + ' · ' : '')}The ${top.length === 1 ? 'photo' : top.length + ' photos'} of ${nwIsGuardian() ? esc(first) : 'you'} with the most likes${L.length > top.length ? `, from ${L.length} this season` : ''}.</p>
+    <div class="tg-thumbs hl-thumbs">${top.map((o, i) => `<button type="button" class="tg-th" data-hli="${i}"><img alt="" loading="lazy" referrerpolicy="no-referrer" src="${esc(thumbOf({id:o.id}, 300))}">${o.n ? `<span class="hl-n">♥ ${o.n}</span>` : ''}</button>`).join('')}</div>
+    <div class="dlg-a"><button type="button" class="btn ghost" data-tclose>Close</button><span style="flex:1"></span><button type="button" class="btn" id="hlZip">Save all</button><button type="button" class="btn" id="hlCol" ${top.length < 2 ? 'disabled' : ''}>Make collage</button><button type="button" class="btn primary" id="hlPlay">▶ Slideshow</button></div>`, d => {
+    d.closest('.dialog') && d.closest('.dialog').classList.add('pa-wide');
+    const list = top.map(o => ({id:o.id, name:''})), title = `${P ? P.name : 'Season'} · highlights`;
+    const view = (i, auto) => { tagModalClose(); if (S.screen !== 'photos') go('photos'); setTimeout(() => { phView(list, i, title); const v = $('#phView'); if (auto && v && list.length > 1) v._auto = setInterval(() => { if (v.hidden || v._at() >= v._len - 1 || (v._z && v._z.s > 1)){ if (v.hidden || v._at() >= v._len - 1) clearInterval(v._auto); return; } v._go(1); }, 3500); }, S.screen === 'photos' ? 0 : 350); };
+    d.querySelectorAll('[data-hli]').forEach(b => b.onclick = () => view(+b.dataset.hli, false));
+    d.querySelector('#hlPlay').onclick = () => view(0, true);
+    d.querySelector('#hlCol').onclick = () => phCollageOpen(top.slice(0, 9).map(o => o.id), `${P ? P.name : ''}${sl ? ' · ' + sl : ''}`.trim());
+    d.querySelector('#hlZip').onclick = e => phZipSave(top.map(o => o.id), P ? P.name : 'highlights', e.currentTarget);
+  });
+}
+(() => {
+  // opening an album marks it as seen; the photo-of-the-match button sits beside Share album
+  const rp = renderPhotos; renderPhotos = function(){ const here = PH.path && PH.path.length ? PH.path[PH.path.length - 1] : null; if (here) ALBS.add(here.id); const r = rp.apply(this, arguments);
+    const old = $('#potmBtn'); if (old) old.remove(); if (!here) return r; const tok = PH.renderTok;
+    driveList(here.id).then(() => setTimeout(() => { if (PH.renderTok !== tok || !PH.potm || $('#potmBtn')) return; const anchor = $('#albShareBtn') || $('#phCrumbs'); if (!anchor) return; const f = PH.potm;
+      const b = document.createElement('button'); b.type = 'button'; b.id = 'potmBtn'; b.className = 'alb-share potm-btn'; b.innerHTML = '★ Photo of the match'; b.title = 'Make a graphic of the most liked photo from this match';
+      b.onclick = () => phShareOpen(f, phName(here.name).title, {cap:'Photo of the match · ' + phName(here.name).title}); anchor.after(b); }, 60), () => {}); return r; };
+  // the first time the likes arrive, draw the page once more so the photo of the match shows
+  if (typeof lkRefresh === 'function'){ const lr = lkRefresh; let did = false; lkRefresh = function(){ const r = lr.apply(this, arguments); if (!did && LK.list && LK.list.length){ did = true; const v = $('#phView'); if (S.screen === 'photos' && (!v || v.hidden) && !(PH.sel && PH.sel.on) && scrollY < 200) setTimeout(renderPhotos, 100); } return r; }; }
+  const rm = renderMenu; renderMenu = function(){ const r = rm.apply(this, arguments); albNewHome().catch(() => {}); return r; };
+  let seen; Cloud.on(() => { const k = [Cloud.docs['team/photos'], Cloud.role]; if (seen && k.every((x, i) => x === seen[i])) return; seen = k; if (S.screen === 'menu') albNewHome().catch(() => {}); });
+  // "Photos of me" gets a Season highlights button
+  const tm = tgMine; tgMine = function(){ const r = tm.apply(this, arguments); const a = document.querySelector('#tagModal .dlg-a'); if (a && document.querySelector('#tagModal .tg-groups') && !a.querySelector('#hlBtn')){ const b = document.createElement('button'); b.type = 'button'; b.className = 'btn primary'; b.id = 'hlBtn'; b.textContent = '⭐ Season highlights'; b.onclick = hlOpen; a.prepend(b); } return r; };
+  const st = document.createElement('style'); st.textContent = `.ph-new{position:absolute;top:10px;left:10px;z-index:2;padding:3px 10px;border-radius:99px;background:#E5484D;color:#fff;font:800 11.5px var(--f-body);letter-spacing:.06em;text-transform:uppercase;box-shadow:0 2px 8px rgba(0,0,0,.4);pointer-events:none}
+.ph-potm{position:absolute;left:10px;top:10px;z-index:2;padding:3px 10px;border-radius:99px;background:#DCC08A;color:#14112a;font:800 11.5px var(--f-body);box-shadow:0 2px 8px rgba(0,0,0,.4);pointer-events:none}.ph-new+.ph-potm,.ph-new~.ph-potm{top:38px}
+.ph-tile.potm{outline:2px solid #DCC08A;outline-offset:-2px}.ph-star{position:absolute;left:6px;top:6px;z-index:2;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#DCC08A;color:#14112a;font-size:16px;box-shadow:0 2px 8px rgba(0,0,0,.4);pointer-events:none}
+.potm-btn{border-color:rgba(220,192,138,.6);color:#DCC08A}.alb-new .pa-ic{font-size:22px}
+.ph-view.zoomed #phImg{cursor:grab;transition:none}.ph-view.zoomed .ph-nav{display:none}.ph-view:not(.zoomed):not(.tg-placing) #phImg{cursor:zoom-in}#phImg{touch-action:none;transform-origin:center center;will-change:transform}
+.ph-cover-b span{display:none}@media (min-width:900px){.ph-cover-b span{display:inline}}.ph-cover-b{border:1px solid rgba(255,255,255,.28)}
+.tg-pin{position:absolute;z-index:4;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;border:3px solid #DCC08A;background:rgba(220,192,138,.25);box-shadow:0 0 0 3px rgba(0,0,0,.35);pointer-events:none;animation:tgPin 1s ease-in-out infinite}@keyframes tgPin{50%{transform:scale(1.25)}}
+.hl-thumbs{grid-template-columns:repeat(auto-fill,minmax(110px,1fr));max-height:min(52vh,460px);overflow-y:auto;margin:0 0 10px}.hl-thumbs .tg-th{position:relative}.hl-n{position:absolute;right:5px;bottom:5px;padding:1px 7px;border-radius:99px;background:rgba(9,13,38,.78);color:#ff8fa0;font:700 11.5px var(--f-body)}`; document.head.appendChild(st);
+})();
 /* =============================== A CLEAN HOME SCREEN: running the club lives in Settings (⚙ in the top corner) =============================== */
 // Settings opens on "Manage": players and access, approvals, coaches, sponsors, photo seasons and approval emails,
 // then the feature switches and defaults. Play IQ, match-day plans, the register, reports and Settings itself leave a coach's
@@ -19741,14 +19833,24 @@ function tgCoachBar(v){
     const q = bar.querySelector('#tgQ'), box = bar.querySelector('#tgOpts');
     const draw = L => { const t = normName(TGC.q), m = L.filter(p => !t || normName(p.name).includes(t)).slice(0, t ? 12 : 40);
       box.innerHTML = m.map((p, i) => `<button type="button" class="tg-opt${tagged.has(normName(p.name)) ? ' done' : ''}" data-tgp="${i}" ${tagged.has(normName(p.name)) ? 'disabled' : ''}>${esc(p.name)}<small>${esc(p.team ? (typeof paTeamName === 'function' ? paTeamName(p.team) || p.team : p.team) : '')}${p.acc ? '' : ' · no sign-in yet'}</small></button>`).join('') || '<span class="tg-none">No player with that name.</span>';
-      box.querySelectorAll('[data-tgp]').forEach(b => b.onclick = () => { const p = m[+b.dataset.tgp]; TGC.picking = false; TGC.q = ''; TG.placing = {f, who:p}; v.classList.add('tg-placing'); tgBar(v); }); };
+      box.querySelectorAll('[data-tgp]').forEach(b => b.onclick = () => { const p = m[+b.dataset.tgp];
+        if (TGC.multi && TGC.point){ const pt = TGC.point; TGC.point = null; TGC.picking = false; TGC.q = ''; TGC.n = (TGC.n || 0) + 1; tgCoachAdd(p, f, pt.x, pt.y); tgBar(v); tgPin(v); return; }   // face first: straight on to the next one
+        TGC.picking = false; TGC.q = ''; TG.placing = {f, who:p}; v.classList.add('tg-placing'); tgBar(v); }); };
     tgPeople().then(L => { if (bar.isConnected) draw(L); });
     q.oninput = () => { TGC.q = q.value; if (TGC.people) draw(TGC.people); }; setTimeout(() => q.focus(), 30);
-    bar.querySelector('#tgPX').onclick = () => { TGC.picking = false; TGC.q = ''; tgBar(v); }; return; }
+    bar.querySelector('#tgPX').onclick = () => { TGC.picking = false; TGC.point = null; TGC.q = ''; tgBar(v); tgPin(v); };
+    if (TGC.multi && TGC.point) bar.querySelector('#tgPX').textContent = 'Not this one'; return; }
+  if (TGC.multi){ v.classList.add('tg-placing'); bar.insertAdjacentHTML('beforeend', `<span class="tg-hint">Tap a face to tag it${TGC.n ? ` · ${TGC.n} tagged` : ''}</span><button type="button" class="btn primary" id="tgMDone">Done</button>`);
+    bar.querySelector('#tgMDone').onclick = () => { TGC.multi = false; TGC.point = null; TGC.n = 0; v.classList.remove('tg-placing'); tgBar(v); tgPin(v); }; return; }
   const b = document.createElement('button'); b.type = 'button'; b.className = 'btn primary'; b.id = 'tgCoach'; b.textContent = '🏷 Tag a player'; b.onclick = () => { TGC.picking = true; tgBar(v); }; bar.appendChild(b);
+  const b2 = document.createElement('button'); b2.type = 'button'; b2.className = 'btn'; b2.id = 'tgMulti'; b2.textContent = 'Tag several'; b2.title = 'Tap each face, then pick the name'; b2.onclick = () => { TGC.multi = true; TGC.n = 0; TGC.point = null; tgBar(v); }; bar.appendChild(b2);
 }
+// tagging several: a marker where the coach tapped, while they pick the name
+function tgPin(v){ const st = v.querySelector('.ph-stage'), img = v.querySelector('#phImg'); st.querySelectorAll('.tg-pin').forEach(x => x.remove()); if (!TGC.point || !img) return;
+  const r = img.getBoundingClientRect(), sr = st.getBoundingClientRect(), d = document.createElement('span'); d.className = 'tg-pin'; d.style.left = (r.left - sr.left + TGC.point.x*r.width) + 'px'; d.style.top = (r.top - sr.top + TGC.point.y*r.height) + 'px'; st.appendChild(d); }
 (() => { const tb = tgBar; tgBar = function(v){ tb.apply(this, arguments); tgCoachBar(v); };
-  const tv = tgViewer; tgViewer = function(v, f){ TGC.picking = false; tv.apply(this, arguments); }; })();
+  const tv = tgViewer; tgViewer = function(v, f){ TGC.picking = false; TGC.point = null; tv.apply(this, arguments); tgPin(v);
+    const img = v.querySelector('#phImg'); if (img && !img.dataset.tgMulti){ img.dataset.tgMulti = 1; img.addEventListener('click', e => { if (!TGC.multi || TG.placing || TGC.point) return; e.stopPropagation(); const r = img.getBoundingClientRect(); TGC.point = {x:(e.clientX - r.left)/r.width, y:(e.clientY - r.top)/r.height}; TGC.picking = true; TG.show = true; tgBar(v); tgPin(v); }, true); } }; })();
 
 /* ---------- which match a photo is from: read the album (folder) name, find the ERGS Live result ---------- */
 // "Meds v Methody 24 Oct", "1st XV 12/09", "v Portora 12 Sep 2026", "2026-09-12 U14 Omagh"… → date, squad, opposition
