@@ -33,6 +33,25 @@ EACH MATCH
   5. Click "Enhance & upload". A new folder is made in Rugby on Google Drive and the
      full-size enhanced photos are uploaded into it. "Open in Google Drive" opens it.
 
+FINE-TUNING A PHOTO
+  In the before/after viewer, the panel on the right lets you pick a different look for
+  that photo (Gentle / Balanced / Punchy) or adjust it by hand: strength, colour, exposure,
+  contrast, vibrance, sharpening, shadows, highlights, brightness and warmth.
+  "Use on all selected" copies the look to every ticked photo. Photos with their own look
+  show a small "Custom" or preset label in the grid.
+  Backlit shots (bright sky behind a player) are handled automatically - if a face is
+  still too dark, push "Shadows" up.
+
+IMPROVING EARLIER UPLOADS
+  Click "Google Drive" at the top-left. Tick the match folders in Rugby (or Select all),
+  then "Load photos". Check them in the grid/viewer as normal, then either:
+   - Replace the photos in Drive (originals go to Drive's Bin for 30 days), or
+   - Save to an "Enhanced" subfolder inside each match folder.
+  Photos already enhanced by the app are skipped automatically.
+  The first time, the app asks you to update your uploader script (about 1 minute):
+  Copy new script > open your project at script.google.com > paste over the old code >
+  save > Deploy > Manage deployments > Edit > Version: New version > Deploy > Test & save.
+
 OPTIONS
   - "Also keep a copy on this PC" saves the enhanced photos in Pictures\Rugby Photos too.
   - "Also upload untouched originals" adds an "Originals" subfolder.

@@ -89,7 +89,7 @@
   .mhead .tags{color:var(--muted);font-size:12.5px}
   .stage{flex:1;display:grid;place-items:center;padding:0 16px 16px;min-height:0}
   .cmp{position:relative;user-select:none;touch-action:none;cursor:ew-resize}
-  .cmp img{display:block;max-width:calc(100vw - 32px);max-height:calc(100vh - 92px);object-fit:contain}
+  .cmp img{display:block;max-width:calc(100vw - 352px);max-height:calc(100vh - 92px);object-fit:contain}
   .cmp .before{position:absolute;inset:0;width:100%;height:100%}
   .cmp .handle{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.4);pointer-events:none}
   .cmp .handle::after{content:"⟷";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;color:#111;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-size:16px}
@@ -112,6 +112,31 @@
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);background:var(--panel2);border:1px solid var(--line2);padding:10px 16px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none;z-index:60;max-width:90vw}
   .toast.show{opacity:1;transform:translateX(-50%)}
   .gone{display:none!important}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px;margin-bottom:16px}
+  .tabs button{border:0;background:transparent;border-radius:8px;padding:8px 0;cursor:pointer;color:var(--muted);font-weight:600}
+  .tabs button.on{background:#33302a;color:var(--accent2);box-shadow:inset 0 0 0 1px #5b4a25}
+  .flist{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}
+  .flist label{display:flex;gap:8px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--line);cursor:pointer}
+  .flist label:last-child{border-bottom:0}
+  .flist label span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .flist label small{color:var(--muted)}
+  .flist input{accent-color:var(--accent)}
+  .note{color:var(--muted);font-size:12.5px;margin:6px 0}
+  .lookchip{position:absolute;left:8px;bottom:8px;z-index:2;font-size:11px;padding:2px 7px;border-radius:20px;background:rgba(242,181,68,.9);color:#1b1404;font-weight:600}
+  /* viewer with look panel */
+  .mbody{flex:1;display:flex;min-height:0}
+  .mbody .stage{flex:1}
+  .panel{width:300px;flex:none;background:var(--panel);border-left:1px solid var(--line);padding:16px;overflow:auto}
+  .panel h4{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
+  .panel .seg{grid-template-columns:repeat(4,1fr);margin-bottom:6px}
+  .panel .seg button{font-size:12.5px}
+  .sl{margin:11px 0}
+  .sl label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px}
+  .sl label b{font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+  .sl input{width:100%;accent-color:var(--accent)}
+  .sl.extra label{color:var(--accent2)}
+  .upd{position:absolute;right:10px;bottom:10px;font-size:12px;background:rgba(0,0,0,.65);padding:3px 9px;border-radius:6px;display:none}
+  .upd.on{display:block}
 </style>
 </head>
 <body>
@@ -119,7 +144,20 @@
   <aside>
     <div class="brand"><div class="logo">R</div><div><h1>Rugby Photo Enhancer</h1><small id="ver"></small></div></div>
 
-    <div class="sec">
+    <div class="tabs" id="srcTabs"><button data-s="card" class="on">Camera card</button><button data-s="drive">Google Drive</button></div>
+
+    <div class="sec gone" id="driveSec">
+      <h2>Earlier uploads in Rugby</h2>
+      <div id="driveFolders"><div class="note">Loading folders…</div></div>
+      <label class="chk"><input type="checkbox" id="skipEnhanced"> Skip photos already enhanced</label>
+      <div class="row" style="margin-top:8px"><button class="btn sm" id="driveLoad">Load photos</button><button class="btn ghost sm" id="driveAll">Select all</button></div>
+      <h2 style="margin-top:16px">When enhanced</h2>
+      <label class="chk"><input type="radio" name="driveAction" value="replace"> Replace the photos in Drive</label>
+      <div class="note" style="margin-left:23px">Originals go to Drive’s Bin (restore within 30 days).</div>
+      <label class="chk"><input type="radio" name="driveAction" value="subfolder"> Save to an “Enhanced” subfolder</label>
+    </div>
+
+    <div class="sec" id="cardSec">
       <h2>Camera card</h2>
       <div class="path"><input type="text" id="source" spellcheck="false"><button class="btn ghost sm" data-browse="source" data-title="Choose the camera folder">Browse</button></div>
       <label class="chk"><input type="checkbox" id="onlyDate"> Only photos taken on</label>
@@ -136,7 +174,7 @@
       </div>
     </div>
 
-    <div class="sec">
+    <div class="sec" id="destSec">
       <h2>Upload to</h2>
       <div class="dest" data-mode="direct">
         <div class="t"><input type="radio" name="mode" value="direct"> Google Drive</div>
@@ -159,10 +197,11 @@
 
   <main>
     <div class="top">
-      <div class="namebox">
+      <div class="namebox" id="nameBox">
         <label for="folderName">New folder in Rugby</label>
         <input type="text" id="folderName" placeholder="e.g. Dungannon 14 11 26" spellcheck="false">
       </div>
+      <div class="namebox gone" id="driveBox"><label>Improving earlier uploads</label><div style="font-size:18px;padding:9px 0" id="driveSummary">Pick folders on the left, then Load photos.</div></div>
       <button class="btn go" id="go" disabled>Enhance &amp; upload</button>
     </div>
     <div class="progress"><div class="bar"><i id="bar"></i></div><div class="stat"><span id="status">Put the camera card in and pick a date.</span><span id="eta"></span></div></div>
@@ -189,21 +228,41 @@
       <button class="btn sm" id="mClose">Close</button>
     </div>
   </div>
-  <div class="stage">
-    <div class="cmp" id="cmp">
-      <img id="imgAfter" alt="Enhanced">
-      <img id="imgBefore" class="before" alt="Original">
-      <div class="handle" id="handle"></div>
-      <span class="lbl l">Original</span><span class="lbl r">Enhanced</span>
-      <div class="loading" id="mLoad">Loading…</div>
+  <div class="mbody">
+    <div class="stage">
+      <div class="cmp" id="cmp">
+        <img id="imgAfter" alt="Enhanced">
+        <img id="imgBefore" class="before" alt="Original">
+        <div class="handle" id="handle"></div>
+        <span class="lbl l">Original</span><span class="lbl r">Enhanced</span>
+        <div class="loading" id="mLoad">Loading…</div>
+        <div class="upd" id="mUpd">Updating…</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h4>Look for this photo</h4>
+      <div class="seg" id="mLooks"><button data-l="">Default</button><button data-l="Gentle">Gentle</button><button data-l="Balanced">Balanced</button><button data-l="Punchy">Punchy</button></div>
+      <div class="note" id="mLookNote"></div>
+      <div id="sliders"></div>
+      <div class="row" style="margin-top:14px;flex-wrap:wrap">
+        <button class="btn ghost sm" id="mReset">Reset</button>
+        <button class="btn ghost sm" id="mApplyAll">Use on all selected</button>
+      </div>
+      <div class="note" style="margin-top:12px">Changes are used for this photo when you upload. Keys: ← → next/previous, X exclude.</div>
     </div>
   </div>
 </div>
 
 <div class="dlg" id="setup">
   <div class="card">
-    <h3>Connect to Google Drive</h3>
-    <p>One-time setup, about 3 minutes. It creates a private uploader in your own Google account that can only add folders and photos inside your Rugby folder.</p>
+    <h3 id="setupTitle">Connect to Google Drive</h3>
+    <p id="setupIntro">One-time setup, about 3 minutes. It creates a private uploader in your own Google account that can only add folders and photos inside your Rugby folder.</p>
+    <div class="note gone" id="updateSteps" style="font-size:13.5px;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:14px">
+      <b>Updating an existing uploader (about 1 minute):</b> click <b>Copy script</b> below, open your existing script at
+      script.google.com, select all its code and paste over it, save, then <b>Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy</b>.
+      The URL stays the same — just click <b>Test &amp; save</b>.
+    </div>
+    <div class="row gone" id="updLinkRow" style="margin-bottom:12px"><button class="btn sm" id="copyScript2">Copy new script</button><button class="btn ghost sm" id="openScript2">Open my Apps Script projects</button></div>
     <ol class="steps">
       <li>Rugby folder link:<div style="margin-top:6px"><input type="text" id="folderLink" spellcheck="false"></div></li>
       <li><button class="btn sm" id="copyScript">Copy script</button> then <button class="btn ghost sm" id="openScript">Open Apps Script</button><br>
@@ -217,6 +276,14 @@
   </div>
 </div>
 
+<div class="dlg" id="confirm">
+  <div class="card" style="width:min(460px,94vw)">
+    <h3>Replace photos in Drive?</h3>
+    <p id="confirmText"></p>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="confirmNo">Cancel</button><button class="btn" id="confirmYes">Replace</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -227,15 +294,28 @@
     const r = await fetch(path + (body ? "" : (path.includes("?") ? "&" : "?") + "t=" + T), body ? {method:"POST", headers:{"Content-Type":"application/json","X-Token":T}, body:JSON.stringify(body)} : {});
     return r.json();
   };
-  let S = null, photos = [], show = "after", jobTimer = null, running = false, lastStatus = {};
+  let S = null, photos = [], show = "after", running = false, lastStatus = {}, source = "card", driveFolderList = [];
   const fmtEta = s => s == null ? "" : s < 60 ? `about ${s}s left` : `about ${Math.floor(s/60)}m ${s%60}s left`;
-  let tt; const toast = t => { const e = $("toast"); e.textContent = t; e.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => e.classList.remove("show"), 3000); };
+  let tt; const toast = t => { const e = $("toast"); e.textContent = t; e.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => e.classList.remove("show"), 3200); };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+  /* ---------- looks ---------- */
+  const SL = [
+    ["strength","Overall strength",0,100], ["colour","Colour correction",0,100], ["exposure","Exposure fix",0,100],
+    ["contrast","Contrast",0,100], ["vibrance","Vibrance",0,100], ["sharpen","Sharpen",0,100],
+    ["shadows","Shadows (lift dark areas)",0,100], ["highlights","Highlights (recover sky)",0,100],
+    ["bright","Brightness",-100,100,true], ["warmth","Warmth",-100,100,true],
+  ];
+  const globalPreset = () => document.querySelector("#presets .on").dataset.p;
+  const lookVals = p => (p.look && p.look.vals) || S.presets[(p.look && p.look.preset) || globalPreset()];
+  const lookStr = p => lookVals(p).map(v => +(+v).toFixed(3)).join(",");
+  const lookName = p => !p.look ? "" : p.look.vals ? "Custom" : p.look.preset;
 
   /* ---------- settings ---------- */
   function settings(){
     return {
       source: $("source").value.trim(), onlyDate: $("onlyDate").checked, skip: $("skip").checked,
-      preset: document.querySelector("#presets .on").dataset.p, quality: +$("quality").value,
+      preset: globalPreset(), quality: +$("quality").value,
       mode: document.querySelector("input[name=mode]:checked").value,
       keepLocal: $("keepLocal").checked, localDir: $("localDir").value.trim(), dest: $("dest").value.trim(),
       keepOriginals: $("keepOriginals").checked,
@@ -247,13 +327,11 @@
     const m = settings().mode;
     document.querySelectorAll(".dest").forEach(d => d.classList.toggle("on", d.dataset.mode === m));
     document.querySelectorAll(".dest .more").forEach(x => x.style.display = x.closest(".dest").dataset.mode === m ? "" : "none");
-    const ds = $("driveState");
-    ds.innerHTML = S.drive.ok ? `<span class="pill ok">✓ Connected${S.drive.root ? " to “" + esc(S.drive.root) + "”" : ""}</span> <button class="link" id="reSetup">change</button>`
-                              : `<span class="pill bad">Not set up</span> <button class="link" id="reSetup">Set up…</button>`;
+    $("driveState").innerHTML = S.drive.ok ? `<span class="pill ok">✓ Connected${S.drive.root ? " to “" + esc(S.drive.root) + "”" : ""}</span> <button class="link" id="reSetup">change</button>`
+                                           : `<span class="pill bad">Not set up</span> <button class="link" id="reSetup">Set up…</button>`;
     $("reSetup").onclick = e => { e.stopPropagation(); openSetup(); };
     updateGo();
   }
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
   async function init(){
     S = await api("/api/state");
@@ -262,25 +340,26 @@
     $("source").value = st.source; $("onlyDate").checked = st.onlyDate; $("skip").checked = st.skip;
     $("day").value = S.today; $("quality").value = String(st.quality);
     $("keepLocal").checked = st.keepLocal; $("localDir").value = st.localDir; $("dest").value = st.dest;
-    $("keepOriginals").checked = st.keepOriginals;
+    $("keepOriginals").checked = st.keepOriginals; $("skipEnhanced").checked = S.drive.skipEnhanced;
+    document.querySelector(`input[name=driveAction][value=${S.drive.action === "subfolder" ? "subfolder" : "replace"}]`).checked = true;
     document.querySelector(`input[name=mode][value=${st.mode === "folder" ? "folder" : "direct"}]`).checked = true;
-    $("presets").innerHTML = S.presets.map(p => `<button data-p="${p}" class="${p === st.preset ? "on" : ""}">${p}</button>`).join("");
+    $("presets").innerHTML = Object.keys(S.presets).map(p => `<button data-p="${p}" class="${p === st.preset ? "on" : ""}">${p}</button>`).join("");
     const d = new Date(); $("folderName").value = [d.getDate(), d.getMonth()+1, d.getFullYear()%100].map(n => String(n).padStart(2,"0")).join(" ");
     $("folderLink").value = S.drive.folderLink;
+    buildSliders();
     paintDest(); paintUpdate(S.update);
     $("folderName").focus(); $("folderName").setSelectionRange(0, 0);
     scan();
-    if (st.mode !== "folder" && !S.drive.ok) setTimeout(openSetup, 500);
+    if (st.mode !== "folder" && !S.drive.ok) setTimeout(() => openSetup(), 500);
   }
 
   /* ---------- sidebar events ---------- */
-  ["source","day"].forEach(id => $(id).addEventListener("change", () => { saveSettings(); scan(); }));
-  ["onlyDate","skip"].forEach(id => $(id).addEventListener("change", () => { saveSettings(); scan(); }));
+  ["source","day","onlyDate","skip"].forEach(id => $(id).addEventListener("change", () => { saveSettings(); scan(); }));
   ["quality","keepLocal","localDir","dest","keepOriginals"].forEach(id => $(id).addEventListener("change", saveSettings));
   $("presets").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
     document.querySelectorAll("#presets button").forEach(x => x.classList.toggle("on", x === b));
-    saveSettings(); refreshImages();
+    saveSettings(); refreshImages(p => !p.look);
   });
   document.querySelectorAll(".dest").forEach(d => d.addEventListener("click", e => {
     if (e.target.closest("input[type=text],button,label.chk")) return;
@@ -294,25 +373,70 @@
     else if (!r.ok) toast(r.error);
   }));
   $("folderName").addEventListener("input", updateGo);
+  document.querySelectorAll("input[name=driveAction]").forEach(r => r.addEventListener("change", updateGo));
 
-  /* ---------- photos ---------- */
+  /* ---------- source switch ---------- */
+  $("srcTabs").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b || running) return;
+    source = b.dataset.s;
+    $("srcTabs").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    const drive = source === "drive";
+    $("driveSec").classList.toggle("gone", !drive); $("cardSec").classList.toggle("gone", drive); $("destSec").classList.toggle("gone", drive);
+    $("nameBox").classList.toggle("gone", drive); $("driveBox").classList.toggle("gone", !drive);
+    $("rescan").classList.toggle("gone", drive);
+    photos = []; lastStatus = {}; $("openBtn").classList.add("gone"); $("bar").style.width = "0";
+    if (drive) { $("grid").innerHTML = `<div class="empty"><div class="big">Choose earlier match folders</div>Tick folders on the left, then click Load photos.</div>`; setStatus(""); loadDriveFolders(); }
+    else scan();
+    updateCount();
+  });
+
+  async function loadDriveFolders(){
+    if (!S.drive.ok) { $("driveFolders").innerHTML = `<div class="note">Connect Google Drive first. <button class="link" onclick="">Set up…</button></div>`; $("driveFolders").querySelector("button").onclick = () => openSetup(); return; }
+    if ((S.drive.version || 1) < S.drive.needed) { needUpdate(); return; }
+    $("driveFolders").innerHTML = `<div class="note">Loading folders…</div>`;
+    const r = await api("/api/drive/folders", {});
+    if (!r.ok) { if (r.error === "update") needUpdate(); else $("driveFolders").innerHTML = `<div class="note">${esc(r.error)}</div>`; return; }
+    driveFolderList = r.folders;
+    if (!r.folders.length) { $("driveFolders").innerHTML = `<div class="note">No folders in Rugby yet.</div>`; return; }
+    $("driveFolders").innerHTML = `<div class="flist">` + r.folders.map((f, i) => `<label><input type="checkbox" data-i="${i}"><span>${esc(f.name)}</span><small>${new Date(f.updated).toLocaleDateString("en-GB")}</small></label>`).join("") + `</div>`;
+  }
+  function needUpdate(){
+    $("driveFolders").innerHTML = `<div class="note" style="color:var(--accent2)">Your Drive uploader needs a 1-minute update to read earlier uploads.</div><button class="btn sm" id="doUpd">Update uploader…</button>`;
+    $("doUpd").onclick = () => openSetup(true);
+  }
+  $("driveAll").onclick = () => document.querySelectorAll("#driveFolders input[type=checkbox]").forEach(c => c.checked = true);
+  $("driveLoad").onclick = async () => {
+    const chosen = [...document.querySelectorAll("#driveFolders input[type=checkbox]:checked")].map(c => driveFolderList[+c.dataset.i]);
+    if (!chosen.length) { toast("Tick at least one folder"); return; }
+    $("grid").innerHTML = `<div class="empty"><div class="big">Reading ${chosen.length} folder${chosen.length > 1 ? "s" : ""} from Drive…</div></div>`;
+    const r = await api("/api/drive/load", {folders: chosen, skipEnhanced: $("skipEnhanced").checked});
+    lastStatus = {};
+    if (!r.ok) { photos = []; $("grid").innerHTML = `<div class="empty"><div class="big">${esc(r.error)}</div></div>`; updateCount(); return; }
+    photos = r.photos.map(p => Object.assign(p, {include: true, look: null}));
+    $("driveSummary").textContent = `${chosen.length === 1 ? chosen[0].name : chosen.length + " folders"} · ${r.total} photos` + (r.skipped ? ` (${r.skipped} already enhanced)` : "");
+    if (!photos.length) $("grid").innerHTML = `<div class="empty"><div class="big">Nothing to improve</div>${r.skipped ? "Every photo there has already been enhanced. Untick “Skip photos already enhanced” to redo them." : "No JPG/PNG photos in those folders."}</div>`;
+    else renderGrid();
+    setStatus(photos.length ? "Click any photo to compare and fine-tune. Previews come from Drive, so they may take a moment." : "");
+    updateCount();
+  };
+
+  /* ---------- photos (card) ---------- */
   async function scan(){
-    if (running) return;
+    if (running || source !== "card") return;
     $("grid").innerHTML = `<div class="empty"><div class="big">Reading the card…</div></div>`;
     const s = settings();
     const r = await api("/api/scan", {source: s.source, onlyDate: s.onlyDate, date: $("day").value, skip: s.skip});
     lastStatus = {};
     if (!r.ok) { photos = []; $("grid").innerHTML = `<div class="empty"><div class="big">${esc(r.error)}</div>Check the card is in, or click Browse to pick the folder.</div>`; setStatus(""); updateCount(); return; }
-    photos = r.photos.map(p => Object.assign(p, {include: true}));
+    photos = r.photos.map(p => Object.assign(p, {include: true, look: null}));
     if (!photos.length) {
       const why = s.onlyDate ? "No photos taken on that date" + (s.skip ? " that haven't already been imported" : "") : "No new photos on the card";
       $("grid").innerHTML = `<div class="empty"><div class="big">${why}</div>${r.total} photos on the card in total. Try another date, or untick the filters on the left.</div>`;
     } else renderGrid();
-    setStatus(photos.length ? "Click any photo to compare before/after. Untick any you don't want." : "");
+    setStatus(photos.length ? "Click any photo to compare before/after and fine-tune it. Untick any you don't want." : "");
     updateCount();
   }
-  const imgURL = (p, kind, size) => `/img/${p.id}?t=${T}&kind=${kind}&preset=${currentPreset()}${size ? "&size=" + size : ""}`;
-  const currentPreset = () => document.querySelector("#presets .on").dataset.p;
+  const imgURL = (p, kind, size) => `/img/${encodeURIComponent(p.id)}?t=${T}&kind=${kind}&s=${lookStr(p)}${size ? "&size=" + size : ""}`;
 
   function renderGrid(){
     const g = $("grid"); g.innerHTML = "";
@@ -321,69 +445,99 @@
       const img = en.target; io.unobserve(img); img.src = img.dataset.src;
     }), {root: g, rootMargin: "400px"});
     photos.forEach((p, i) => {
-      const t = document.createElement("div"); t.className = "tile" + (p.include ? "" : " off"); t.dataset.i = i;
-      t.innerHTML = `<div class="thumb"><img alt=""><div class="sel" title="Include / exclude"></div><span class="badge gone"></span></div>
-        <div class="meta"><span class="n"></span><span class="tm">${esc(p.time)}</span></div>`;
-      t.querySelector(".n").textContent = p.name;
+      const t = document.createElement("div"); t.className = "tile" + (p.include ? "" : " off");
+      t.innerHTML = `<div class="thumb"><img alt=""><div class="sel" title="Include / exclude"></div><span class="badge gone"></span><span class="lookchip gone"></span></div>
+        <div class="meta"><span class="n"></span><span class="tm"></span></div>`;
+      t.querySelector(".n").textContent = p.name; t.querySelector(".tm").textContent = p.time;
       const img = t.querySelector("img"); img.dataset.src = imgURL(p, show);
       img.onload = () => img.classList.add("ld");
       io.observe(img);
       t.querySelector(".sel").onclick = e => { e.stopPropagation(); toggle(i); };
       t.querySelector(".thumb").onclick = () => openViewer(i);
       p.el = t; g.appendChild(t);
-      paintBadge(p);
+      paintBadge(p); paintChip(p);
     });
-    window.__io = io;
   }
-  function refreshImages(){
-    photos.forEach(p => { const img = p.el && p.el.querySelector("img"); if (!img) return; img.classList.remove("ld"); const u = imgURL(p, show); if (img.src) img.src = u; else img.dataset.src = u; });
-    if ($("modal").classList.contains("open")) openViewer(cur);
+  function refreshTile(p){
+    const img = p.el && p.el.querySelector("img"); if (!img) return;
+    const u = imgURL(p, show);
+    if (img.src) { img.classList.remove("ld"); img.src = u; } else img.dataset.src = u;
+    paintChip(p);
+  }
+  function refreshImages(filter){
+    photos.forEach(p => { if (!filter || filter(p)) refreshTile(p); });
+    if ($("modal").classList.contains("open")) openViewer(cur, true);
+  }
+  function paintChip(p){
+    const c = p.el && p.el.querySelector(".lookchip"); if (!c) return;
+    const n = lookName(p); c.textContent = n; c.classList.toggle("gone", !n);
   }
   function toggle(i){
     if (running) return;
-    const p = photos[i]; if (p.done) return; p.include = !p.include; p.el.classList.toggle("off", !p.include);
+    const p = photos[i]; if (!p || p.done) return;
+    p.include = !p.include; p.el.classList.toggle("off", !p.include);
     updateCount(); if (cur === i) $("mToggle").textContent = p.include ? "Exclude" : "Include";
   }
   $("selAll").onclick = () => { if (running) return; photos.forEach(p => { if (p.done) return; p.include = true; p.el.classList.remove("off"); }); updateCount(); };
-  $("selNone").onclick = () => { if (running) return; photos.forEach((p, i) => { p.include = false; p.el.classList.add("off"); }); updateCount(); };
+  $("selNone").onclick = () => { if (running) return; photos.forEach(p => { p.include = false; p.el.classList.add("off"); }); updateCount(); };
+  $("rescan").onclick = () => scan();
   $("showSeg").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
     show = b.dataset.k;
     $("showSeg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
     refreshImages();
   });
-  $("rescan").onclick = () => scan();
   function updateCount(){
     const n = photos.filter(p => p.include).length;
     $("count").innerHTML = photos.length ? `<b>${n}</b> of ${photos.length} selected` : "";
     updateGo();
   }
   function updateGo(){
-    const n = photos.filter(p => p.include).length, s = S && settings();
-    const target = s && s.mode === "direct" ? "upload" : "save";
-    $("go").textContent = running ? "Working…" : n ? `Enhance & ${target} ${n} photo${n === 1 ? "" : "s"}` : `Enhance & ${target}`;
-    $("go").disabled = running || !n || !$("folderName").value.trim();
+    if (!S) return;
+    const n = photos.filter(p => p.include).length;
+    let verb;
+    if (source === "drive") verb = document.querySelector("input[name=driveAction]:checked").value === "replace" ? "replace" : "save";
+    else verb = settings().mode === "direct" ? "upload" : "save";
+    $("go").textContent = running ? "Working…" : n ? `Enhance & ${verb} ${n} photo${n === 1 ? "" : "s"}` : `Enhance & ${verb}`;
+    $("go").disabled = running || !n || (source === "card" && !$("folderName").value.trim());
   }
-  const BADGE = {queued:["Queued","work"], working:["Enhancing…","work"], uploading:["Uploading…","up"], done:["✓ Done","ok"], error:["✗ Failed","bad"]};
+  const BADGE = {queued:["Queued","work"], downloading:["Downloading…","up"], working:["Enhancing…","work"], uploading:["Uploading…","up"], done:["✓ Done","ok"], error:["✗ Failed","bad"]};
   function paintBadge(p){
     const b = p.el && p.el.querySelector(".badge"); if (!b) return;
     const st = lastStatus[p.id];
-    if (!st) { b.className = "badge gone"; return; }
     p.el.classList.toggle("isdone", st === "done");
+    if (!st) { b.className = "badge gone"; return; }
     const [txt, cls] = BADGE[st] || [st, ""];
-    b.className = "badge " + cls; b.textContent = st === "done" && settings().mode === "direct" ? "✓ In Drive" : txt;
-    if (st === "error" && p.err) b.title = p.err;
+    b.className = "badge " + cls;
+    b.textContent = st === "done" ? (source === "drive" ? "✓ Improved" : settings().mode === "direct" ? "✓ In Drive" : "✓ Saved") : txt;
+    b.title = st === "error" && p.err ? p.err : "";
   }
   function setStatus(t, eta){ $("status").textContent = t || ""; $("eta").textContent = eta || ""; }
 
   /* ---------- run ---------- */
   $("go").onclick = async () => {
-    const ids = photos.filter(p => p.include).map(p => p.id);
-    const r = await api("/api/run", {ids, name: $("folderName").value.trim(), settings: settings()});
+    const chosen = photos.filter(p => p.include);
+    const looks = {}; chosen.forEach(p => looks[p.id] = lookVals(p));
+    const body = {ids: chosen.map(p => p.id), looks, settings: settings(), source};
+    if (source === "drive") {
+      body.action = document.querySelector("input[name=driveAction]:checked").value;
+      if (body.action === "replace" && !confirmReplace) { askReplace(chosen.length); return; }
+    } else body.name = $("folderName").value.trim();
+    confirmReplace = false;
+    const r = await api("/api/run", body);
     if (!r.ok) { if (r.error === "setup") openSetup(); else toast(r.error); return; }
     running = true; updateGo(); $("openBtn").classList.add("gone");
     poll();
   };
+  let confirmReplace = false;
+  function askReplace(n){
+    $("setupMsg").textContent = "";
+    $("confirmText").textContent = `Replace ${n} photo${n === 1 ? "" : "s"} in Google Drive with enhanced versions? The originals go to Drive’s Bin, where you can restore them for 30 days.`;
+    $("confirm").classList.add("open");
+  }
+  $("confirmNo").onclick = () => $("confirm").classList.remove("open");
+  $("confirmYes").onclick = () => { $("confirm").classList.remove("open"); confirmReplace = true; $("go").click(); };
+
   async function poll(){
     const j = await api("/api/job");
     lastStatus = j.status || {};
@@ -392,10 +546,9 @@
     if (j.running) {
       const t = j.direct ? `Enhanced ${j.enh} of ${j.total} · Uploaded ${j.up} of ${j.total}` : `Enhanced ${j.enh} of ${j.total}`;
       setStatus(j.enh === 0 && j.up === 0 ? j.message : t, fmtEta(j.eta));
-      jobTimer = setTimeout(poll, 700);
+      setTimeout(poll, 700);
     } else {
       running = false;
-      // finished photos are unticked, so pressing the button again only retries failures
       photos.forEach(p => { if (lastStatus[p.id] === "done") { p.include = false; p.done = true; } });
       updateCount(); updateGo();
       setStatus(j.message || "Done.", "");
@@ -405,18 +558,59 @@
   }
 
   /* ---------- viewer ---------- */
-  let cur = -1, split = 50;
-  function openViewer(i){
+  let cur = -1, split = 50, sliderT = null, viewSeq = 0;
+  function buildSliders(){
+    $("sliders").innerHTML = SL.map(([k, label, mn, mx, extra]) =>
+      `<div class="sl${extra ? " extra" : ""}"><label>${label} <b id="v_${k}"></b></label><input type="range" min="${mn}" max="${mx}" id="s_${k}"></div>`).join("");
+    SL.forEach(([k]) => $("s_" + k).addEventListener("input", () => {
+      const p = photos[cur]; if (!p) return;
+      p.look = {vals: SL.map(([kk]) => +$("s_" + kk).value / 100)};
+      paintPanel(p);
+      clearTimeout(sliderT); sliderT = setTimeout(() => { loadAfter(p); refreshTile(p); }, 220);
+    }));
+  }
+  function paintPanel(p){
+    const vals = lookVals(p);
+    SL.forEach(([k], i) => { const v = Math.round(vals[i] * 100); $("s_" + k).value = v; $("v_" + k).textContent = (SL[i][2] < 0 && v > 0 ? "+" : "") + v; });
+    const cur = p.look ? (p.look.vals ? "custom" : p.look.preset) : "";
+    $("mLooks").querySelectorAll("button").forEach(b => b.classList.toggle("on", cur !== "custom" && b.dataset.l === cur));
+    $("mLookNote").textContent = !p.look ? `Following the default look (${globalPreset()}).` : p.look.vals ? "Custom look for this photo." : `${p.look.preset} look for this photo.`;
+  }
+  $("mLooks").addEventListener("click", e => {
+    const b = e.target.closest("button"); const p = photos[cur]; if (!b || !p) return;
+    p.look = b.dataset.l ? {preset: b.dataset.l} : null;
+    paintPanel(p); loadAfter(p); refreshTile(p);
+  });
+  $("mReset").onclick = () => { const p = photos[cur]; if (!p) return; p.look = null; paintPanel(p); loadAfter(p); refreshTile(p); };
+  $("mApplyAll").onclick = () => {
+    const p = photos[cur]; if (!p) return;
+    const lk = p.look ? JSON.parse(JSON.stringify(p.look)) : null; let n = 0;
+    photos.forEach(q => { if (q.include && q !== p && !q.done) { q.look = lk ? JSON.parse(JSON.stringify(lk)) : null; refreshTile(q); n++; } });
+    toast(`Look copied to ${n} other selected photo${n === 1 ? "" : "s"}`);
+  };
+  function loadAfter(p){
+    const seq = ++viewSeq; $("mUpd").classList.add("on");
+    const im = new Image();
+    im.onload = () => { if (seq !== viewSeq) return; $("imgAfter").src = im.src; $("mUpd").classList.remove("on"); loadTags(p); };
+    im.onerror = () => { if (seq === viewSeq) $("mUpd").classList.remove("on"); };
+    im.src = imgURL(p, "after", "view");
+  }
+  function loadTags(p){
+    const i = cur;
+    api(`/api/info/${encodeURIComponent(p.id)}?s=${lookStr(p)}`).then(r => { if (cur === i) $("mTags").textContent = r.tags.length ? "Changes: " + r.tags.join(", ") : "No changes"; });
+  }
+  function openViewer(i, keepSplit){
     const p = photos[i]; if (!p) return;
     cur = i;
     $("mName").textContent = `${p.name} · ${p.time} · ${(p.size/1048576).toFixed(1)} MB`;
     $("mTags").textContent = "";
     $("mToggle").textContent = p.include ? "Exclude" : "Include";
     $("mLoad").style.display = "";
-    let n = 0; const done = () => { if (++n === 2) { $("mLoad").style.display = "none"; api(`/api/info/${p.id}?preset=${currentPreset()}`).then(r => { if (cur === i) $("mTags").textContent = r.tags.length ? "Changes: " + r.tags.join(", ") : ""; }); } };
+    paintPanel(p);
+    let n = 0; const done = () => { if (++n === 2) { $("mLoad").style.display = "none"; loadTags(p); } };
     $("imgAfter").onload = done; $("imgBefore").onload = done;
     $("imgAfter").src = imgURL(p, "after", "view"); $("imgBefore").src = imgURL(p, "before", "view");
-    $("modal").classList.add("open"); setSplit(split);
+    $("modal").classList.add("open"); if (!keepSplit) setSplit(split);
     [i-1, i+1].forEach(k => { if (photos[k]) { new Image().src = imgURL(photos[k], "after", "view"); new Image().src = imgURL(photos[k], "before", "view"); } });
   }
   function setSplit(v){ split = Math.max(0, Math.min(100, v)); $("imgBefore").style.clipPath = `inset(0 ${100 - split}% 0 0)`; $("handle").style.left = split + "%"; }
@@ -430,32 +624,45 @@
   $("mClose").onclick = () => $("modal").classList.remove("open");
   $("mToggle").onclick = () => toggle(cur);
   document.addEventListener("keydown", e => {
+    if (e.target.tagName === "INPUT" && e.target.type !== "range") return;
     if ($("modal").classList.contains("open")) {
       if (e.key === "Escape") $("mClose").click();
-      if (e.key === "ArrowRight") step(1);
-      if (e.key === "ArrowLeft") step(-1);
-      if (e.key === " " || e.key.toLowerCase() === "x") { e.preventDefault(); toggle(cur); }
+      if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
+      if (e.key.toLowerCase() === "x") { e.preventDefault(); toggle(cur); }
     } else if ($("setup").classList.contains("open") && e.key === "Escape") $("setupClose").click();
   });
 
-  /* ---------- Drive setup ---------- */
-  function openSetup(){ $("setupMsg").textContent = ""; $("setup").classList.add("open"); }
+  /* ---------- Drive setup / update ---------- */
+  function openSetup(update){
+    update = update === true;
+    $("setupTitle").textContent = update ? "Update your Drive uploader" : "Connect to Google Drive";
+    $("setupIntro").classList.toggle("gone", update); $("updateSteps").classList.toggle("gone", !update);
+    document.querySelector("#setup .steps").classList.toggle("gone", update);
+    $("updLinkRow").classList.toggle("gone", !update);
+    $("setupMsg").textContent = ""; $("setup").classList.add("open");
+  }
   $("setupClose").onclick = () => $("setup").classList.remove("open");
-  $("copyScript").onclick = async () => {
+  const copyScript = async () => {
     const r = await api("/api/setup/script", {link: $("folderLink").value.trim()});
     if (!r.ok) { msg(r.error, "bad"); return; }
-    try { await navigator.clipboard.writeText(r.script); msg("Script copied — now open Apps Script and paste it.", "ok"); }
+    try { await navigator.clipboard.writeText(r.script); msg("Script copied — now paste it into Apps Script.", "ok"); }
     catch (e) { msg("Couldn't copy automatically.", "bad"); }
   };
+  $("copyScript").onclick = copyScript; $("copyScript2").onclick = copyScript;
   $("openScript").onclick = () => api("/api/open", {target: "https://script.google.com/home/projects/create"});
+  $("openScript2").onclick = () => api("/api/open", {target: "https://script.google.com/home/my"});
   $("setupTest").onclick = async () => {
     msg("Testing…", ""); $("setupTest").disabled = true;
-    const r = await api("/api/setup/test", {url: $("scriptUrl").value.trim()});
+    const url = $("scriptUrl").value.trim() || (S.drive.url || "");
+    const r = await api("/api/setup/test", {url: url || ""});
     $("setupTest").disabled = false;
     if (!r.ok) { msg("Didn't work: " + r.error, "bad"); return; }
+    if ((r.version || 1) < S.drive.needed) { msg("Connected, but it's still the old script — paste the new code and deploy a New version.", "bad"); return; }
     msg(`✓ Connected to “${r.root}”. All set!`, "ok");
-    S.drive.ok = true; S.drive.root = r.root;
-    document.querySelector("input[name=mode][value=direct]").checked = true; paintDest(); saveSettings();
+    S.drive.ok = true; S.drive.root = r.root; S.drive.version = r.version;
+    paintDest(); saveSettings();
+    if (source === "drive") loadDriveFolders();
     setTimeout(() => $("setup").classList.remove("open"), 1300);
   };
   const msg = (t, c) => { const m = $("setupMsg"); m.textContent = t; m.className = "msg " + (c || ""); };

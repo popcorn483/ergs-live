@@ -24,7 +24,7 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 APP_NAME = "Rugby Photo Enhancer"
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.4.0"
 # Updates are published here (branch "photo-enhancer" of github.com/popcorn483/ergs-live)
 UPDATE_BASE = "https://raw.githubusercontent.com/popcorn483/ergs-live/photo-enhancer/"
 DEFAULT_SOURCE = r"E:\DCIM\100CANON"
@@ -33,10 +33,27 @@ DRIVE_SUBPATH = os.path.join("School Photos", "2026-27", "Rugby")
 PHOTO_EXT = (".jpg", ".jpeg", ".png")
 
 PRESETS = {
-    "Gentle":   dict(strength=0.55, colour=0.45, exposure=0.45, contrast=0.20, vibrance=0.20, sharpen=0.25),
-    "Balanced": dict(strength=0.80, colour=0.65, exposure=0.65, contrast=0.35, vibrance=0.35, sharpen=0.40),
-    "Punchy":   dict(strength=1.00, colour=0.80, exposure=0.80, contrast=0.60, vibrance=0.60, sharpen=0.60),
+    "Gentle":   dict(strength=0.55, colour=0.45, exposure=0.45, contrast=0.20, vibrance=0.20, sharpen=0.25, shadows=0.45, highlights=0.35, bright=0.0, warmth=0.0),
+    "Balanced": dict(strength=0.80, colour=0.60, exposure=0.65, contrast=0.35, vibrance=0.35, sharpen=0.40, shadows=0.65, highlights=0.50, bright=0.0, warmth=0.0),
+    "Punchy":   dict(strength=1.00, colour=0.75, exposure=0.80, contrast=0.55, vibrance=0.60, sharpen=0.55, shadows=0.80, highlights=0.60, bright=0.0, warmth=0.0),
 }
+# order used when a look is sent as a list of numbers; bright/warmth run -1..1, the rest 0..1
+LOOK_KEYS = ["strength", "colour", "exposure", "contrast", "vibrance", "sharpen", "shadows", "highlights", "bright", "warmth"]
+
+
+def look_from_list(vals, fallback="Balanced"):
+    """Turn a list of 8 numbers (from the window) into a validated settings dict."""
+    try:
+        vals = [float(v) for v in vals]
+        if len(vals) != len(LOOK_KEYS):
+            raise ValueError
+    except (TypeError, ValueError):
+        return dict(PRESETS[fallback])
+    out = {}
+    for k, v in zip(LOOK_KEYS, vals):
+        lo = -1.0 if k in ("bright", "warmth") else 0.0
+        out[k] = min(1.0, max(lo, v))
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -47,11 +64,16 @@ def _pct(hist, p):
     return int(np.searchsorted(c, c[-1] * p))
 
 
-def build_luts(arr, s):
-    """Analyse an RGB uint8 array and return 3 lookup tables + description tags."""
+def _small(arr, target=250_000):
     h, w, _ = arr.shape
-    step = max(1, (h * w) // 500_000)
-    sub = arr.reshape(-1, 3)[::step]
+    st = max(1, int((h * w / target) ** 0.5))
+    return arr[::st, ::st]
+
+
+def build_luts(arr, s):
+    """Analyse an RGB uint8 array and return 3 lookup tables, light info and description tags."""
+    sm_arr = _small(arr)
+    sub = sm_arr.reshape(-1, 3)
     H = [np.bincount(sub[:, c], minlength=256).astype(np.float64) for c in range(3)]
     lum = (sub[:, 0].astype(np.uint32) * 77 + sub[:, 1].astype(np.uint32) * 150 + sub[:, 2].astype(np.uint32) * 29) >> 8
     HL = np.bincount(lum, minlength=256).astype(np.float64)
@@ -59,8 +81,15 @@ def build_luts(arr, s):
     S = s["strength"]
     tags = []
 
+    # how backlit / contrasty is the scene?
+    dark0 = float((lum < 70).mean())          # share of the picture that is shadow
+    bright0 = float((lum > 215).mean())       # share that is near-white (sky, etc.)
+    backlit = min(1.0, max(0.0, (dark0 - 0.08) / 0.2)) * min(1.0, bright0 / 0.15)
+
     lum_lo, lum_hi = _pct(HL, 0.005), _pct(HL, 0.995)
-    Lo, Hi = min(lum_lo, 80), max(lum_hi, 170)
+    # hazy photos get a strong black-point fix; photos with real shadows keep their shadow detail
+    Lo = min(lum_lo, 80) * max(0.0, 1 - 5.0 * dark0)
+    Hi = max(lum_hi, 170)
     c_lo, c_hi, cast = [], [], 0
     for c in range(3):
         lo, hi = min(_pct(H[c], 0.005), 110), max(_pct(H[c], 0.995), 70)
@@ -70,48 +99,108 @@ def build_luts(arr, s):
         cast = max(cast, abs(lo - lum_lo), abs(hi - lum_hi))
 
     i = np.arange(256, dtype=np.float64)
+    colour = s["colour"] * (1 - 0.5 * backlit)        # backlit scenes fool colour correction - go easy
 
     def levels(c):
         a = np.clip((i - Lo) / (Hi - Lo), 0, 1)
         b = np.clip((i - c_lo[c]) / (c_hi[c] - c_lo[c]), 0, 1)
-        x = a + (b - a) * s["colour"]
+        x = a + (b - a) * colour
         return np.clip(i / 255 + (x - i / 255) * S, 0, 1)
 
     lv = [levels(c) for c in range(3)]
     m = [float(np.clip((H[c] * lv[c]).sum() / total, 0.03, 0.97)) for c in range(3)]
     avg = sum(m) / 3
-    cg = [float(np.clip((np.log(avg) / np.log(m[c])) ** (s["colour"] * S * 0.7), 0.75, 1.33)) for c in range(3)]
-    if s["colour"] > 0.1 and (cast > 14 or max(cg) - min(cg) > 0.08):
+    cg = [float(np.clip((np.log(avg) / np.log(m[c])) ** (colour * S * 0.6), 0.85, 1.18)) for c in range(3)]
+    if colour > 0.1 and (cast > 14 or max(cg) - min(cg) > 0.06):
         tags.append("colour cast fixed")
     if lum_hi - lum_lo < 215 and S > 0.2:
         tags.append("levels")
 
-    mean = float(np.clip(0.3 * m[0] ** cg[0] + 0.59 * m[1] ** cg[1] + 0.11 * m[2] ** cg[2], 0.02, 0.98))
-    gamma = float(np.clip(np.log(0.46) / np.log(mean), 0.55, 1.6)) ** (s["exposure"] * (0.4 + 0.6 * S))
+    # Exposure: centre-weighted metering (the subject is usually near the middle)
+    hs, ws = sm_arr.shape[:2]
+    yy, xx = np.mgrid[0:hs, 0:ws]
+    wgt = 0.4 + np.exp(-(((xx / ws - 0.5) ** 2) + ((yy / hs - 0.47) ** 2)) / (2 * 0.22 ** 2))
+    mapped = [lv[c][sm_arr[..., c]] ** cg[c] for c in range(3)]
+    Lm = 0.3 * mapped[0] + 0.59 * mapped[1] + 0.11 * mapped[2]
+    target = 0.45
+    subject = Lm < 0.85
+    if backlit > 0.15 and subject.mean() > 0.05:
+        # backlit: meter on the subject, not the bright sky behind it
+        wgt = wgt * subject
+        target = 0.36
+    mean = float(np.clip((Lm * wgt).sum() / wgt.sum(), 0.02, 0.98))
+    gamma = float(np.clip(np.log(target) / np.log(mean), 0.55, 1.6))
+    if dark0 > 0.10:
+        gamma = min(gamma, 1.0)                        # never darken a photo with a big dark subject
+    gamma = gamma ** (s["exposure"] * (0.4 + 0.6 * S))
+    bright, warmth = s.get("bright", 0.0), s.get("warmth", 0.0)
+    gamma = float(np.clip(gamma * 2 ** (-0.8 * bright), 0.35, 2.5))
     if gamma < 0.93:
         tags.append("brightened")
     elif gamma > 1.07:
         tags.append("toned down")
 
-    k = s["contrast"] * 0.55
+    k = s["contrast"] * 0.55 * (1 - 0.75 * max(backlit, min(1.0, dark0 * 1.5)))   # don't crush shadows
     if k > 0.1:
         tags.append("contrast")
     if s["vibrance"] > 0.1:
         tags.append("vibrance")
+    if warmth > 0.05:
+        tags.append("warmer")
+    elif warmth < -0.05:
+        tags.append("cooler")
+    warm = [1 + 0.10 * warmth, 1 + 0.02 * warmth, 1 - 0.10 * warmth]
     luts = []
     for c in range(3):
         x = lv[c] ** (cg[c] * gamma)
-        sm = x * x * (3 - 2 * x)
-        x = x + (sm - x) * k
+        smc = x * x * (3 - 2 * x)
+        x = x + (smc - x) * k
+        x = np.clip(x * warm[c], 0, 1)
         luts.append(np.round(x * 255).astype(np.uint8))
-    return luts, tags
+
+    # light info after the curves, used for shadow/highlight recovery
+    after = [luts[c][sm_arr[..., c]].astype(np.float32) for c in range(3)]
+    La = (0.299 * after[0] + 0.587 * after[1] + 0.114 * after[2]) / 255
+    info = {"dark": float((La < 0.22).mean()), "bright": float((La > 0.88).mean()), "backlit": backlit}
+    return luts, info, tags
+
+
+def shadows_highlights(out, s, info, tags):
+    """Local tone mapping: lift dark areas and pull back bright ones, keeping colours."""
+    need_sh = min(1.0, max(0.0, (info["dark"] - 0.04) / 0.22))
+    need_hl = min(1.0, max(0.0, (info["bright"] - 0.03) / 0.25))
+    amt_sh = min(1.0, s.get("shadows", 0.0) * (0.25 + 0.75 * max(need_sh, info["backlit"])) * (1 + 0.35 * info["backlit"]))
+    amt_hl = s.get("highlights", 0.0) * (0.2 + 0.8 * need_hl)
+    if amt_sh < 0.02 and amt_hl < 0.02:
+        return
+    h, w, _ = out.shape
+    lum8 = ((out[..., 0].astype(np.uint16) * 77 + out[..., 1].astype(np.uint16) * 150 + out[..., 2].astype(np.uint16) * 29) >> 8).astype(np.uint8)
+    f = 8 if max(h, w) > 2000 else 4
+    small = Image.fromarray(lum8).resize((max(1, w // f), max(1, h // f)), Image.BOX)
+    small = small.filter(ImageFilter.GaussianBlur(max(2.0, max(small.size) / 45)))
+    mask = np.asarray(small.resize((w, h), Image.BILINEAR))
+    for y0 in range(0, h, 400):
+        L = lum8[y0:y0 + 400].astype(np.float32) / 255
+        msk = 0.65 * mask[y0:y0 + 400].astype(np.float32) / 255 + 0.35 * L
+        gs = 1 - amt_sh * 0.72 * (1 - msk) ** 2          # < 1 brightens the shadows
+        Ln = np.power(np.maximum(L, 1e-4), gs)
+        gh = 1 - amt_hl * 0.45 * msk ** 2                # recovers the brightest areas
+        Ln = 1 - np.power(np.maximum(1 - Ln, 1e-4), gh)
+        ratio = np.minimum((Ln + 0.004) / (L + 0.004), 4.0)
+        blk = out[y0:y0 + 400].astype(np.float32) * ratio[..., None]
+        out[y0:y0 + 400] = np.clip(blk + 0.5, 0, 255).astype(np.uint8)
+    if amt_sh >= 0.15:
+        tags.append("shadows lifted")
+    if amt_hl >= 0.15:
+        tags.append("highlights recovered")
 
 
 def enhance_array(arr, s):
-    luts, tags = build_luts(arr, s)
+    luts, info, tags = build_luts(arr, s)
     out = np.empty_like(arr)
     for c in range(3):
         out[..., c] = luts[c][arr[..., c]]
+    shadows_highlights(out, s, info, tags)
     vib = s["vibrance"] * 0.9
     if vib > 0:
         for y0 in range(0, out.shape[0], 400):  # in strips to keep memory low
@@ -299,20 +388,25 @@ def safe_folder_name(name):
 # --------------------------------------------------------------------------
 DEFAULT_RUGBY_FOLDER_ID = "1qBvZ1ZBL4O0Xnu1UO1iA7YVygRbfvtw9"
 
-APPS_SCRIPT_TEMPLATE = r"""// Rugby Photo Enhancer - Drive uploader. Runs in YOUR Google account.
-// It can only create folders and add photos inside the folder below.
+UPLOADER_VERSION = 2
+APPS_SCRIPT_TEMPLATE = r"""// Rugby Photo Enhancer - Drive uploader (v2). Runs in YOUR Google account.
+// It can only work with folders and photos inside the folder below.
 const KEY = '%KEY%';
 const ROOT_ID = '%ROOT%';
+const VERSION = 2;
+const MARK = 'Enhanced by Rugby Photo Enhancer';
 
-function doGet() { return out({ok: true, app: 'Rugby Photo Enhancer uploader'}); }
+function doGet() { return out({ok: true, app: 'Rugby Photo Enhancer uploader', version: VERSION}); }
 
 function doPost(e) {
   try {
     const req = JSON.parse(e.postData.contents);
     if (req.key !== KEY) return out({ok: false, error: 'Wrong key'});
     const root = DriveApp.getFolderById(ROOT_ID);
-    if (req.action === 'ping') return out({ok: true, root: root.getName()});
-    if (req.action === 'mkdir') {
+    const a = req.action;
+    if (a === 'ping') return out({ok: true, root: root.getName(), version: VERSION});
+
+    if (a === 'mkdir') {
       const parent = req.parent ? DriveApp.getFolderById(req.parent) : root;
       if (req.parent && !isUnder(parent, root)) return out({ok: false, error: 'Not allowed'});
       const name = String(req.name || '').slice(0, 200);
@@ -322,7 +416,8 @@ function doPost(e) {
       const f = existed ? it.next() : parent.createFolder(name);
       return out({ok: true, id: f.getId(), url: f.getUrl(), existed: existed});
     }
-    if (req.action === 'upload') {
+
+    if (a === 'upload') {
       const folder = DriveApp.getFolderById(req.folder);
       if (!isUnder(folder, root)) return out({ok: false, error: 'Not allowed'});
       const same = folder.getFilesByName(req.name);
@@ -330,14 +425,67 @@ function doPost(e) {
         const f = same.next();
         if (f.getSize() === req.size) return out({ok: true, id: f.getId(), skipped: true});
       }
-      const blob = Utilities.newBlob(Utilities.base64Decode(req.data), req.mime || 'image/jpeg', req.name);
-      const f = folder.createFile(blob);
+      const f = folder.createFile(Utilities.newBlob(Utilities.base64Decode(req.data), req.mime || 'image/jpeg', req.name));
+      f.setDescription(MARK);
       return out({ok: true, id: f.getId()});
     }
-    return out({ok: false, error: 'Unknown action'});
+
+    if (a === 'folders') {                 // match folders inside Rugby
+      const res = [];
+      const it = root.getFolders();
+      while (it.hasNext()) {
+        const f = it.next();
+        res.push({id: f.getId(), name: f.getName(), updated: f.getLastUpdated().getTime(), url: f.getUrl()});
+      }
+      res.sort((x, y) => y.updated - x.updated);
+      return out({ok: true, folders: res});
+    }
+
+    if (a === 'files') {                   // photos in one folder
+      const folder = DriveApp.getFolderById(req.folder);
+      if (!isUnder(folder, root)) return out({ok: false, error: 'Not allowed'});
+      const res = [];
+      const it = folder.getFiles();
+      while (it.hasNext()) {
+        const f = it.next();
+        const m = f.getMimeType();
+        if (m !== 'image/jpeg' && m !== 'image/png') continue;
+        res.push({id: f.getId(), name: f.getName(), size: f.getSize(), mime: m,
+                  modified: f.getLastUpdated().getTime(), enhanced: (f.getDescription() || '').indexOf(MARK) === 0});
+      }
+      res.sort((x, y) => x.name < y.name ? -1 : 1);
+      return out({ok: true, files: res});
+    }
+
+    if (a === 'thumb' || a === 'download') {
+      const f = DriveApp.getFileById(req.file);
+      if (!inRoot(f, root)) return out({ok: false, error: 'Not allowed'});
+      let blob = null;
+      if (a === 'thumb') { try { blob = f.getThumbnail(); } catch (err) {} }
+      if (!blob) blob = f.getBlob();
+      return out({ok: true, data: Utilities.base64Encode(blob.getBytes()), full: a === 'download' || !blob});
+    }
+
+    if (a === 'replace') {                 // put the enhanced photo in place of the original
+      const old = DriveApp.getFileById(req.file);
+      if (!inRoot(old, root)) return out({ok: false, error: 'Not allowed'});
+      const parent = old.getParents().next();
+      const nf = parent.createFile(Utilities.newBlob(Utilities.base64Decode(req.data), req.mime || 'image/jpeg', old.getName()));
+      nf.setDescription(MARK);
+      let trashed = true;
+      try { old.setTrashed(true); } catch (err) { trashed = false; nf.setName(old.getName().replace(/(\.[^.]+)$/, '_enhanced$1')); }
+      return out({ok: true, id: nf.getId(), trashed: trashed});
+    }
+    return out({ok: false, error: 'Unknown action - update the uploader script'});
   } catch (err) {
     return out({ok: false, error: String(err)});
   }
+}
+
+function inRoot(file, root) {
+  const ps = file.getParents();
+  while (ps.hasNext()) if (isUnder(ps.next(), root)) return true;
+  return false;
 }
 
 function isUnder(folder, root) {
@@ -395,6 +543,32 @@ class DriveUploader:
 
     def mkdir(self, name, parent=None):
         return self._call({"action": "mkdir", "name": name, "parent": parent}, timeout=60)
+
+    def folders(self):
+        return self._call({"action": "folders"}, timeout=60)["folders"]
+
+    def files(self, folder_id):
+        return self._call({"action": "files", "folder": folder_id}, timeout=120)["files"]
+
+    def fetch(self, file_id, thumb=False):
+        import base64
+        for attempt in range(3):
+            try:
+                res = self._call({"action": "thumb" if thumb else "download", "file": file_id}, timeout=60 if thumb else 300)
+                return base64.b64decode(res["data"])
+            except Exception:
+                if attempt == 2:
+                    raise
+                time.sleep(2 * (attempt + 1))
+
+    def replace(self, file_id, path):
+        import base64
+        with open(path, "rb") as f:
+            data = f.read()
+        mime = "image/png" if path.lower().endswith(".png") else "image/jpeg"
+        # never retried automatically: a retry after a timeout could leave two copies
+        return self._call({"action": "replace", "file": file_id, "mime": mime,
+                           "data": base64.b64encode(data).decode("ascii")}, timeout=300)
 
     def upload(self, path, folder_id, tries=3):
         import base64
@@ -490,6 +664,27 @@ class App:
         self.update = {"state": "idle"}
         self.browse_lock = threading.Lock()
         self.cfg_lock = threading.Lock()
+        self.fetch_locks = {}
+        self.cache_dir = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "RugbyPhotoEnhancer", "cache")
+        os.makedirs(self.cache_dir, exist_ok=True)
+        for n in os.listdir(self.cache_dir):            # start each session with an empty cache
+            try:
+                os.remove(os.path.join(self.cache_dir, n))
+            except OSError:
+                pass
+        self.drive_version = self.cfg.get("uploader_version")
+        if self.uploader():
+            threading.Thread(target=self._probe_uploader, daemon=True).start()
+
+    def _probe_uploader(self):
+        try:
+            res = self.uploader().ping()
+            self.drive_version = res.get("version", 1)
+            with self.cfg_lock:
+                self.cfg["uploader_version"] = self.drive_version
+                save_config(self.cfg)
+        except Exception:
+            pass
 
     # ---------- config ----------
     def defaults(self):
@@ -526,9 +721,12 @@ class App:
         return {
             "version": APP_VERSION, "settings": self.defaults(),
             "drive": {"ok": bool(self.uploader()), "root": self.cfg.get("drive_root_name", ""),
+                      "version": self.drive_version or 1, "needed": UPLOADER_VERSION,
+                      "action": self.cfg.get("drive_action", "replace"), "skipEnhanced": self.cfg.get("skip_enhanced", True),
                       "folderLink": self.cfg.get("folder_link") or f"https://drive.google.com/drive/folders/{DEFAULT_RUGBY_FOLDER_ID}"},
             "today": date.today().isoformat(), "update": self.update,
-            "presets": list(PRESETS),
+            "presets": {n: [v[k] for k in LOOK_KEYS] for n, v in PRESETS.items()},
+            "lookKeys": LOOK_KEYS,
         }
 
     # ---------- photos ----------
@@ -559,21 +757,136 @@ class App:
         self.photos = photos
         return {"ok": True, "photos": out, "total": len(allp)}
 
-    def thumb(self, pid, kind, preset, side):
+    def local_copy(self, ph, full):
+        """Make sure a Drive photo (thumbnail or full size) is cached on this PC; return its path."""
+        if not ph.get("drive"):
+            return ph["path"]
+        if full and ph.get("path"):
+            return ph["path"]
+        if not full and (ph.get("path") or ph.get("thumb")):
+            return ph.get("path") or ph["thumb"]
+        lk = self.fetch_locks.setdefault((ph["drive"], full), threading.Lock())
+        with lk:
+            if full and ph.get("path"):
+                return ph["path"]
+            if not full and ph.get("thumb"):
+                return ph["thumb"]
+            data = self.uploader().fetch(ph["drive"], thumb=not full)
+            import hashlib
+            fid = hashlib.sha1(ph["drive"].encode()).hexdigest()[:16]
+            dst = os.path.join(self.cache_dir, ("full_" if full else "thumb_") + fid + (".png" if ph["name"].lower().endswith(".png") else ".jpg"))
+            with open(dst, "wb") as f:
+                f.write(data)
+            ph["path" if full else "thumb"] = dst
+            return dst
+
+    def thumb(self, pid, kind, look, side):
         ph = self.photos.get(pid)
         if not ph:
             return None
-        k = (ph["key"], kind, preset if kind == "after" else "", side)
+        k = (ph["key"], kind, look if kind == "after" else "", side)
         cache = self.thumbs if side <= 600 else self.views
         hit = cache.get(k)
         if hit:
             return hit
-        data, tags = make_preview(ph["path"], side, PRESETS.get(preset) if kind == "after" else None,
-                                  quality=80 if side <= 600 else 88)
+        settings = look_from_list(look.split(",")) if kind == "after" else None
+        src = self.local_copy(ph, full=side > 600)
+        data, tags = make_preview(src, side, settings, quality=80 if side <= 600 else 88)
         if kind == "after":
-            self.tags[(pid, preset)] = tags
+            self.tags[(pid, look)] = tags
         cache.put(k, data)
         return data
+
+    # ---------- previous uploads in Drive ----------
+    def drive_folders(self):
+        up = self.uploader()
+        if not up:
+            return {"ok": False, "error": "setup"}
+        try:
+            return {"ok": True, "folders": up.folders()}
+        except Exception as e:
+            if "Unknown action" in str(e):
+                return {"ok": False, "error": "update"}
+            return {"ok": False, "error": str(e)}
+
+    def drive_load(self, folders, skip_enhanced):
+        up = self.uploader()
+        out, photos, total, skipped = [], {}, 0, 0
+        try:
+            for fo in folders:
+                for f in up.files(fo["id"]):
+                    total += 1
+                    if skip_enhanced and f.get("enhanced"):
+                        skipped += 1
+                        continue
+                    pid = "d" + f["id"]
+                    photos[pid] = {"drive": f["id"], "folder": fo["id"], "folderName": fo["name"], "folderUrl": fo.get("url", ""),
+                                   "name": f["name"], "key": "drive:" + f["id"] + ":" + str(f.get("modified")), "path": None, "thumb": None}
+                    out.append({"id": pid, "name": f["name"], "time": fo["name"], "size": f["size"], "imported": False})
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+        with self.cfg_lock:
+            self.cfg["skip_enhanced"] = bool(skip_enhanced)
+            save_config(self.cfg)
+        self.photos = photos
+        return {"ok": True, "photos": out, "total": total, "skipped": skipped}
+
+    def _work_drive(self, ids, looks, quality, action):
+        """Re-enhance photos already in Drive: download, enhance, then replace or save to an 'Enhanced' subfolder."""
+        from concurrent.futures import ThreadPoolExecutor
+        job, lock, up = self.job, threading.Lock(), self.uploader()
+        staging = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "RugbyPhotoEnhancer", "staging", "drive")
+        os.makedirs(staging, exist_ok=True)
+        sub_ids, sub_lock = {}, threading.Lock()
+        n_workers = max(1, min(4, (os.cpu_count() or 2) - 1))
+        job["message"] = "Downloading…"
+        with ProcessPoolExecutor(max_workers=n_workers) as ex:
+            def one(pid):
+                ph = self.photos[pid]
+                try:
+                    job["status"][pid] = "downloading"
+                    src = self.local_copy(ph, full=True)
+                    job["status"][pid] = "working"
+                    base, ext = os.path.splitext(ph["name"])
+                    import hashlib
+                    dst = os.path.join(staging, hashlib.sha1(ph["drive"].encode()).hexdigest()[:16] + (".png" if ext.lower() == ".png" else ".jpg"))
+                    tags = ex.submit(process_one, src, dst, looks[pid], quality).result()
+                    with lock:
+                        job["enh"] += 1
+                    job["status"][pid] = "uploading"
+                    if action == "subfolder":
+                        with sub_lock:
+                            if ph["folder"] not in sub_ids:
+                                sub_ids[ph["folder"]] = up.mkdir("Enhanced", parent=ph["folder"])["id"]
+                        named = os.path.join(staging, base + os.path.splitext(dst)[1])
+                        os.replace(dst, named)
+                        dst = named
+                        up.upload(dst, sub_ids[ph["folder"]])
+                        note = ""
+                    else:
+                        res = up.replace(ph["drive"], dst)
+                        note = "" if res.get("trashed", True) else " (original kept - no permission to move it to the Bin)"
+                    with lock:
+                        job["up"] += 1
+                    job["status"][pid] = "done"
+                    self._log(f"✓ {ph['folderName']} / {ph['name']}  ({', '.join(tags)}){note}")
+                    for pth in (dst, src):
+                        try:
+                            os.remove(pth)
+                        except OSError:
+                            pass
+                    ph["path"] = None
+                except Exception as e:
+                    with lock:
+                        job["fail"] += 1
+                    job["status"][pid], job["errors"][pid] = "error", str(e)
+                    self._log(f"✗ {ph['folderName']} / {ph['name']}: {e}")
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                list(pool.map(one, ids))
+        job["message"] = (f"{job['up']} of {job['total']} photos " + ("replaced in Google Drive" if action == "replace" else "saved to ‘Enhanced’ folders")
+                          + (f" — {job['fail']} failed, run again to retry them" if job["fail"] else ""))
+        job["running"] = False
+        job["finished"] = True
 
     # ---------- the run ----------
     def run(self, req):
@@ -581,6 +894,26 @@ class App:
             if self.job.get("running"):
                 return {"ok": False, "error": "Already running"}
             ids = [i for i in req.get("ids", []) if i in self.photos]
+            if req.get("source") == "drive":
+                if not ids:
+                    return {"ok": False, "error": "No photos selected"}
+                if not self.uploader():
+                    return {"ok": False, "error": "setup"}
+                s = req.get("settings", {})
+                self.save_settings(s)
+                action = "subfolder" if req.get("action") == "subfolder" else "replace"
+                with self.cfg_lock:
+                    self.cfg["drive_action"] = action
+                    save_config(self.cfg)
+                default = PRESETS.get(s.get("preset"), PRESETS["Balanced"])
+                given = req.get("looks") or {}
+                looks = {i: (look_from_list(given[i]) if i in given else dict(default)) for i in ids}
+                folders = {self.photos[i]["folderUrl"] for i in ids}
+                self.job = {"running": True, "total": len(ids), "enh": 0, "up": 0, "fail": 0, "direct": True,
+                            "status": {i: "queued" for i in ids}, "errors": {}, "log": [], "name": "",
+                            "open": folders.pop() if len(folders) == 1 else "", "started": time.time(), "message": "Starting…"}
+                threading.Thread(target=self._work_drive, args=(ids, looks, int(s.get("quality", 93)), action), daemon=True).start()
+                return {"ok": True}
             name = safe_folder_name(req.get("name", ""))
             s = req.get("settings", {})
             self.save_settings(s)
@@ -607,16 +940,18 @@ class App:
             self.job = {"running": True, "total": len(ids), "enh": 0, "up": 0, "fail": 0, "direct": direct,
                         "status": {i: "queued" for i in ids}, "errors": {}, "log": [], "name": name,
                         "open": "" if direct else out_dir, "started": time.time(), "message": "Starting…"}
-        threading.Thread(target=self._work, args=(ids, name, s, direct, up, out_dir), daemon=True).start()
+        default = PRESETS.get(s.get("preset"), PRESETS["Balanced"])
+        given = req.get("looks") or {}
+        looks = {i: (look_from_list(given[i]) if i in given else dict(default)) for i in ids}
+        threading.Thread(target=self._work, args=(ids, name, s, direct, up, out_dir, looks), daemon=True).start()
         return {"ok": True}
 
     def _log(self, t):
         self.job["log"] = (self.job["log"] + [t])[-200:]
 
-    def _work(self, ids, name, s, direct, up, out_dir):
+    def _work(self, ids, name, s, direct, up, out_dir, looks):
         from concurrent.futures import ThreadPoolExecutor
         job, lock = self.job, threading.Lock()
-        settings = PRESETS.get(s.get("preset"), PRESETS["Balanced"])
         quality = int(s.get("quality", 93))
         keep_orig, keep_local = bool(s.get("keepOriginals")), bool(s.get("keepLocal"))
         orig_dir = os.path.join(out_dir, "Originals") if keep_orig else None
@@ -670,7 +1005,7 @@ class App:
                 ph = self.photos[pid]
                 base, ext = os.path.splitext(ph["name"])
                 dst = os.path.join(out_dir, base + (".png" if ext.lower() == ".png" else ".jpg"))
-                futs[ex.submit(process_one, ph["path"], dst, settings, quality)] = (pid, dst)
+                futs[ex.submit(process_one, ph["path"], dst, looks[pid], quality)] = (pid, dst)
                 job["status"][pid] = "working"
             for fut in as_completed(futs):
                 pid, dst = futs[fut]
@@ -728,7 +1063,7 @@ class App:
         return {"ok": True, "script": APPS_SCRIPT_TEMPLATE.replace("%KEY%", key).replace("%ROOT%", fid)}
 
     def setup_test(self, url):
-        url = (url or "").strip()
+        url = (url or "").strip() or self.cfg.get("upload_url", "")
         if not url.startswith("https://script.google.com/"):
             return {"ok": False, "error": "Paste the Web app URL — it starts with https://script.google.com/macros/s/…/exec"}
         key = self.cfg.get("pending_key") or self.cfg.get("upload_key")
@@ -739,11 +1074,12 @@ class App:
         except Exception as e:
             return {"ok": False, "error": str(e)}
         with self.cfg_lock:
-            self.cfg.update(upload_url=url, upload_key=key, drive_root_name=res.get("root", ""),
+            self.drive_version = res.get("version", 1)
+            self.cfg.update(upload_url=url, upload_key=key, drive_root_name=res.get("root", ""), uploader_version=self.drive_version,
                             folder_link=self.cfg.get("pending_link") or self.cfg.get("folder_link"))
             self.cfg.pop("pending_key", None)
             save_config(self.cfg)
-        return {"ok": True, "root": res.get("root", "")}
+        return {"ok": True, "root": res.get("root", ""), "version": self.drive_version}
 
     # ---------- misc ----------
     def browse(self, initial, title):
@@ -793,7 +1129,7 @@ class App:
 
 def make_handler(app):
     from http.server import BaseHTTPRequestHandler
-    from urllib.parse import urlparse, parse_qs
+    from urllib.parse import urlparse, parse_qs, unquote
 
     class H(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -829,19 +1165,20 @@ def make_handler(app):
             if p == "/api/job":
                 return self._send(200, app.job_view())
             if p.startswith("/img/"):
-                pid = p.split("/")[2]
+                pid = unquote(p[len("/img/"):])
                 kind = q.get("kind", "before")
-                side = 1800 if q.get("size") == "view" else 420
+                side = 1600 if q.get("size") == "view" else 420
+                look = q.get("s") or ",".join(str(PRESETS["Balanced"][k]) for k in LOOK_KEYS)
                 try:
-                    data = app.thumb(pid, kind, q.get("preset", "Balanced"), side)
+                    data = app.thumb(pid, kind, look, side)
                 except Exception as e:
                     return self._send(500, {"error": str(e)})
                 if data is None:
                     return self._send(404, {"error": "unknown photo"})
                 return self._send(200, data, "image/jpeg", cache=True)
             if p.startswith("/api/info/"):
-                pid = p.split("/")[3]
-                return self._send(200, {"tags": app.tags.get((pid, q.get("preset", "Balanced")), [])})
+                pid = unquote(p[len("/api/info/"):])
+                return self._send(200, {"tags": app.tags.get((pid, q.get("s", "")), [])})
             return self._send(404, {"error": "not found"})
 
         def do_POST(self):
@@ -861,6 +1198,10 @@ def make_handler(app):
                 return self._send(200, {"ok": True})
             if p == "/api/scan":
                 return self._send(200, app.scan(body.get("source", ""), body.get("onlyDate"), body.get("date", ""), body.get("skip")))
+            if p == "/api/drive/folders":
+                return self._send(200, app.drive_folders())
+            if p == "/api/drive/load":
+                return self._send(200, app.drive_load(body.get("folders", []), body.get("skipEnhanced", True)))
             if p == "/api/run":
                 return self._send(200, app.run(body))
             if p == "/api/browse":
@@ -1056,7 +1397,7 @@ UI_HTML = r"""<!DOCTYPE html>
   .mhead .tags{color:var(--muted);font-size:12.5px}
   .stage{flex:1;display:grid;place-items:center;padding:0 16px 16px;min-height:0}
   .cmp{position:relative;user-select:none;touch-action:none;cursor:ew-resize}
-  .cmp img{display:block;max-width:calc(100vw - 32px);max-height:calc(100vh - 92px);object-fit:contain}
+  .cmp img{display:block;max-width:calc(100vw - 352px);max-height:calc(100vh - 92px);object-fit:contain}
   .cmp .before{position:absolute;inset:0;width:100%;height:100%}
   .cmp .handle{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.4);pointer-events:none}
   .cmp .handle::after{content:"⟷";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;color:#111;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-size:16px}
@@ -1079,6 +1420,31 @@ UI_HTML = r"""<!DOCTYPE html>
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);background:var(--panel2);border:1px solid var(--line2);padding:10px 16px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none;z-index:60;max-width:90vw}
   .toast.show{opacity:1;transform:translateX(-50%)}
   .gone{display:none!important}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:4px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:3px;margin-bottom:16px}
+  .tabs button{border:0;background:transparent;border-radius:8px;padding:8px 0;cursor:pointer;color:var(--muted);font-weight:600}
+  .tabs button.on{background:#33302a;color:var(--accent2);box-shadow:inset 0 0 0 1px #5b4a25}
+  .flist{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:9px;background:var(--panel2)}
+  .flist label{display:flex;gap:8px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--line);cursor:pointer}
+  .flist label:last-child{border-bottom:0}
+  .flist label span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .flist label small{color:var(--muted)}
+  .flist input{accent-color:var(--accent)}
+  .note{color:var(--muted);font-size:12.5px;margin:6px 0}
+  .lookchip{position:absolute;left:8px;bottom:8px;z-index:2;font-size:11px;padding:2px 7px;border-radius:20px;background:rgba(242,181,68,.9);color:#1b1404;font-weight:600}
+  /* viewer with look panel */
+  .mbody{flex:1;display:flex;min-height:0}
+  .mbody .stage{flex:1}
+  .panel{width:300px;flex:none;background:var(--panel);border-left:1px solid var(--line);padding:16px;overflow:auto}
+  .panel h4{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted)}
+  .panel .seg{grid-template-columns:repeat(4,1fr);margin-bottom:6px}
+  .panel .seg button{font-size:12.5px}
+  .sl{margin:11px 0}
+  .sl label{display:flex;justify-content:space-between;font-size:13px;margin-bottom:2px}
+  .sl label b{font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+  .sl input{width:100%;accent-color:var(--accent)}
+  .sl.extra label{color:var(--accent2)}
+  .upd{position:absolute;right:10px;bottom:10px;font-size:12px;background:rgba(0,0,0,.65);padding:3px 9px;border-radius:6px;display:none}
+  .upd.on{display:block}
 </style>
 </head>
 <body>
@@ -1086,7 +1452,20 @@ UI_HTML = r"""<!DOCTYPE html>
   <aside>
     <div class="brand"><div class="logo">R</div><div><h1>Rugby Photo Enhancer</h1><small id="ver"></small></div></div>
 
-    <div class="sec">
+    <div class="tabs" id="srcTabs"><button data-s="card" class="on">Camera card</button><button data-s="drive">Google Drive</button></div>
+
+    <div class="sec gone" id="driveSec">
+      <h2>Earlier uploads in Rugby</h2>
+      <div id="driveFolders"><div class="note">Loading folders…</div></div>
+      <label class="chk"><input type="checkbox" id="skipEnhanced"> Skip photos already enhanced</label>
+      <div class="row" style="margin-top:8px"><button class="btn sm" id="driveLoad">Load photos</button><button class="btn ghost sm" id="driveAll">Select all</button></div>
+      <h2 style="margin-top:16px">When enhanced</h2>
+      <label class="chk"><input type="radio" name="driveAction" value="replace"> Replace the photos in Drive</label>
+      <div class="note" style="margin-left:23px">Originals go to Drive’s Bin (restore within 30 days).</div>
+      <label class="chk"><input type="radio" name="driveAction" value="subfolder"> Save to an “Enhanced” subfolder</label>
+    </div>
+
+    <div class="sec" id="cardSec">
       <h2>Camera card</h2>
       <div class="path"><input type="text" id="source" spellcheck="false"><button class="btn ghost sm" data-browse="source" data-title="Choose the camera folder">Browse</button></div>
       <label class="chk"><input type="checkbox" id="onlyDate"> Only photos taken on</label>
@@ -1103,7 +1482,7 @@ UI_HTML = r"""<!DOCTYPE html>
       </div>
     </div>
 
-    <div class="sec">
+    <div class="sec" id="destSec">
       <h2>Upload to</h2>
       <div class="dest" data-mode="direct">
         <div class="t"><input type="radio" name="mode" value="direct"> Google Drive</div>
@@ -1126,10 +1505,11 @@ UI_HTML = r"""<!DOCTYPE html>
 
   <main>
     <div class="top">
-      <div class="namebox">
+      <div class="namebox" id="nameBox">
         <label for="folderName">New folder in Rugby</label>
         <input type="text" id="folderName" placeholder="e.g. Dungannon 14 11 26" spellcheck="false">
       </div>
+      <div class="namebox gone" id="driveBox"><label>Improving earlier uploads</label><div style="font-size:18px;padding:9px 0" id="driveSummary">Pick folders on the left, then Load photos.</div></div>
       <button class="btn go" id="go" disabled>Enhance &amp; upload</button>
     </div>
     <div class="progress"><div class="bar"><i id="bar"></i></div><div class="stat"><span id="status">Put the camera card in and pick a date.</span><span id="eta"></span></div></div>
@@ -1156,21 +1536,41 @@ UI_HTML = r"""<!DOCTYPE html>
       <button class="btn sm" id="mClose">Close</button>
     </div>
   </div>
-  <div class="stage">
-    <div class="cmp" id="cmp">
-      <img id="imgAfter" alt="Enhanced">
-      <img id="imgBefore" class="before" alt="Original">
-      <div class="handle" id="handle"></div>
-      <span class="lbl l">Original</span><span class="lbl r">Enhanced</span>
-      <div class="loading" id="mLoad">Loading…</div>
+  <div class="mbody">
+    <div class="stage">
+      <div class="cmp" id="cmp">
+        <img id="imgAfter" alt="Enhanced">
+        <img id="imgBefore" class="before" alt="Original">
+        <div class="handle" id="handle"></div>
+        <span class="lbl l">Original</span><span class="lbl r">Enhanced</span>
+        <div class="loading" id="mLoad">Loading…</div>
+        <div class="upd" id="mUpd">Updating…</div>
+      </div>
+    </div>
+    <div class="panel">
+      <h4>Look for this photo</h4>
+      <div class="seg" id="mLooks"><button data-l="">Default</button><button data-l="Gentle">Gentle</button><button data-l="Balanced">Balanced</button><button data-l="Punchy">Punchy</button></div>
+      <div class="note" id="mLookNote"></div>
+      <div id="sliders"></div>
+      <div class="row" style="margin-top:14px;flex-wrap:wrap">
+        <button class="btn ghost sm" id="mReset">Reset</button>
+        <button class="btn ghost sm" id="mApplyAll">Use on all selected</button>
+      </div>
+      <div class="note" style="margin-top:12px">Changes are used for this photo when you upload. Keys: ← → next/previous, X exclude.</div>
     </div>
   </div>
 </div>
 
 <div class="dlg" id="setup">
   <div class="card">
-    <h3>Connect to Google Drive</h3>
-    <p>One-time setup, about 3 minutes. It creates a private uploader in your own Google account that can only add folders and photos inside your Rugby folder.</p>
+    <h3 id="setupTitle">Connect to Google Drive</h3>
+    <p id="setupIntro">One-time setup, about 3 minutes. It creates a private uploader in your own Google account that can only add folders and photos inside your Rugby folder.</p>
+    <div class="note gone" id="updateSteps" style="font-size:13.5px;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:14px">
+      <b>Updating an existing uploader (about 1 minute):</b> click <b>Copy script</b> below, open your existing script at
+      script.google.com, select all its code and paste over it, save, then <b>Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy</b>.
+      The URL stays the same — just click <b>Test &amp; save</b>.
+    </div>
+    <div class="row gone" id="updLinkRow" style="margin-bottom:12px"><button class="btn sm" id="copyScript2">Copy new script</button><button class="btn ghost sm" id="openScript2">Open my Apps Script projects</button></div>
     <ol class="steps">
       <li>Rugby folder link:<div style="margin-top:6px"><input type="text" id="folderLink" spellcheck="false"></div></li>
       <li><button class="btn sm" id="copyScript">Copy script</button> then <button class="btn ghost sm" id="openScript">Open Apps Script</button><br>
@@ -1184,6 +1584,14 @@ UI_HTML = r"""<!DOCTYPE html>
   </div>
 </div>
 
+<div class="dlg" id="confirm">
+  <div class="card" style="width:min(460px,94vw)">
+    <h3>Replace photos in Drive?</h3>
+    <p id="confirmText"></p>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="confirmNo">Cancel</button><button class="btn" id="confirmYes">Replace</button></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1194,15 +1602,28 @@ UI_HTML = r"""<!DOCTYPE html>
     const r = await fetch(path + (body ? "" : (path.includes("?") ? "&" : "?") + "t=" + T), body ? {method:"POST", headers:{"Content-Type":"application/json","X-Token":T}, body:JSON.stringify(body)} : {});
     return r.json();
   };
-  let S = null, photos = [], show = "after", jobTimer = null, running = false, lastStatus = {};
+  let S = null, photos = [], show = "after", running = false, lastStatus = {}, source = "card", driveFolderList = [];
   const fmtEta = s => s == null ? "" : s < 60 ? `about ${s}s left` : `about ${Math.floor(s/60)}m ${s%60}s left`;
-  let tt; const toast = t => { const e = $("toast"); e.textContent = t; e.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => e.classList.remove("show"), 3000); };
+  let tt; const toast = t => { const e = $("toast"); e.textContent = t; e.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => e.classList.remove("show"), 3200); };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+  /* ---------- looks ---------- */
+  const SL = [
+    ["strength","Overall strength",0,100], ["colour","Colour correction",0,100], ["exposure","Exposure fix",0,100],
+    ["contrast","Contrast",0,100], ["vibrance","Vibrance",0,100], ["sharpen","Sharpen",0,100],
+    ["shadows","Shadows (lift dark areas)",0,100], ["highlights","Highlights (recover sky)",0,100],
+    ["bright","Brightness",-100,100,true], ["warmth","Warmth",-100,100,true],
+  ];
+  const globalPreset = () => document.querySelector("#presets .on").dataset.p;
+  const lookVals = p => (p.look && p.look.vals) || S.presets[(p.look && p.look.preset) || globalPreset()];
+  const lookStr = p => lookVals(p).map(v => +(+v).toFixed(3)).join(",");
+  const lookName = p => !p.look ? "" : p.look.vals ? "Custom" : p.look.preset;
 
   /* ---------- settings ---------- */
   function settings(){
     return {
       source: $("source").value.trim(), onlyDate: $("onlyDate").checked, skip: $("skip").checked,
-      preset: document.querySelector("#presets .on").dataset.p, quality: +$("quality").value,
+      preset: globalPreset(), quality: +$("quality").value,
       mode: document.querySelector("input[name=mode]:checked").value,
       keepLocal: $("keepLocal").checked, localDir: $("localDir").value.trim(), dest: $("dest").value.trim(),
       keepOriginals: $("keepOriginals").checked,
@@ -1214,13 +1635,11 @@ UI_HTML = r"""<!DOCTYPE html>
     const m = settings().mode;
     document.querySelectorAll(".dest").forEach(d => d.classList.toggle("on", d.dataset.mode === m));
     document.querySelectorAll(".dest .more").forEach(x => x.style.display = x.closest(".dest").dataset.mode === m ? "" : "none");
-    const ds = $("driveState");
-    ds.innerHTML = S.drive.ok ? `<span class="pill ok">✓ Connected${S.drive.root ? " to “" + esc(S.drive.root) + "”" : ""}</span> <button class="link" id="reSetup">change</button>`
-                              : `<span class="pill bad">Not set up</span> <button class="link" id="reSetup">Set up…</button>`;
+    $("driveState").innerHTML = S.drive.ok ? `<span class="pill ok">✓ Connected${S.drive.root ? " to “" + esc(S.drive.root) + "”" : ""}</span> <button class="link" id="reSetup">change</button>`
+                                           : `<span class="pill bad">Not set up</span> <button class="link" id="reSetup">Set up…</button>`;
     $("reSetup").onclick = e => { e.stopPropagation(); openSetup(); };
     updateGo();
   }
-  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
   async function init(){
     S = await api("/api/state");
@@ -1229,25 +1648,26 @@ UI_HTML = r"""<!DOCTYPE html>
     $("source").value = st.source; $("onlyDate").checked = st.onlyDate; $("skip").checked = st.skip;
     $("day").value = S.today; $("quality").value = String(st.quality);
     $("keepLocal").checked = st.keepLocal; $("localDir").value = st.localDir; $("dest").value = st.dest;
-    $("keepOriginals").checked = st.keepOriginals;
+    $("keepOriginals").checked = st.keepOriginals; $("skipEnhanced").checked = S.drive.skipEnhanced;
+    document.querySelector(`input[name=driveAction][value=${S.drive.action === "subfolder" ? "subfolder" : "replace"}]`).checked = true;
     document.querySelector(`input[name=mode][value=${st.mode === "folder" ? "folder" : "direct"}]`).checked = true;
-    $("presets").innerHTML = S.presets.map(p => `<button data-p="${p}" class="${p === st.preset ? "on" : ""}">${p}</button>`).join("");
+    $("presets").innerHTML = Object.keys(S.presets).map(p => `<button data-p="${p}" class="${p === st.preset ? "on" : ""}">${p}</button>`).join("");
     const d = new Date(); $("folderName").value = [d.getDate(), d.getMonth()+1, d.getFullYear()%100].map(n => String(n).padStart(2,"0")).join(" ");
     $("folderLink").value = S.drive.folderLink;
+    buildSliders();
     paintDest(); paintUpdate(S.update);
     $("folderName").focus(); $("folderName").setSelectionRange(0, 0);
     scan();
-    if (st.mode !== "folder" && !S.drive.ok) setTimeout(openSetup, 500);
+    if (st.mode !== "folder" && !S.drive.ok) setTimeout(() => openSetup(), 500);
   }
 
   /* ---------- sidebar events ---------- */
-  ["source","day"].forEach(id => $(id).addEventListener("change", () => { saveSettings(); scan(); }));
-  ["onlyDate","skip"].forEach(id => $(id).addEventListener("change", () => { saveSettings(); scan(); }));
+  ["source","day","onlyDate","skip"].forEach(id => $(id).addEventListener("change", () => { saveSettings(); scan(); }));
   ["quality","keepLocal","localDir","dest","keepOriginals"].forEach(id => $(id).addEventListener("change", saveSettings));
   $("presets").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
     document.querySelectorAll("#presets button").forEach(x => x.classList.toggle("on", x === b));
-    saveSettings(); refreshImages();
+    saveSettings(); refreshImages(p => !p.look);
   });
   document.querySelectorAll(".dest").forEach(d => d.addEventListener("click", e => {
     if (e.target.closest("input[type=text],button,label.chk")) return;
@@ -1261,25 +1681,70 @@ UI_HTML = r"""<!DOCTYPE html>
     else if (!r.ok) toast(r.error);
   }));
   $("folderName").addEventListener("input", updateGo);
+  document.querySelectorAll("input[name=driveAction]").forEach(r => r.addEventListener("change", updateGo));
 
-  /* ---------- photos ---------- */
+  /* ---------- source switch ---------- */
+  $("srcTabs").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b || running) return;
+    source = b.dataset.s;
+    $("srcTabs").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    const drive = source === "drive";
+    $("driveSec").classList.toggle("gone", !drive); $("cardSec").classList.toggle("gone", drive); $("destSec").classList.toggle("gone", drive);
+    $("nameBox").classList.toggle("gone", drive); $("driveBox").classList.toggle("gone", !drive);
+    $("rescan").classList.toggle("gone", drive);
+    photos = []; lastStatus = {}; $("openBtn").classList.add("gone"); $("bar").style.width = "0";
+    if (drive) { $("grid").innerHTML = `<div class="empty"><div class="big">Choose earlier match folders</div>Tick folders on the left, then click Load photos.</div>`; setStatus(""); loadDriveFolders(); }
+    else scan();
+    updateCount();
+  });
+
+  async function loadDriveFolders(){
+    if (!S.drive.ok) { $("driveFolders").innerHTML = `<div class="note">Connect Google Drive first. <button class="link" onclick="">Set up…</button></div>`; $("driveFolders").querySelector("button").onclick = () => openSetup(); return; }
+    if ((S.drive.version || 1) < S.drive.needed) { needUpdate(); return; }
+    $("driveFolders").innerHTML = `<div class="note">Loading folders…</div>`;
+    const r = await api("/api/drive/folders", {});
+    if (!r.ok) { if (r.error === "update") needUpdate(); else $("driveFolders").innerHTML = `<div class="note">${esc(r.error)}</div>`; return; }
+    driveFolderList = r.folders;
+    if (!r.folders.length) { $("driveFolders").innerHTML = `<div class="note">No folders in Rugby yet.</div>`; return; }
+    $("driveFolders").innerHTML = `<div class="flist">` + r.folders.map((f, i) => `<label><input type="checkbox" data-i="${i}"><span>${esc(f.name)}</span><small>${new Date(f.updated).toLocaleDateString("en-GB")}</small></label>`).join("") + `</div>`;
+  }
+  function needUpdate(){
+    $("driveFolders").innerHTML = `<div class="note" style="color:var(--accent2)">Your Drive uploader needs a 1-minute update to read earlier uploads.</div><button class="btn sm" id="doUpd">Update uploader…</button>`;
+    $("doUpd").onclick = () => openSetup(true);
+  }
+  $("driveAll").onclick = () => document.querySelectorAll("#driveFolders input[type=checkbox]").forEach(c => c.checked = true);
+  $("driveLoad").onclick = async () => {
+    const chosen = [...document.querySelectorAll("#driveFolders input[type=checkbox]:checked")].map(c => driveFolderList[+c.dataset.i]);
+    if (!chosen.length) { toast("Tick at least one folder"); return; }
+    $("grid").innerHTML = `<div class="empty"><div class="big">Reading ${chosen.length} folder${chosen.length > 1 ? "s" : ""} from Drive…</div></div>`;
+    const r = await api("/api/drive/load", {folders: chosen, skipEnhanced: $("skipEnhanced").checked});
+    lastStatus = {};
+    if (!r.ok) { photos = []; $("grid").innerHTML = `<div class="empty"><div class="big">${esc(r.error)}</div></div>`; updateCount(); return; }
+    photos = r.photos.map(p => Object.assign(p, {include: true, look: null}));
+    $("driveSummary").textContent = `${chosen.length === 1 ? chosen[0].name : chosen.length + " folders"} · ${r.total} photos` + (r.skipped ? ` (${r.skipped} already enhanced)` : "");
+    if (!photos.length) $("grid").innerHTML = `<div class="empty"><div class="big">Nothing to improve</div>${r.skipped ? "Every photo there has already been enhanced. Untick “Skip photos already enhanced” to redo them." : "No JPG/PNG photos in those folders."}</div>`;
+    else renderGrid();
+    setStatus(photos.length ? "Click any photo to compare and fine-tune. Previews come from Drive, so they may take a moment." : "");
+    updateCount();
+  };
+
+  /* ---------- photos (card) ---------- */
   async function scan(){
-    if (running) return;
+    if (running || source !== "card") return;
     $("grid").innerHTML = `<div class="empty"><div class="big">Reading the card…</div></div>`;
     const s = settings();
     const r = await api("/api/scan", {source: s.source, onlyDate: s.onlyDate, date: $("day").value, skip: s.skip});
     lastStatus = {};
     if (!r.ok) { photos = []; $("grid").innerHTML = `<div class="empty"><div class="big">${esc(r.error)}</div>Check the card is in, or click Browse to pick the folder.</div>`; setStatus(""); updateCount(); return; }
-    photos = r.photos.map(p => Object.assign(p, {include: true}));
+    photos = r.photos.map(p => Object.assign(p, {include: true, look: null}));
     if (!photos.length) {
       const why = s.onlyDate ? "No photos taken on that date" + (s.skip ? " that haven't already been imported" : "") : "No new photos on the card";
       $("grid").innerHTML = `<div class="empty"><div class="big">${why}</div>${r.total} photos on the card in total. Try another date, or untick the filters on the left.</div>`;
     } else renderGrid();
-    setStatus(photos.length ? "Click any photo to compare before/after. Untick any you don't want." : "");
+    setStatus(photos.length ? "Click any photo to compare before/after and fine-tune it. Untick any you don't want." : "");
     updateCount();
   }
-  const imgURL = (p, kind, size) => `/img/${p.id}?t=${T}&kind=${kind}&preset=${currentPreset()}${size ? "&size=" + size : ""}`;
-  const currentPreset = () => document.querySelector("#presets .on").dataset.p;
+  const imgURL = (p, kind, size) => `/img/${encodeURIComponent(p.id)}?t=${T}&kind=${kind}&s=${lookStr(p)}${size ? "&size=" + size : ""}`;
 
   function renderGrid(){
     const g = $("grid"); g.innerHTML = "";
@@ -1288,69 +1753,99 @@ UI_HTML = r"""<!DOCTYPE html>
       const img = en.target; io.unobserve(img); img.src = img.dataset.src;
     }), {root: g, rootMargin: "400px"});
     photos.forEach((p, i) => {
-      const t = document.createElement("div"); t.className = "tile" + (p.include ? "" : " off"); t.dataset.i = i;
-      t.innerHTML = `<div class="thumb"><img alt=""><div class="sel" title="Include / exclude"></div><span class="badge gone"></span></div>
-        <div class="meta"><span class="n"></span><span class="tm">${esc(p.time)}</span></div>`;
-      t.querySelector(".n").textContent = p.name;
+      const t = document.createElement("div"); t.className = "tile" + (p.include ? "" : " off");
+      t.innerHTML = `<div class="thumb"><img alt=""><div class="sel" title="Include / exclude"></div><span class="badge gone"></span><span class="lookchip gone"></span></div>
+        <div class="meta"><span class="n"></span><span class="tm"></span></div>`;
+      t.querySelector(".n").textContent = p.name; t.querySelector(".tm").textContent = p.time;
       const img = t.querySelector("img"); img.dataset.src = imgURL(p, show);
       img.onload = () => img.classList.add("ld");
       io.observe(img);
       t.querySelector(".sel").onclick = e => { e.stopPropagation(); toggle(i); };
       t.querySelector(".thumb").onclick = () => openViewer(i);
       p.el = t; g.appendChild(t);
-      paintBadge(p);
+      paintBadge(p); paintChip(p);
     });
-    window.__io = io;
   }
-  function refreshImages(){
-    photos.forEach(p => { const img = p.el && p.el.querySelector("img"); if (!img) return; img.classList.remove("ld"); const u = imgURL(p, show); if (img.src) img.src = u; else img.dataset.src = u; });
-    if ($("modal").classList.contains("open")) openViewer(cur);
+  function refreshTile(p){
+    const img = p.el && p.el.querySelector("img"); if (!img) return;
+    const u = imgURL(p, show);
+    if (img.src) { img.classList.remove("ld"); img.src = u; } else img.dataset.src = u;
+    paintChip(p);
+  }
+  function refreshImages(filter){
+    photos.forEach(p => { if (!filter || filter(p)) refreshTile(p); });
+    if ($("modal").classList.contains("open")) openViewer(cur, true);
+  }
+  function paintChip(p){
+    const c = p.el && p.el.querySelector(".lookchip"); if (!c) return;
+    const n = lookName(p); c.textContent = n; c.classList.toggle("gone", !n);
   }
   function toggle(i){
     if (running) return;
-    const p = photos[i]; if (p.done) return; p.include = !p.include; p.el.classList.toggle("off", !p.include);
+    const p = photos[i]; if (!p || p.done) return;
+    p.include = !p.include; p.el.classList.toggle("off", !p.include);
     updateCount(); if (cur === i) $("mToggle").textContent = p.include ? "Exclude" : "Include";
   }
   $("selAll").onclick = () => { if (running) return; photos.forEach(p => { if (p.done) return; p.include = true; p.el.classList.remove("off"); }); updateCount(); };
-  $("selNone").onclick = () => { if (running) return; photos.forEach((p, i) => { p.include = false; p.el.classList.add("off"); }); updateCount(); };
+  $("selNone").onclick = () => { if (running) return; photos.forEach(p => { p.include = false; p.el.classList.add("off"); }); updateCount(); };
+  $("rescan").onclick = () => scan();
   $("showSeg").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
     show = b.dataset.k;
     $("showSeg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
     refreshImages();
   });
-  $("rescan").onclick = () => scan();
   function updateCount(){
     const n = photos.filter(p => p.include).length;
     $("count").innerHTML = photos.length ? `<b>${n}</b> of ${photos.length} selected` : "";
     updateGo();
   }
   function updateGo(){
-    const n = photos.filter(p => p.include).length, s = S && settings();
-    const target = s && s.mode === "direct" ? "upload" : "save";
-    $("go").textContent = running ? "Working…" : n ? `Enhance & ${target} ${n} photo${n === 1 ? "" : "s"}` : `Enhance & ${target}`;
-    $("go").disabled = running || !n || !$("folderName").value.trim();
+    if (!S) return;
+    const n = photos.filter(p => p.include).length;
+    let verb;
+    if (source === "drive") verb = document.querySelector("input[name=driveAction]:checked").value === "replace" ? "replace" : "save";
+    else verb = settings().mode === "direct" ? "upload" : "save";
+    $("go").textContent = running ? "Working…" : n ? `Enhance & ${verb} ${n} photo${n === 1 ? "" : "s"}` : `Enhance & ${verb}`;
+    $("go").disabled = running || !n || (source === "card" && !$("folderName").value.trim());
   }
-  const BADGE = {queued:["Queued","work"], working:["Enhancing…","work"], uploading:["Uploading…","up"], done:["✓ Done","ok"], error:["✗ Failed","bad"]};
+  const BADGE = {queued:["Queued","work"], downloading:["Downloading…","up"], working:["Enhancing…","work"], uploading:["Uploading…","up"], done:["✓ Done","ok"], error:["✗ Failed","bad"]};
   function paintBadge(p){
     const b = p.el && p.el.querySelector(".badge"); if (!b) return;
     const st = lastStatus[p.id];
-    if (!st) { b.className = "badge gone"; return; }
     p.el.classList.toggle("isdone", st === "done");
+    if (!st) { b.className = "badge gone"; return; }
     const [txt, cls] = BADGE[st] || [st, ""];
-    b.className = "badge " + cls; b.textContent = st === "done" && settings().mode === "direct" ? "✓ In Drive" : txt;
-    if (st === "error" && p.err) b.title = p.err;
+    b.className = "badge " + cls;
+    b.textContent = st === "done" ? (source === "drive" ? "✓ Improved" : settings().mode === "direct" ? "✓ In Drive" : "✓ Saved") : txt;
+    b.title = st === "error" && p.err ? p.err : "";
   }
   function setStatus(t, eta){ $("status").textContent = t || ""; $("eta").textContent = eta || ""; }
 
   /* ---------- run ---------- */
   $("go").onclick = async () => {
-    const ids = photos.filter(p => p.include).map(p => p.id);
-    const r = await api("/api/run", {ids, name: $("folderName").value.trim(), settings: settings()});
+    const chosen = photos.filter(p => p.include);
+    const looks = {}; chosen.forEach(p => looks[p.id] = lookVals(p));
+    const body = {ids: chosen.map(p => p.id), looks, settings: settings(), source};
+    if (source === "drive") {
+      body.action = document.querySelector("input[name=driveAction]:checked").value;
+      if (body.action === "replace" && !confirmReplace) { askReplace(chosen.length); return; }
+    } else body.name = $("folderName").value.trim();
+    confirmReplace = false;
+    const r = await api("/api/run", body);
     if (!r.ok) { if (r.error === "setup") openSetup(); else toast(r.error); return; }
     running = true; updateGo(); $("openBtn").classList.add("gone");
     poll();
   };
+  let confirmReplace = false;
+  function askReplace(n){
+    $("setupMsg").textContent = "";
+    $("confirmText").textContent = `Replace ${n} photo${n === 1 ? "" : "s"} in Google Drive with enhanced versions? The originals go to Drive’s Bin, where you can restore them for 30 days.`;
+    $("confirm").classList.add("open");
+  }
+  $("confirmNo").onclick = () => $("confirm").classList.remove("open");
+  $("confirmYes").onclick = () => { $("confirm").classList.remove("open"); confirmReplace = true; $("go").click(); };
+
   async function poll(){
     const j = await api("/api/job");
     lastStatus = j.status || {};
@@ -1359,10 +1854,9 @@ UI_HTML = r"""<!DOCTYPE html>
     if (j.running) {
       const t = j.direct ? `Enhanced ${j.enh} of ${j.total} · Uploaded ${j.up} of ${j.total}` : `Enhanced ${j.enh} of ${j.total}`;
       setStatus(j.enh === 0 && j.up === 0 ? j.message : t, fmtEta(j.eta));
-      jobTimer = setTimeout(poll, 700);
+      setTimeout(poll, 700);
     } else {
       running = false;
-      // finished photos are unticked, so pressing the button again only retries failures
       photos.forEach(p => { if (lastStatus[p.id] === "done") { p.include = false; p.done = true; } });
       updateCount(); updateGo();
       setStatus(j.message || "Done.", "");
@@ -1372,18 +1866,59 @@ UI_HTML = r"""<!DOCTYPE html>
   }
 
   /* ---------- viewer ---------- */
-  let cur = -1, split = 50;
-  function openViewer(i){
+  let cur = -1, split = 50, sliderT = null, viewSeq = 0;
+  function buildSliders(){
+    $("sliders").innerHTML = SL.map(([k, label, mn, mx, extra]) =>
+      `<div class="sl${extra ? " extra" : ""}"><label>${label} <b id="v_${k}"></b></label><input type="range" min="${mn}" max="${mx}" id="s_${k}"></div>`).join("");
+    SL.forEach(([k]) => $("s_" + k).addEventListener("input", () => {
+      const p = photos[cur]; if (!p) return;
+      p.look = {vals: SL.map(([kk]) => +$("s_" + kk).value / 100)};
+      paintPanel(p);
+      clearTimeout(sliderT); sliderT = setTimeout(() => { loadAfter(p); refreshTile(p); }, 220);
+    }));
+  }
+  function paintPanel(p){
+    const vals = lookVals(p);
+    SL.forEach(([k], i) => { const v = Math.round(vals[i] * 100); $("s_" + k).value = v; $("v_" + k).textContent = (SL[i][2] < 0 && v > 0 ? "+" : "") + v; });
+    const cur = p.look ? (p.look.vals ? "custom" : p.look.preset) : "";
+    $("mLooks").querySelectorAll("button").forEach(b => b.classList.toggle("on", cur !== "custom" && b.dataset.l === cur));
+    $("mLookNote").textContent = !p.look ? `Following the default look (${globalPreset()}).` : p.look.vals ? "Custom look for this photo." : `${p.look.preset} look for this photo.`;
+  }
+  $("mLooks").addEventListener("click", e => {
+    const b = e.target.closest("button"); const p = photos[cur]; if (!b || !p) return;
+    p.look = b.dataset.l ? {preset: b.dataset.l} : null;
+    paintPanel(p); loadAfter(p); refreshTile(p);
+  });
+  $("mReset").onclick = () => { const p = photos[cur]; if (!p) return; p.look = null; paintPanel(p); loadAfter(p); refreshTile(p); };
+  $("mApplyAll").onclick = () => {
+    const p = photos[cur]; if (!p) return;
+    const lk = p.look ? JSON.parse(JSON.stringify(p.look)) : null; let n = 0;
+    photos.forEach(q => { if (q.include && q !== p && !q.done) { q.look = lk ? JSON.parse(JSON.stringify(lk)) : null; refreshTile(q); n++; } });
+    toast(`Look copied to ${n} other selected photo${n === 1 ? "" : "s"}`);
+  };
+  function loadAfter(p){
+    const seq = ++viewSeq; $("mUpd").classList.add("on");
+    const im = new Image();
+    im.onload = () => { if (seq !== viewSeq) return; $("imgAfter").src = im.src; $("mUpd").classList.remove("on"); loadTags(p); };
+    im.onerror = () => { if (seq === viewSeq) $("mUpd").classList.remove("on"); };
+    im.src = imgURL(p, "after", "view");
+  }
+  function loadTags(p){
+    const i = cur;
+    api(`/api/info/${encodeURIComponent(p.id)}?s=${lookStr(p)}`).then(r => { if (cur === i) $("mTags").textContent = r.tags.length ? "Changes: " + r.tags.join(", ") : "No changes"; });
+  }
+  function openViewer(i, keepSplit){
     const p = photos[i]; if (!p) return;
     cur = i;
     $("mName").textContent = `${p.name} · ${p.time} · ${(p.size/1048576).toFixed(1)} MB`;
     $("mTags").textContent = "";
     $("mToggle").textContent = p.include ? "Exclude" : "Include";
     $("mLoad").style.display = "";
-    let n = 0; const done = () => { if (++n === 2) { $("mLoad").style.display = "none"; api(`/api/info/${p.id}?preset=${currentPreset()}`).then(r => { if (cur === i) $("mTags").textContent = r.tags.length ? "Changes: " + r.tags.join(", ") : ""; }); } };
+    paintPanel(p);
+    let n = 0; const done = () => { if (++n === 2) { $("mLoad").style.display = "none"; loadTags(p); } };
     $("imgAfter").onload = done; $("imgBefore").onload = done;
     $("imgAfter").src = imgURL(p, "after", "view"); $("imgBefore").src = imgURL(p, "before", "view");
-    $("modal").classList.add("open"); setSplit(split);
+    $("modal").classList.add("open"); if (!keepSplit) setSplit(split);
     [i-1, i+1].forEach(k => { if (photos[k]) { new Image().src = imgURL(photos[k], "after", "view"); new Image().src = imgURL(photos[k], "before", "view"); } });
   }
   function setSplit(v){ split = Math.max(0, Math.min(100, v)); $("imgBefore").style.clipPath = `inset(0 ${100 - split}% 0 0)`; $("handle").style.left = split + "%"; }
@@ -1397,32 +1932,45 @@ UI_HTML = r"""<!DOCTYPE html>
   $("mClose").onclick = () => $("modal").classList.remove("open");
   $("mToggle").onclick = () => toggle(cur);
   document.addEventListener("keydown", e => {
+    if (e.target.tagName === "INPUT" && e.target.type !== "range") return;
     if ($("modal").classList.contains("open")) {
       if (e.key === "Escape") $("mClose").click();
-      if (e.key === "ArrowRight") step(1);
-      if (e.key === "ArrowLeft") step(-1);
-      if (e.key === " " || e.key.toLowerCase() === "x") { e.preventDefault(); toggle(cur); }
+      if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
+      if (e.key.toLowerCase() === "x") { e.preventDefault(); toggle(cur); }
     } else if ($("setup").classList.contains("open") && e.key === "Escape") $("setupClose").click();
   });
 
-  /* ---------- Drive setup ---------- */
-  function openSetup(){ $("setupMsg").textContent = ""; $("setup").classList.add("open"); }
+  /* ---------- Drive setup / update ---------- */
+  function openSetup(update){
+    update = update === true;
+    $("setupTitle").textContent = update ? "Update your Drive uploader" : "Connect to Google Drive";
+    $("setupIntro").classList.toggle("gone", update); $("updateSteps").classList.toggle("gone", !update);
+    document.querySelector("#setup .steps").classList.toggle("gone", update);
+    $("updLinkRow").classList.toggle("gone", !update);
+    $("setupMsg").textContent = ""; $("setup").classList.add("open");
+  }
   $("setupClose").onclick = () => $("setup").classList.remove("open");
-  $("copyScript").onclick = async () => {
+  const copyScript = async () => {
     const r = await api("/api/setup/script", {link: $("folderLink").value.trim()});
     if (!r.ok) { msg(r.error, "bad"); return; }
-    try { await navigator.clipboard.writeText(r.script); msg("Script copied — now open Apps Script and paste it.", "ok"); }
+    try { await navigator.clipboard.writeText(r.script); msg("Script copied — now paste it into Apps Script.", "ok"); }
     catch (e) { msg("Couldn't copy automatically.", "bad"); }
   };
+  $("copyScript").onclick = copyScript; $("copyScript2").onclick = copyScript;
   $("openScript").onclick = () => api("/api/open", {target: "https://script.google.com/home/projects/create"});
+  $("openScript2").onclick = () => api("/api/open", {target: "https://script.google.com/home/my"});
   $("setupTest").onclick = async () => {
     msg("Testing…", ""); $("setupTest").disabled = true;
-    const r = await api("/api/setup/test", {url: $("scriptUrl").value.trim()});
+    const url = $("scriptUrl").value.trim() || (S.drive.url || "");
+    const r = await api("/api/setup/test", {url: url || ""});
     $("setupTest").disabled = false;
     if (!r.ok) { msg("Didn't work: " + r.error, "bad"); return; }
+    if ((r.version || 1) < S.drive.needed) { msg("Connected, but it's still the old script — paste the new code and deploy a New version.", "bad"); return; }
     msg(`✓ Connected to “${r.root}”. All set!`, "ok");
-    S.drive.ok = true; S.drive.root = r.root;
-    document.querySelector("input[name=mode][value=direct]").checked = true; paintDest(); saveSettings();
+    S.drive.ok = true; S.drive.root = r.root; S.drive.version = r.version;
+    paintDest(); saveSettings();
+    if (source === "drive") loadDriveFolders();
     setTimeout(() => $("setup").classList.remove("open"), 1300);
   };
   const msg = (t, c) => { const m = $("setupMsg"); m.textContent = t; m.className = "msg " + (c || ""); };
