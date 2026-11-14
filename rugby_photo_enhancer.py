@@ -24,7 +24,7 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 APP_NAME = "Rugby Photo Enhancer"
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.4.1"
 # Updates are published here (branch "photo-enhancer" of github.com/popcorn483/ergs-live)
 UPDATE_BASE = "https://raw.githubusercontent.com/popcorn483/ergs-live/photo-enhancer/"
 DEFAULT_SOURCE = r"E:\DCIM\100CANON"
@@ -822,7 +822,7 @@ class App:
                     pid = "d" + f["id"]
                     photos[pid] = {"drive": f["id"], "folder": fo["id"], "folderName": fo["name"], "folderUrl": fo.get("url", ""),
                                    "name": f["name"], "key": "drive:" + f["id"] + ":" + str(f.get("modified")), "path": None, "thumb": None}
-                    out.append({"id": pid, "name": f["name"], "time": fo["name"], "size": f["size"], "imported": False})
+                    out.append({"id": pid, "name": f["name"], "time": "", "folder": fo["name"], "size": f["size"], "imported": False})
         except Exception as e:
             return {"ok": False, "error": str(e)}
         with self.cfg_lock:
@@ -1371,7 +1371,8 @@ UI_HTML = r"""<!DOCTYPE html>
   .toolbar .sp{flex:1}
   .count{color:var(--muted)}
   .count b{color:var(--text)}
-  .grid{flex:1;overflow:auto;padding:4px 22px 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;align-content:start}
+  .grid{flex:1;min-height:0;overflow:auto;padding:4px 22px 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));grid-auto-rows:max-content;gap:12px;align-content:start}
+  .tile{min-height:max-content}
   .tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;transition:border-color .15s,opacity .15s}
   .tile:hover{border-color:var(--line2)}
   .tile.off{opacity:.38}
@@ -1430,6 +1431,10 @@ UI_HTML = r"""<!DOCTYPE html>
   .flist label small{color:var(--muted)}
   .flist input{accent-color:var(--accent)}
   .note{color:var(--muted);font-size:12.5px;margin:6px 0}
+  .ghead{grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:10px 2px 2px;border-bottom:1px solid var(--line);margin-top:6px}
+  .ghead:first-child{margin-top:0}
+  .ghead b{font-size:15px}
+  .ghead .count{flex:1}
   .lookchip{position:absolute;left:8px;bottom:8px;z-index:2;font-size:11px;padding:2px 7px;border-radius:20px;background:rgba(242,181,68,.9);color:#1b1404;font-weight:600}
   /* viewer with look panel */
   .mbody{flex:1;display:flex;min-height:0}
@@ -1463,6 +1468,7 @@ UI_HTML = r"""<!DOCTYPE html>
       <label class="chk"><input type="radio" name="driveAction" value="replace"> Replace the photos in Drive</label>
       <div class="note" style="margin-left:23px">Originals go to Drive’s Bin (restore within 30 days).</div>
       <label class="chk"><input type="radio" name="driveAction" value="subfolder"> Save to an “Enhanced” subfolder</label>
+      <div class="note" style="margin-left:23px">Each photo stays with its own match folder, even when several folders are selected.</div>
     </div>
 
     <div class="sec" id="cardSec">
@@ -1752,11 +1758,23 @@ UI_HTML = r"""<!DOCTYPE html>
       if (!en.isIntersecting) return;
       const img = en.target; io.unobserve(img); img.src = img.dataset.src;
     }), {root: g, rootMargin: "400px"});
+    const multi = new Set(photos.map(p => p.folder || "")).size > 1;
+    let lastFolder = null;
     photos.forEach((p, i) => {
+      if (multi && p.folder !== lastFolder) {
+        lastFolder = p.folder;
+        const n = photos.filter(q => q.folder === p.folder).length;
+        const h = document.createElement("div"); h.className = "ghead";
+        h.innerHTML = `<b></b><span class="count">${n} photo${n === 1 ? "" : "s"}</span><button class="btn ghost sm">Select all</button><button class="btn ghost sm">None</button>`;
+        h.querySelector("b").textContent = "📁 " + p.folder;
+        const [all, none] = h.querySelectorAll("button"), f = p.folder;
+        all.onclick = () => setFolder(f, true); none.onclick = () => setFolder(f, false);
+        g.appendChild(h);
+      }
       const t = document.createElement("div"); t.className = "tile" + (p.include ? "" : " off");
       t.innerHTML = `<div class="thumb"><img alt=""><div class="sel" title="Include / exclude"></div><span class="badge gone"></span><span class="lookchip gone"></span></div>
         <div class="meta"><span class="n"></span><span class="tm"></span></div>`;
-      t.querySelector(".n").textContent = p.name; t.querySelector(".tm").textContent = p.time;
+      t.querySelector(".n").textContent = p.name; t.querySelector(".tm").textContent = p.time || (multi ? "" : p.folder || "");
       const img = t.querySelector("img"); img.dataset.src = imgURL(p, show);
       img.onload = () => img.classList.add("ld");
       io.observe(img);
@@ -1785,6 +1803,11 @@ UI_HTML = r"""<!DOCTYPE html>
     const p = photos[i]; if (!p || p.done) return;
     p.include = !p.include; p.el.classList.toggle("off", !p.include);
     updateCount(); if (cur === i) $("mToggle").textContent = p.include ? "Exclude" : "Include";
+  }
+  function setFolder(f, on){
+    if (running) return;
+    photos.forEach(p => { if (p.folder === f && !p.done) { p.include = on; p.el.classList.toggle("off", !on); } });
+    updateCount();
   }
   $("selAll").onclick = () => { if (running) return; photos.forEach(p => { if (p.done) return; p.include = true; p.el.classList.remove("off"); }); updateCount(); };
   $("selNone").onclick = () => { if (running) return; photos.forEach(p => { p.include = false; p.el.classList.add("off"); }); updateCount(); };
@@ -1910,7 +1933,7 @@ UI_HTML = r"""<!DOCTYPE html>
   function openViewer(i, keepSplit){
     const p = photos[i]; if (!p) return;
     cur = i;
-    $("mName").textContent = `${p.name} · ${p.time} · ${(p.size/1048576).toFixed(1)} MB`;
+    $("mName").textContent = `${p.folder ? p.folder + " / " : ""}${p.name}${p.time ? " · " + p.time : ""} · ${(p.size/1048576).toFixed(1)} MB`;
     $("mTags").textContent = "";
     $("mToggle").textContent = p.include ? "Exclude" : "Include";
     $("mLoad").style.display = "";

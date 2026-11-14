@@ -1,10 +1,10 @@
 {
-  "version": "1.4.0",
+  "version": "1.4.1",
   "file": "rugby_photo_enhancer.py",
-  "sha256": "9d3e71f8dca696c4fe77177e379538d84e90ef3a03009e67b937d1cae5a189d1",
+  "sha256": "b2690d07043642c04306b387f1a4655b1e0ff44e01d19e101b2c69a10843216e",
   "requires": [
     "pillow",
     "numpy"
   ],
-  "notes": "Better backlit photos (shadow/highlight recovery), per-photo looks and manual sliders, improve earlier uploads straight from Google Drive."
+  "notes": "Fixes the photo grid when loading hundreds of photos; Drive photos grouped by match folder."
 }
