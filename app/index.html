@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '8d7e8637e6';</script>
+<script>window.ERGS_VER = 'a8b323a680';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -19534,6 +19534,19 @@ function albTry(){ const d = ALB.get(); if (!d || Cloud.role === 'pending') retu
   if (!seasons.some(x => x.folder === d.s)){ toast('That album’s season isn’t in the app any more.'); return; }
   if (phHidden()[d.f] && !phCoach()){ toast('That album isn’t available.'); PH.season = d.s; PH.path = []; go('photos'); return; }
   PH.season = d.s; PH.path = [{id:d.f, name:d.n || 'Album'}]; go('photos'); if (S.screen === 'photos') renderPhotos(); }
+// a new album is announced in Team news once, the first time a coach opens Photos after it's added (team/photos.posted remembers which)
+let albPosting = false;
+async function albAnnounce(seasonFolder, folders){
+  const seasons = phSeasons(), A = window.ERGS_AUTH; if (albPosting || !phCoach() || !A || !A.setAccess || !seasons.length || seasons[0].folder !== seasonFolder || (typeof feat === 'function' && !feat('news'))) return;
+  const hid = phHidden(), posted = phDoc().posted || {}, todo = folders.filter(f => !hid[f.id] && !posted[f.id] && Date.now() - (Date.parse(f.createdTime || '') || 0) < 14*864e5).slice(0, 4); if (!todo.length) return;
+  albPosting = true; const done = {};
+  try { for (const f of todo){ let n = 0; try { n = (await driveList(f.id)).filter(x => isImage(x) && !hid[x.id]).length; } catch(e){} if (!n) continue;   // wait until the photos are in
+      const nm = phName(f.name), m = tgMatchFor(f.name, seasons[0].label), team = (m && mpTeamKey(m)) || '*';
+      await A.setAccess('posts', 'alb' + f.id.replace(/[^A-Za-z0-9]/g, '').slice(0, 40), {at:Date.now(), by:(A.email || '').toLowerCase(), byName:((A.coach && A.coach.name) || 'Coach').slice(0, 60), team, text:`📸 New photos: ${nm.title}${nm.when ? ' (' + nm.when + ')' : ''}\n${n} photo${n === 1 ? ' is' : 's are'} in the app. Tag yourself and like your favourites.`, links:[{u:albUrl(seasonFolder, f), t:'Open the album'}], pin:false, album:f.id});
+      done[f.id] = Date.now(); }
+    if (Object.keys(done).length){ const d = Object.assign({seasons:[], hidden:{}}, clone(phDoc())); d.posted = Object.assign({}, d.posted, done); d.updated = Date.now(); await Cloud.set('team/photos', d); const k = Object.keys(done).length; toast(`${k === 1 ? 'The new album has' : k + ' new albums have'} been announced in Team news.`); } }
+  catch(e){} albPosting = false;
+}
 async function albShare(){ const here = PH.path[PH.path.length - 1]; if (!here) return; if (!albCodeOf(here.id)) await albEnsure([here.id]); const nm = phName(here.name), url = albUrl(PH.season, here), text = `ERGS photos: ${nm.title}${nm.when ? ' (' + nm.when + ')' : ''}`;
   if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)){ try { await navigator.share({title:'ERGS Rugby photos', text, url}); return; } catch(e){ if (e && e.name === 'AbortError') return; } }
   try { await navigator.clipboard.writeText(`${text}\n${url}`); toast('Album link copied. Paste it into a message, email or post.'); } catch(e){ prompt('Copy this link to the album:', url); } }
@@ -19542,7 +19555,7 @@ async function albShare(){ const here = PH.path[PH.path.length - 1]; if (!here) 
   Cloud.on(albTry); whenRole(albTry);
   const jg = joinGate; joinGate = function(){ const r = jg.apply(this, arguments); try { albNote(); } catch(e){} return r; };
   const rp = renderPhotos; renderPhotos = function(){ const r = rp.apply(this, arguments); let b = $('#albShareBtn'); const c = $('#phCrumbs');
-    if (phCoach() && PH.here){ const hid = PH.here.id, inAlbum = PH.path && PH.path.length; driveList(hid).then(L => albEnsure((inAlbum ? [hid] : []).concat(L.filter(isFolder).map(x => x.id))), () => {}); }
+    if (phCoach() && PH.here){ const hid = PH.here.id, inAlbum = PH.path && PH.path.length; driveList(hid).then(async L => { await albEnsure((inAlbum ? [hid] : []).concat(L.filter(isFolder).map(x => x.id))); if (!inAlbum) setTimeout(() => albAnnounce(hid, L.filter(isFolder)).catch(() => {}), 2500); }, () => {}); }
     if (!PH.path || !PH.path.length || !c || !c.querySelector('.ph-ttl')){ if (b) b.remove(); return r; }
     if (!b){ b = document.createElement('button'); b.type = 'button'; b.id = 'albShareBtn'; b.className = 'alb-share'; b.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M5 13v6h14v-6"/></svg>Share album'; b.onclick = albShare; }
     c.after(b); return r; };
@@ -19650,8 +19663,6 @@ function hlOpen(){
       b.onclick = () => phShareOpen(f, phName(here.name).title, {cap:'Photo of the match · ' + phName(here.name).title}); anchor.after(b); }, 60), () => {}); return r; };
   // the first time the likes arrive, draw the page once more so the photo of the match shows
   if (typeof lkRefresh === 'function'){ const lr = lkRefresh; let did = false; lkRefresh = function(){ const r = lr.apply(this, arguments); if (!did && LK.list && LK.list.length){ did = true; const v = $('#phView'); if (S.screen === 'photos' && (!v || v.hidden) && !(PH.sel && PH.sel.on) && scrollY < 200) setTimeout(renderPhotos, 100); } return r; }; }
-  const rm = renderMenu; renderMenu = function(){ const r = rm.apply(this, arguments); albNewHome().catch(() => {}); return r; };
-  let seen; Cloud.on(() => { const k = [Cloud.docs['team/photos'], Cloud.role]; if (seen && k.every((x, i) => x === seen[i])) return; seen = k; if (S.screen === 'menu') albNewHome().catch(() => {}); });
   // "Photos of me" gets a Season highlights button
   const tm = tgMine; tgMine = function(){ const r = tm.apply(this, arguments); const a = document.querySelector('#tagModal .dlg-a'); if (a && document.querySelector('#tagModal .tg-groups') && !a.querySelector('#hlBtn')){ const b = document.createElement('button'); b.type = 'button'; b.className = 'btn primary'; b.id = 'hlBtn'; b.textContent = '⭐ Season highlights'; b.onclick = hlOpen; a.prepend(b); } return r; };
   const st = document.createElement('style'); st.textContent = `.ph-new{position:absolute;top:10px;left:10px;z-index:2;padding:3px 10px;border-radius:99px;background:#E5484D;color:#fff;font:800 11.5px var(--f-body);letter-spacing:.06em;text-transform:uppercase;box-shadow:0 2px 8px rgba(0,0,0,.4);pointer-events:none}
