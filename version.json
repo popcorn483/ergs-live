@@ -1,10 +1,10 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "file": "rugby_photo_enhancer.py",
-  "sha256": "a16a922f44b0aa5f38e7ff5b7c8587768b1c87a21ad22219c5b5db81cc732ee8",
+  "sha256": "68088544f3ce70db0f8d25f2e25632e41fc520fd2ff60d674d7d8b8b1813173a",
   "requires": [
     "pillow",
     "numpy"
   ],
-  "notes": "Automatic updates, keeps photo dates and rotation, full-size uploads via Google Drive for desktop."
+  "notes": "Upload straight to Google Drive - no Drive app needed (one-time setup inside the app)."
 }
