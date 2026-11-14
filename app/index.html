@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = 'e698b17c2e';</script>
+<script>window.ERGS_VER = '2ff4d4244f';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -17197,11 +17197,14 @@ const GA_INTRO = {reveal:'Pop in', drop:'Drop in', rise:'Rise up', left:'Slide f
 const GA_MOVE = {wave:'Wave', spotlight:'Spotlight each one', float:'Float'};
 const GA_ELEM = Object.assign({}, GA_INTRO, GA_MOVE), GA_HOLD_S = 10;   // an intro stays on its last frame for 10 seconds
 const gaHold = fx => GA_INTRO[fx] ? GA_HOLD_S : 0;
+// team of the week has 15 shirts to bring in, so its own animations run slower: 6 seconds, not 2.4
+const gaDur = (G, fx) => G.key === 'totw' && GA_ELEM[fx] ? 6 : GA_LOOP, gaFrames = (G, fx) => G.key === 'totw' && GA_ELEM[fx] ? 50 : GA_FRAMES;
+const GA_ANY_ORDER = {backs:1, rand:1};   // not offered for team of the week: its shirts always arrive 1 to 15
 // where shirt/row i of n is at this moment: dx, dy (in shirt widths), s and sx (scale), rot, a (alpha), glow,
 // and hk (0-1): how far it still is from home, coming from the point (fx, fy) of the picture
 function gaElem(i, n){ if (!GAA) return null; const t = GAA.t, f = GAA.fx, cl = v => Math.max(0, Math.min(1, v)), out = k => 1 - Math.pow(1 - k, 3), back = k => { const c = 1.7; return 1 + (c + 1)*Math.pow(k - 1, 3) + c*Math.pow(k - 1, 2); };
   const o = {dx:0, dy:0, s:1, sx:1, rot:0, a:1, glow:0, hk:0, fx:null, fy:null, intro:!!GA_INTRO[f]};
-  if (o.intro){ const ord = f === 'backs' ? n - 1 - i : f === 'rand' ? (i*7 + 3) % n : i, k = f === 'all' ? cl((t - 0.1)/0.3) : cl((t - (0.02 + 0.7*ord/n))/0.26), e = out(k);
+  if (o.intro){ const ord = f === 'backs' ? n - 1 - i : f === 'rand' ? (i*7 + 3) % n : i, k = f === 'all' ? cl((t - 0.1)/0.3) : cl((t - (0.02 + (0.98 - GAA.len)*ord/n))/GAA.len), e = out(k);
     if (k <= 0){ o.a = 0; return o; } o.a = cl(k*3);
     if (f === 'reveal' || f === 'backs' || f === 'rand' || f === 'all') o.s = Math.max(0.001, back(k));
     else if (f === 'drop'){ const b = k < 0.55 ? Math.pow(k/0.55, 2) : 1 - 0.14*Math.sin(Math.PI*(k - 0.55)/0.45); o.dy = -(1 - b)*3.4; }
@@ -17266,7 +17269,7 @@ const GA_DRAW = {
     g.setLineDash([u*0.05, per2/10 - u*0.05]); g.lineDashOffset = t*per2/5; g.shadowColor = '#ffe39a'; gaRect(g, W, H, i2); g.stroke(); g.restore(); }
 };
 Object.keys(GA_ELEM).forEach(k => { GA_DRAW[k] = null; });
-Object.keys(GA.fx).forEach(k => { if (!(GA.fx[k] in GA_DRAW) || (GA_ELEM[GA.fx[k]] && !['totw', 'fxg'].includes(k))) delete GA.fx[k]; });   // a frame that's been removed (Pitch lines) goes back to None
+Object.keys(GA.fx).forEach(k => { if (!(GA.fx[k] in GA_DRAW) || (GA_ELEM[GA.fx[k]] && !['totw', 'fxg'].includes(k)) || (k === 'totw' && GA_ANY_ORDER[GA.fx[k]])) delete GA.fx[k]; });   // a frame that's been removed (Pitch lines) goes back to None
 /* ---------- the preview: an overlay on the graphic, playing while the page is open ---------- */
 function gaOverlay(G){
   const base = $(G.canvas); if (!base) return null; let ov = base.parentElement.querySelector(':scope > .ga-ov');
@@ -17274,7 +17277,7 @@ function gaOverlay(G){
   return ov;
 }
 // one frame of a shirts/rows animation: the whole graphic, redrawn with everything in its place for that moment
-function gaElemDraw(G, g, w, h, fx, t){ const keep = typeof TW === 'object' && TW ? [TW.hit, TW.phits, TW.tabPath] : null; GAA = {fx, t};
+function gaElemDraw(G, g, w, h, fx, t){ const keep = typeof TW === 'object' && TW ? [TW.hit, TW.phits, TW.tabPath] : null; GAA = {fx, t, len:G.key === 'totw' ? 0.16 : 0.26};
   try { g.save(); G.draw(g, w, h); g.restore(); } finally { GAA = null; if (keep){ TW.hit = keep[0]; TW.phits = keep[1]; TW.tabPath = keep[2]; } } }
 function gaLoop(){
   cancelAnimationFrame(GA.raf); let any = false;
@@ -17285,7 +17288,7 @@ function gaLoop(){
     const r = {left:r0.left + (r0.width - cw)/2, top:r0.top + (r0.height - ch)/2, width:cw, height:ch}, dpr = Math.min(2, devicePixelRatio || 1), w = Math.max(1, Math.round(r.width*dpr)), h = Math.max(1, Math.round(r.height*dpr));
     o.style.left = (r.left - pr.left + base.parentElement.scrollLeft) + 'px'; o.style.top = (r.top - pr.top + base.parentElement.scrollTop) + 'px'; o.style.width = r.width + 'px'; o.style.height = r.height + 'px';
     if (o.width !== w || o.height !== h){ o.width = w; o.height = h; }
-    const g = o.getContext('2d'), t = Math.min(0.9999, ((performance.now() - GA.t0)/1000 % (GA_LOOP + gaHold(fx)))/GA_LOOP); g.clearRect(0, 0, w, h); try { if (GA_ELEM[fx]) gaElemDraw(G, g, w, h, fx, t); else GA_DRAW[fx](g, w, h, t); } catch(e){ if (!GA.err){ GA.err = 1; console.warn('animation', e); } } });
+    const g = o.getContext('2d'), t = Math.min(0.9999, ((performance.now() - GA.t0)/1000 % (gaDur(G, fx) + gaHold(fx)))/gaDur(G, fx)); g.clearRect(0, 0, w, h); try { if (GA_ELEM[fx]) gaElemDraw(G, g, w, h, fx, t); else GA_DRAW[fx](g, w, h, t); } catch(e){ if (!GA.err){ GA.err = 1; console.warn('animation', e); } } });
   if (any) GA.raf = requestAnimationFrame(gaLoop);
 }
 /* ---------- GIF: 256-colour palette (median cut), LZW, looping ---------- */
@@ -17323,13 +17326,13 @@ async function gaGif(G, fx, onProg, maxSide){
   const near = key => { const r = (key >> 10) << 3 | 4, gg = ((key >> 5) & 31) << 3 | 4, b = (key & 31) << 3 | 4; let bi = 0, bd = 1e9; for (let i = 0; i < n; i++){ const dr = pal[i*3] - r, dg = pal[i*3 + 1] - gg, db = pal[i*3 + 2] - b, dd = dr*dr*2 + dg*dg*4 + db*db*3; if (dd < bd){ bd = dd; bi = i; } } return bi; };
   const out = [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, w & 255, w >> 8, h & 255, h >> 8, 0xF7, 0, 0]; for (let i = 0; i < 768; i++) out.push(pal[i]);
   out.push(0x21, 0xFF, 0x0B, ...'NETSCAPE2.0'.split('').map(ch => ch.charCodeAt(0)), 0x03, 0x01, 0, 0, 0);
-  const delay = Math.round(GA_LOOP*100/GA_FRAMES);
-  for (let f = 0; f < GA_FRAMES; f++){
-    const hold = gaHold(fx) && f === GA_FRAMES - 1, dl = hold ? gaHold(fx)*100 : delay, d = frame(hold ? 0.9999 : f/GA_FRAMES), idx = new Uint8Array(w*h);
+  const NF = gaFrames(G, fx), delay = Math.round(gaDur(G, fx)*100/NF);
+  for (let f = 0; f < NF; f++){
+    const hold = gaHold(fx) && f === NF - 1, dl = hold ? gaHold(fx)*100 : delay, d = frame(hold ? 0.9999 : f/NF), idx = new Uint8Array(w*h);
     for (let i = 0, p = 0; i < d.length; i += 4, p++){ const key = ((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3); let v = lut[key]; if (v < 0){ v = near(key); lut[key] = v; } idx[p] = v; }
     out.push(0x21, 0xF9, 0x04, 0x04, dl & 255, dl >> 8, 0, 0, 0x2C, 0, 0, 0, 0, w & 255, w >> 8, h & 255, h >> 8, 0);
     const chunk = []; gaLZW(idx, chunk); for (let i = 0; i < chunk.length; i += 65536) out.push(...chunk.slice(i, i + 65536));
-    if (onProg) onProg((f + 1)/GA_FRAMES); await new Promise(r => setTimeout(r, 0)); }
+    if (onProg) onProg((f + 1)/NF); await new Promise(r => setTimeout(r, 0)); }
   out.push(0x3B); return new Blob([new Uint8Array(out)], {type:'image/gif'});
 }
 async function gaDownload(G){
@@ -17346,7 +17349,7 @@ function gaBar(G){
   if (!bar){ bar = document.createElement('div'); bar.className = 'ga-bar'; bar.dataset.ga = G.key; host.after(bar); }
   const fx = gaFx(G.key);
   bar.innerHTML = `<div class="ga-h"><b>✨ Animated frame</b><small>Plays on the preview. Download a looping GIF to share.</small></div>
-    ${['totw', 'fxg'].includes(G.key) ? `<div class="ga-sub">Intro: ${G.key === 'totw' ? 'the shirts' : 'the fixtures'} arrive, then it holds for ${GA_HOLD_S} seconds</div><div class="ga-chips">${Object.entries(GA_INTRO).map(([k, t]) => `<button type="button" class="af-chip" data-gafx="${k}" aria-pressed="${fx === k}">${esc(t)}</button>`).join('')}</div><div class="ga-sub">Keeps moving</div><div class="ga-chips">${Object.entries(GA_MOVE).map(([k, t]) => `<button type="button" class="af-chip" data-gafx="${k}" aria-pressed="${fx === k}">${esc(t)}</button>`).join('')}</div><div class="ga-sub">Or a frame round the edge</div>` : ''}
+    ${['totw', 'fxg'].includes(G.key) ? `<div class="ga-sub">Intro: ${G.key === 'totw' ? 'the shirts' : 'the fixtures'} arrive, then it holds for ${GA_HOLD_S} seconds</div><div class="ga-chips">${Object.entries(GA_INTRO).filter(([k]) => !(G.key === 'totw' && GA_ANY_ORDER[k])).map(([k, t]) => `<button type="button" class="af-chip" data-gafx="${k}" aria-pressed="${fx === k}">${esc(t)}</button>`).join('')}</div><div class="ga-sub">Keeps moving</div><div class="ga-chips">${Object.entries(GA_MOVE).map(([k, t]) => `<button type="button" class="af-chip" data-gafx="${k}" aria-pressed="${fx === k}">${esc(t)}</button>`).join('')}</div><div class="ga-sub">Or a frame round the edge</div>` : ''}
     <div class="ga-chips">${GA_FX.map(([k, t]) => `<button type="button" class="af-chip" data-gafx="${k}" aria-pressed="${fx === k}">${esc(t)}</button>`).join('')}</div>
     ${fx === 'none' ? '' : '<button type="button" class="ga-png" data-gapng>Download a still PNG instead</button>'}`;
   bar.querySelectorAll('[data-gafx]').forEach(b => b.onclick = () => { GA.fx[G.key] = b.dataset.gafx; gaKeep(); GA.t0 = performance.now(); gaBar(G); gaLoop(); });
