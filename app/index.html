@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = 'cb7deed89f';</script>
+<script>window.ERGS_VER = '6864c98259';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -2354,6 +2354,10 @@ ol.an-list li::before{counter-increment:an;content:counter(an);width:18px;color:
 .ph-bt-row{display:flex;align-items:center;gap:14px;padding:6px;border-radius:10px;background:rgba(255,255,255,.04)}.ph-bt-row img{width:96px;height:64px;object-fit:cover;border-radius:6px;flex:none;background:#05070f}
 .ph-bt-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 18px 16px;border-top:1px solid rgba(255,255,255,.08)}
 @media (max-width:520px){.ph-bt-row{gap:8px}.ph-bt-row img{width:64px;height:48px}.ph-bt-row .ph-sh-frames button{padding:0 9px;font-size:12.5px;min-height:34px}}
+
+.tgf-selbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;padding:8px 10px;border-radius:10px;background:rgba(220,192,138,.1);border:1px solid rgba(220,192,138,.35)}.tgf-seln{font-weight:600}
+.tg-groups.selecting .tg-th{position:relative;outline:2px solid transparent;outline-offset:-2px}.tg-groups.selecting .tg-th::after{content:'';position:absolute;top:5px;left:5px;width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.35)}
+.tg-groups.selecting .tg-th.picked{outline-color:var(--flood)}.tg-groups.selecting .tg-th.picked::after{background:var(--flood);border-color:var(--flood)}
 /* share a photo with a frame */
 .ph-share{border:1px solid rgba(255,255,255,.28)}
 .ph-sh{position:fixed;inset:0;z-index:130;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.72);backdrop-filter:blur(6px)}
@@ -19895,16 +19899,75 @@ function tgFind(){
       const vis = TGF.pick ? G.filter(g => g.k === TGF.pick) : G;
       body.innerHTML = `<div class="tgf-head"><button type="button" class="btn ghost tgf-back">‹ All players</button><b>${esc(e.name)}</b><small>${esc(tgfTeamName(e.team))} · ${n} photo${n === 1 ? '' : 's'}</small>
         ${G.length > 1 ? `<select class="input tgf-sel" aria-label="Which match"><option value="">All matches</option>${G.map(g => `<option value="${esc(g.k)}" ${g.k === TGF.pick ? 'selected' : ''}>${esc(g.m ? tgMatchLabel(g.m) : g.fn)} (${g.ids.length})</option>`).join('')}</select>` : ''}
-        <button type="button" class="btn primary tgf-all">▶ View all</button></div>
-        <div class="tg-groups">${vis.map((g, gi) => `<section><h3>${g.m ? esc(tgMatchLabel(g.m)) : esc(g.fn)}</h3><div class="tg-thumbs">${g.ids.map((id, i) => `<button type="button" class="tg-th" data-tgg="${gi}" data-tgi="${i}"><img alt="" loading="lazy" referrerpolicy="no-referrer" src="${esc(thumbOf({id}, 300))}"></button>`).join('')}</div></section>`).join('')}</div>`;
+        <button type="button" class="btn primary tgf-all">▶ View all</button><button type="button" class="btn tgf-zip">Save all</button><button type="button" class="btn tgf-selb" aria-pressed="${!!TGF.selOn}">${TGF.selOn ? 'Done selecting' : 'Select'}</button></div>
+        ${TGF.selOn ? `<div class="tgf-selbar"><span class="tgf-seln"></span><span style="flex:1"></span><button type="button" class="btn tgf-savesel">Save selected</button><button type="button" class="btn primary tgf-col">Make collage</button></div>` : ''}
+        <div class="tg-groups${TGF.selOn ? ' selecting' : ''}">${vis.map((g, gi) => `<section><h3>${g.m ? esc(tgMatchLabel(g.m)) : esc(g.fn)}</h3><div class="tg-thumbs">${g.ids.map((id, i) => `<button type="button" class="tg-th${TGF.sel && TGF.sel.has(id) ? ' picked' : ''}" data-tgid="${esc(id)}" data-tgg="${gi}" data-tgi="${i}"><img alt="" loading="lazy" referrerpolicy="no-referrer" src="${esc(thumbOf({id}, 300))}"></button>`).join('')}</div></section>`).join('')}</div>`;
       body.querySelector('.tgf-back').onclick = () => { TGF.who = ''; list(); };
       const sel = body.querySelector('.tgf-sel'); if (sel) sel.onchange = () => { TGF.pick = sel.value; show(); };
       const open = (ids, i) => { tagModalClose(); if (S.screen !== 'photos') go('photos'); setTimeout(() => phView(ids.map(id => ({id, name:''})), i), S.screen === 'photos' ? 0 : 350); };
       body.querySelector('.tgf-all').onclick = () => open(vis.flatMap(g => g.ids), 0);
-      body.querySelectorAll('[data-tgg]').forEach(b => b.onclick = () => open(vis[+b.dataset.tgg].ids, +b.dataset.tgi));
+      TGF.sel = TGF.sel || new Set(); const allIds = vis.flatMap(g => g.ids), first = e.name.split(/\s+/)[0];
+      const seln = () => { const el = body.querySelector('.tgf-seln'); if (!el) return; const n2 = TGF.sel.size; el.textContent = n2 ? `${n2} selected` : 'Tap photos to choose them'; body.querySelector('.tgf-savesel').disabled = !n2; const c = body.querySelector('.tgf-col'); c.disabled = n2 < 2 || n2 > 9; c.title = n2 > 9 ? 'A collage takes up to 9 photos' : n2 < 2 ? 'Choose at least 2 photos' : ''; };
+      body.querySelectorAll('[data-tgg]').forEach(b => b.onclick = () => { if (!TGF.selOn) return open(vis[+b.dataset.tgg].ids, +b.dataset.tgi); const id = b.dataset.tgid; TGF.sel.has(id) ? TGF.sel.delete(id) : TGF.sel.add(id); b.classList.toggle('picked', TGF.sel.has(id)); seln(); });
+      body.querySelector('.tgf-selb').onclick = () => { TGF.selOn = !TGF.selOn; if (!TGF.selOn) TGF.sel.clear(); show(); };
+      body.querySelector('.tgf-zip').onclick = ev => phZipSave(allIds, e.name, ev.currentTarget);
+      if (TGF.selOn){ seln(); body.querySelector('.tgf-savesel').onclick = ev => phZipSave(allIds.filter(id => TGF.sel.has(id)), e.name, ev.currentTarget);
+        body.querySelector('.tgf-col').onclick = () => phCollageOpen(allIds.filter(id => TGF.sel.has(id)), e.name); }
     };
     TGF.who ? show() : list();
   });
+}
+
+/* ---------- a player's photos: save them all as one zip, or make a collage of a few ---------- */
+const phCrcT = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const phCrc = u8 => { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = phCrcT[(c ^ u8[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+// a plain (stored) zip from [{name, bytes}]
+function phZip(files){ const enc = new TextEncoder(), parts = [], cen = []; let off = 0; const le = (n, b) => { const a = new Uint8Array(b); for (let i = 0; i < b; i++) a[i] = (n >>> (8*i)) & 255; return a; }, cat = (...a) => { const o = new Uint8Array(a.reduce((x, y) => x + y.length, 0)); let p = 0; a.forEach(y => { o.set(y, p); p += y.length; }); return o; };
+  files.forEach(f => { const nm = enc.encode(f.name), crc = phCrc(f.bytes), sz = f.bytes.length, head = cat(le(0x04034b50, 4), le(20, 2), le(0x0800, 2), le(0, 2), le(0, 2), le(0x21, 2), le(crc, 4), le(sz, 4), le(sz, 4), le(nm.length, 2), le(0, 2), nm);
+    parts.push(head, f.bytes); cen.push(cat(le(0x02014b50, 4), le(20, 2), le(20, 2), le(0x0800, 2), le(0, 2), le(0, 2), le(0x21, 2), le(crc, 4), le(sz, 4), le(sz, 4), le(nm.length, 2), le(0, 2), le(0, 2), le(0, 2), le(0, 2), le(0, 4), le(off, 4), nm)); off += head.length + sz; });
+  const cs = cen.reduce((x, y) => x + y.length, 0); return new Blob(parts.concat(cen, [cat(le(0x06054b50, 4), le(0, 2), le(0, 2), le(files.length, 2), le(files.length, 2), le(cs, 4), le(off, 4), le(0, 2))]), {type:'application/zip'}); }
+const phOrig = async id => { const r = await fetch(`https://www.googleapis.com/drive/v3/files/${id}?alt=media&supportsAllDrives=true&key=${encodeURIComponent(driveKey())}`); if (!r.ok) throw new Error('drive'); return r.blob(); };
+async function phZipSave(ids, who, btn){
+  if (!ids.length) return; const was = btn.innerHTML, slug = (who || 'photos').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'photos', files = []; let failed = 0; btn.disabled = true;
+  for (let i = 0; i < ids.length; i++){ btn.textContent = `Getting ${i + 1} of ${ids.length}…`; try { const b = await phOrig(ids[i]), ext = /png/.test(b.type) ? 'png' : /webp/.test(b.type) ? 'webp' : /heic/.test(b.type) ? 'heic' : 'jpg'; files.push({name:`${slug}-${String(i + 1).padStart(2, '0')}.${ext}`, bytes:new Uint8Array(await b.arrayBuffer()), type:b.type || 'image/jpeg'}); } catch(e){ failed++; } }
+  btn.disabled = false; btn.innerHTML = was; if (!files.length){ toast('The photos couldn’t be downloaded. Check your connection and try again.'); return; }
+  const mobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent), fl = files.map(f => new File([f.bytes], f.name, {type:f.type}));
+  if (mobile && files.length <= 10 && navigator.canShare && navigator.canShare({files:fl})){ try { await navigator.share({files:fl}); return; } catch(e){ if (e && e.name === 'AbortError') return; } }
+  const ok = files.length === 1 ? await saveFile(files[0].name, new Blob([files[0].bytes], {type:files[0].type})) : await saveFile(`ergs-${slug}-photos.zip`, phZip(files));
+  if (ok) toast(`${files.length} photo${files.length === 1 ? '' : 's'} saved${files.length > 1 ? ' as one zip file' : ''}${failed ? `; ${failed} couldn’t be downloaded` : ''}.`);
+}
+// the rows of a collage for n photos, e.g. 5 → 2 on top, 3 below
+const PH_COL = {2:[2], 3:[1, 2], 4:[2, 2], 5:[2, 3], 6:[3, 3], 7:[2, 3, 2], 8:[3, 2, 3], 9:[3, 3, 3]};
+function phCollageDraw(cv, bmps, title, shape){
+  const W = 2160, H = shape === 'tall' ? 2700 : 2160, gap = 14, pad = 28, foot = title ? 150 : 0; cv.width = W; cv.height = H; const g = cv.getContext('2d');
+  g.fillStyle = '#0B1030'; g.fillRect(0, 0, W, H); const rows = PH_COL[bmps.length] || [bmps.length], ah = H - pad*2 - foot - gap*(rows.length - 1), wts = rows.map(r => r === 1 ? 1.35 : 1), wsum = wts.reduce((a, b) => a + b, 0); let y = pad, k = 0;
+  rows.forEach((n, ri) => { const rh = ah*wts[ri]/wsum, cw = (W - pad*2 - gap*(n - 1))/n;
+    for (let c = 0; c < n; c++, k++){ const b = bmps[k], x = pad + c*(cw + gap), sc = Math.max(cw/b.width, rh/b.height), sw = cw/sc, sh = rh/sc; g.drawImage(b, (b.width - sw)/2, Math.max(0, (b.height - sh)*0.35), sw, sh, x, y, cw, rh); }
+    y += rh + gap; });
+  if (title){ const fy = H - pad - foot + gap; g.fillStyle = PH_GOLD; g.fillRect(pad, fy, W - pad*2, 4); g.textBaseline = 'alphabetic'; g.textAlign = 'left'; g.fillStyle = '#fff'; let fs = 78; g.font = `800 ${fs}px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif`; while (fs > 30 && g.measureText(title.toUpperCase()).width > W*0.6){ fs -= 4; g.font = `800 ${fs}px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif`; }
+    g.fillText(title.toUpperCase(), pad + 8, fy + 100); g.textAlign = 'right'; g.fillStyle = PH_GOLD; g.font = "800 40px 'Barlow Condensed', 'Arial Narrow', sans-serif"; g.letterSpacing = '8px'; g.fillText('ERGS RUGBY', W - pad - 8, fy + 96); g.letterSpacing = '0px'; }
+}
+async function phCollageOpen(ids, who){
+  let o = $('#phColBox'); if (!o){ o = document.createElement('div'); o.id = 'phColBox'; o.className = 'ph-sh'; o.style.zIndex = 150; document.body.appendChild(o); o.addEventListener('click', e => { if (e.target === o) o.hidden = true; }); document.addEventListener('keydown', e => { if (!o.hidden && e.key === 'Escape'){ e.stopPropagation(); o.hidden = true; } }, true); }
+  let shape = 'square'; const tok = o._tok = {};
+  o.innerHTML = `<div class="ph-sh-card" role="dialog" aria-modal="true" aria-labelledby="phColH"><div class="ph-sh-head"><b id="phColH">Collage</b><button type="button" class="ph-ib" id="phColX" aria-label="Close">${PH_IC.x}</button></div>
+    <div class="ph-sh-body"><div class="ph-sh-prev"><canvas id="phColCv" aria-label="Collage preview"></canvas><div class="ph-spin" id="phColSpin"></div></div>
+    <div class="ph-sh-side"><span class="label">Shape</span><div class="ph-sh-frames" role="radiogroup" aria-label="Shape"><button type="button" role="radio" data-cs="square">Square</button><button type="button" role="radio" data-cs="tall">Tall (4:5)</button></div>
+      <label class="ph-sh-cap"><span class="label">Words along the bottom</span><input class="input" id="phColCap" maxlength="40" autocomplete="off" value="${esc(who || '')}"></label>
+      <button type="button" class="btn ghost" id="phColMix">Shuffle the order</button>
+      <div class="ph-sh-act"><button type="button" class="btn primary" id="phColGo" disabled>Save collage</button></div><p class="ph-sh-note" id="phColNote">Getting the photos…</p></div></div></div>`;
+  o.hidden = false; o.querySelector('#phColX').onclick = () => { o.hidden = true; };
+  const cv = o.querySelector('#phColCv'), cap = o.querySelector('#phColCap'), go2 = o.querySelector('#phColGo'), note = o.querySelector('#phColNote');
+  let bmps = []; for (let i = 0; i < ids.length; i++){ note.textContent = `Getting photo ${i + 1} of ${ids.length}…`; try { bmps.push(await phShareBitmap({id:ids[i]})); } catch(e){} if (o._tok !== tok) return; }
+  o.querySelector('#phColSpin').hidden = true; if (bmps.length < 2){ note.textContent = 'The photos couldn’t be loaded. Check your connection and try again.'; return; }
+  try { await Promise.all(["800 40px 'Big Shoulders Display'", "800 20px 'Barlow Condensed'"].map(x => document.fonts.load(x))); } catch(e){}
+  const draw = () => { o.querySelectorAll('[data-cs]').forEach(b => b.setAttribute('aria-checked', b.dataset.cs === shape)); phCollageDraw(cv, bmps, cap.value.trim(), shape); go2.disabled = false; note.textContent = bmps.length < ids.length ? `${ids.length - bmps.length} photo${ids.length - bmps.length === 1 ? '' : 's'} couldn’t be loaded and ${ids.length - bmps.length === 1 ? 'was' : 'were'} left out.` : ''; };
+  o.querySelectorAll('[data-cs]').forEach(b => b.onclick = () => { shape = b.dataset.cs; draw(); }); let ct = 0; cap.oninput = () => { clearTimeout(ct); ct = setTimeout(draw, 250); };
+  o.querySelector('#phColMix').onclick = () => { bmps = bmps.map(b => [Math.random(), b]).sort((a, b) => a[0] - b[0]).map(x => x[1]); draw(); };
+  go2.onclick = async () => { const b = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.92)), name = `ergs-${(cap.value || 'collage').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'collage'}-collage.jpg`, fl = new File([b], name, {type:'image/jpeg'});
+    if (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) && navigator.canShare && navigator.canShare({files:[fl]})){ try { await navigator.share({files:[fl]}); return; } catch(e){ if (e && e.name === 'AbortError') return; } }
+    if (await saveFile(name, b)) toast('Collage saved to your downloads.'); };
+  draw();
 }
 // the button on the Photos screen, for coaches
 function tgFindBtn(){
