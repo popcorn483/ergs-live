@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '0b90bb6e00';</script>
+<script>window.ERGS_VER = 'e698b17c2e';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -17167,7 +17167,7 @@ const GA_FX = [['none', 'None'], ['shimmer', 'Gold shimmer'], ['glow', 'Glow'], 
 const GA_LOOP = 2.4, GA_FRAMES = 30, GA_GOLD = '#DCC08A', GA_LIGHT = '#FFF4D6', GA_RED = '#D9262B';
 const GA = {fx:{}, raf:0, t0:performance.now()};
 try { GA.fx = JSON.parse(localStorage.getItem('ergs.gaFx') || '{}') || {}; } catch(e){}
-const gaFx = k => GA.fx[k] || 'shimmer';   // gold shimmer unless someone picks another (or None)
+const gaFx = k => GA.fx[k] || (k === 'fxg' ? 'burst' : 'shimmer');   // fixtures burst from the middle, the rest gold shimmer, unless someone picks another (or None)
 const gaKeep = () => { try { localStorage.setItem('ergs.gaFx', JSON.stringify(GA.fx)); } catch(e){} };
 // the graphics it works with: how to draw each one, its size and file name
 const GA_G = [
