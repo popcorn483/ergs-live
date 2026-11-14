@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '2ff4d4244f';</script>
+<script>window.ERGS_VER = 'e7d747d329';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -2365,6 +2365,7 @@ ol.an-list li::before{counter-increment:an;content:counter(an);width:18px;color:
 @media (max-width:480px){.ccm-r{grid-template-columns:62px minmax(0,1fr) auto}.ccm-s{font-size:17px}}
 .ph-back{order:-1;flex-basis:auto;display:inline-flex;align-items:center;gap:6px;min-height:40px;margin:0 100% 6px 0;padding:0 16px 0 10px;border-radius:99px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.05);color:var(--chalk);font:700 14px var(--f-body);cursor:pointer;white-space:nowrap}
 .ph-back:hover{border-color:var(--flood);color:var(--flood)}.ph-crumbs.one .lnk-btn,.ph-crumbs.one>span[aria-hidden]{display:none}
+.ga-sel{max-width:340px}
 .ga-sub{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.65;margin:10px 0 6px}
 /* share a photo with a frame */
 .ph-share{border:1px solid rgba(255,255,255,.28)}
@@ -17349,10 +17350,11 @@ function gaBar(G){
   if (!bar){ bar = document.createElement('div'); bar.className = 'ga-bar'; bar.dataset.ga = G.key; host.after(bar); }
   const fx = gaFx(G.key);
   bar.innerHTML = `<div class="ga-h"><b>✨ Animated frame</b><small>Plays on the preview. Download a looping GIF to share.</small></div>
-    ${['totw', 'fxg'].includes(G.key) ? `<div class="ga-sub">Intro: ${G.key === 'totw' ? 'the shirts' : 'the fixtures'} arrive, then it holds for ${GA_HOLD_S} seconds</div><div class="ga-chips">${Object.entries(GA_INTRO).filter(([k]) => !(G.key === 'totw' && GA_ANY_ORDER[k])).map(([k, t]) => `<button type="button" class="af-chip" data-gafx="${k}" aria-pressed="${fx === k}">${esc(t)}</button>`).join('')}</div><div class="ga-sub">Keeps moving</div><div class="ga-chips">${Object.entries(GA_MOVE).map(([k, t]) => `<button type="button" class="af-chip" data-gafx="${k}" aria-pressed="${fx === k}">${esc(t)}</button>`).join('')}</div><div class="ga-sub">Or a frame round the edge</div>` : ''}
+    ${['totw', 'fxg'].includes(G.key) ? `<div class="ga-sub">Intro: ${G.key === 'totw' ? 'the shirts' : 'the fixtures'} arrive, then it holds for ${GA_HOLD_S} seconds</div><select class="input ga-sel" data-gasel aria-label="Intro animation"><option value="">Choose an intro…</option>${Object.entries(GA_INTRO).filter(([k]) => !(G.key === 'totw' && GA_ANY_ORDER[k])).map(([k, t]) => `<option value="${k}"${fx === k ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select><div class="ga-sub">Keeps moving</div><div class="ga-chips">${Object.entries(GA_MOVE).map(([k, t]) => `<button type="button" class="af-chip" data-gafx="${k}" aria-pressed="${fx === k}">${esc(t)}</button>`).join('')}</div><div class="ga-sub">Or a frame round the edge</div>` : ''}
     <div class="ga-chips">${GA_FX.map(([k, t]) => `<button type="button" class="af-chip" data-gafx="${k}" aria-pressed="${fx === k}">${esc(t)}</button>`).join('')}</div>
     ${fx === 'none' ? '' : '<button type="button" class="ga-png" data-gapng>Download a still PNG instead</button>'}`;
   bar.querySelectorAll('[data-gafx]').forEach(b => b.onclick = () => { GA.fx[G.key] = b.dataset.gafx; gaKeep(); GA.t0 = performance.now(); gaBar(G); gaLoop(); });
+  const sl = bar.querySelector('[data-gasel]'); if (sl) sl.onchange = () => { GA.fx[G.key] = sl.value || 'none'; gaKeep(); GA.t0 = performance.now(); gaBar(G); gaLoop(); };
   const pn = bar.querySelector('[data-gapng]'); if (pn) pn.onclick = () => { GA.still = G.key; dl.click(); };
   gaDl(G);
 }
