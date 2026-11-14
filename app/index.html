@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '24f1ad821b';</script>
+<script>window.ERGS_VER = '82fda074ac';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=24f1ad821b"></script>
@@ -5803,6 +5803,15 @@ function ask(title, text, okLabel, fn){
 const Cloud = (() => {
   const C = {mode:'pending', role:'pending', db:null, user:null, assets:null, sample:null, canEdit:false, me:null,
              docs:{}, matches:[], plays:[], drills:[], drillErr:'', sponsors:[], schools:[], members:[], sheets:[], loaded:{}, listeners:new Set(), error:'', note:''};
+  /* Plays and training drills are only fetched when they're used: many people never open the playbook or the drills, and
+     fetching them for everyone on every visit spent the database's daily allowance. Cloud.plays / Cloud.drills start the fetch
+     when read on a screen that shows them, or just after a tap (a pop-up that needs them); Cloud.peek(kind) reads without fetching. */
+  const LZ = {plays:{v:C.plays, go:null, on:false}, drills:{v:C.drills, go:null, on:false}}, LZ_SCREENS = {plays:['library', 'editor', 'mdg'], drills:['drills', 'editor', 'squads', 'people']};
+  let lzTap = 0; ['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, () => { lzTap = Date.now(); }, true));
+  const lzWanted = k => { let sc = ''; try { sc = S.screen; } catch(e){} return LZ_SCREENS[k].includes(sc) || Date.now() - lzTap < 2500; };
+  C.need = k => { const z = LZ[k]; if (z && z.go && !z.on){ z.on = true; try { z.go(); } catch(e){ z.on = false; } } };
+  C.peek = k => LZ[k].v;
+  ['plays', 'drills'].forEach(k => Object.defineProperty(C, k, {get(){ if (!LZ[k].on && LZ[k].go && lzWanted(k)) C.need(k); return LZ[k].v; }, set(v){ LZ[k].v = v; }, enumerable:true}));
   const LK = 'touchline.cloud';
   const readLocal = () => { try { return JSON.parse(localStorage.getItem(LK)) || {}; } catch(e){ return {}; } };
   const writeLocal = o => { try { localStorage.setItem(LK, JSON.stringify(o)); return true; } catch(e){ toast('This browser could not save. Its storage may be full.'); return false; } };
@@ -5832,11 +5841,11 @@ const Cloud = (() => {
     if (role === 'coach'){ docSub('team/nomsDone'); docSub('team/email'); docSub('totw/boys'); docSub('totw/girls'); docSub('team/noms'); docSub('team/nomsArc'); docSub('team/nomsAdj'); }
     if (C.squad()){
       docSub('team/squads'); docSub('team/roster'); docSub('team/notes'); docSub('team/tags'); docSub('team/roles'); docSub('team/books'); docSub('team/noms'); docSub('team/nomsArc'); docSub('team/mplan'); docSub('team/settings'); docSub('team/papprove');
-      colSub(db.collection('plays').limit(600), 'plays');
+      LZ.plays.go = () => colSub(db.collection('plays').limit(600), 'plays');   // fetched when the playbook is first used
       // training drills: coaches and players; if the database rules haven't been updated yet, the drills page says so instead of failing
       docSub('team/drills'); docSub('team/photos');
-      if (window.ERGS_AUTH && typeof ERGS_AUTH.drillSync === 'function') drStart();
-      else db.collection('drills').limit(3000).onSnapshot(s => { C.drills = s.docs.map(d => Object.assign({}, d.data(), {id:d.id})); C.loaded.drills = true; C.drillErr = ''; emit(); }, e => { C.drillErr = (e && e.code) || 'error'; C.loaded.drills = true; emit(); });
+      LZ.drills.go = () => { if (window.ERGS_AUTH && typeof ERGS_AUTH.drillSync === 'function') drStart();   // fetched when Training drills is first used
+        else db.collection('drills').limit(3000).onSnapshot(s => { C.drills = s.docs.map(d => Object.assign({}, d.data(), {id:d.id})); C.loaded.drills = true; C.drillErr = ''; emit(); }, e => { C.drillErr = (e && e.code) || 'error'; C.loaded.drills = true; emit(); }); };
     }
     if (role === 'coach'){
       colSub(db.collection('sponsors').limit(200), 'sponsors');
@@ -5952,8 +5961,8 @@ function roleLine(){
 }
 
 /* ---------- shared plays: the ERGS playbook plus coaches' saved plays ---------- */
-function sharedPlays(){
-  return Cloud.plays.filter(d => d && d.play && Array.isArray(d.play.frames))
+function sharedPlays(peek){   // peek: only what's already here (the home screen's demo), without fetching the playbook
+  return (peek ? Cloud.peek('plays') : Cloud.plays).filter(d => d && d.play && Array.isArray(d.play.frames))
     .map(d => Object.assign(clone(d.play), {id:d.id, group:d.group || 'Coach plays', _order:d.order == null ? 1e6 + (d.updated || 0)/1e9 : d.order, _shared:true, _hidden:!!d.hidden, _by:d.by || '', _acc:Array.isArray(d.acc) ? d.acc : [], _dis:Array.isArray(d.dis) ? d.dis : []}))
     .sort((a, b) => a._order - b._order);
 }
@@ -7623,7 +7632,7 @@ $('#calIcs').onclick = () => {
 
 /* =============================== HOME SCREEN DEMO: A DIFFERENT PLAY EACH TIME =============================== */
 let demoIdx = Math.floor(Math.random()*PRESETS.length);
-function demoPool(){ const pool = PRESETS.map(pr => () => pr.make()); if (Cloud.squad()) sharedPlays().filter(p => !p._order || p._order < 1e6).forEach(p => pool.push(() => { const q = clone(p); delete q._order; delete q._shared; return q; })); return pool; }
+function demoPool(){ const pool = PRESETS.map(pr => () => pr.make()); if (Cloud.squad()) sharedPlays(true).filter(p => !p._order || p._order < 1e6).forEach(p => pool.push(() => { const q = clone(p); delete q._order; delete q._shared; return q; })); return pool; }
 function nextDemo(){ const pool = demoPool(); let i = demoIdx; if (pool.length > 1) while (i === demoIdx) i = Math.floor(Math.random()*pool.length); demoIdx = i;
   try { demo.play = pool[i](); } catch(e){ demo.play = PRESETS[0].make(); }
   demo.T = -0.8; demo.teleport = true; $('#nowTitle').textContent = demo.play.title; }
@@ -8856,7 +8865,7 @@ const DF = {grp:'any', pos:'', tags:new Set(), q:'', hidden:false};
   $('#drQ').oninput = e => { DF.q = e.target.value.trim().toLowerCase(); renderDrills(true); };
   $('#drNew').onclick = newDrill; $('#drTagsBtn').onclick = drillTagManager;
   $('#tmQ').oninput = () => termsFilter();
-  let seen = null; Cloud.on(() => { const k = [Cloud.drills, Cloud.drillErr, Cloud.docs['team/drills']]; if (seen && k.every((v, i) => v === seen[i])) return; seen = k; if (S.screen === 'drills') renderDrills(); });
+  let seen = null; Cloud.on(() => { if (S.screen !== 'drills') return; const k = [Cloud.drills, Cloud.drillErr, Cloud.docs['team/drills']]; if (seen && k.every((v, i) => v === seen[i])) return; seen = k; if (S.screen === 'drills') renderDrills(); });
 })();
 function renderDrills(keepFocus){
   const err = $('#drErr');
@@ -14270,10 +14279,10 @@ function mailSetup(){
     const ok = (key, p) => book ? book.includes(key) : (paSees('library') && paCallOK(callsOf(key, p)));
     const pool = [];
     PRESETS.forEach(pr => { const p = pr.make(); if (ok('preset:' + pr.key, p)) pool.push(() => pr.make()); });
-    sharedPlays().filter(p => !p._hidden).forEach(p => { if (ok(p.id, p)) pool.push(() => { const q = clone(p); ['_order', '_shared', '_hidden', '_by', '_acc', '_dis'].forEach(k => delete q[k]); return q; }); });
+    sharedPlays(true).filter(p => !p._hidden).forEach(p => { if (ok(p.id, p)) pool.push(() => { const q = clone(p); ['_order', '_shared', '_hidden', '_by', '_acc', '_dis'].forEach(k => delete q[k]); return q; }); });
     return pool.length ? pool : all.slice(0, 1); };
   // the first play shown is a coached move: swap it for one of theirs as soon as we know who's signed in
-  let done = false; Cloud.on(() => { if (done || Cloud.role !== 'player' || !Cloud.plays.length) return; done = true; try { nextDemo(); } catch(e){} });
+  let done = false; Cloud.on(() => { if (done || Cloud.role !== 'player' || !Cloud.peek('plays').length) return; done = true; try { nextDemo(); } catch(e){} });
 })();
 /* =============================== ADDING A PLAYER PUTS THEM IN THE SQUAD =============================== */
 // Whenever a player login is added or changed (Access, Waiting for access, Give login), the squad list follows:
