@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '701af0ecf3';</script>
+<script>window.ERGS_VER = '0b90bb6e00';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -2365,6 +2365,7 @@ ol.an-list li::before{counter-increment:an;content:counter(an);width:18px;color:
 @media (max-width:480px){.ccm-r{grid-template-columns:62px minmax(0,1fr) auto}.ccm-s{font-size:17px}}
 .ph-back{order:-1;flex-basis:auto;display:inline-flex;align-items:center;gap:6px;min-height:40px;margin:0 100% 6px 0;padding:0 16px 0 10px;border-radius:99px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.05);color:var(--chalk);font:700 14px var(--f-body);cursor:pointer;white-space:nowrap}
 .ph-back:hover{border-color:var(--flood);color:var(--flood)}.ph-crumbs.one .lnk-btn,.ph-crumbs.one>span[aria-hidden]{display:none}
+.ga-sub{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;opacity:.65;margin:10px 0 6px}
 /* share a photo with a frame */
 .ph-share{border:1px solid rgba(255,255,255,.28)}
 .ph-sh{position:fixed;inset:0;z-index:130;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.72);backdrop-filter:blur(6px)}
@@ -6308,6 +6309,9 @@ function drawTotw(g, W, H, d, side, onImg){
     const p = d.players[i] || {f:'', l:'', t:''}, cx = ix + px*iw + (+A.x || 0)*iw/1000, cy = top + py*(bottom - top) + (+A.y || 0)*ih/1000;
     const ph = photos ? imgFor(twPhoto(p), onImg) : null;
     const K = Math.max(.4, Math.min(2.5, FS*(1 + (+A.s || 0)/100))), jsK = js*K, jhK = jh*K, prK = pr*K;
+    const an = gaElem(i, L.length); g.save();
+    if (an){ if (an.glow > 0.02){ const gr = g.createRadialGradient(cx, cy, 0, cx, cy, jsK*1.25); gr.addColorStop(0, `rgba(255,236,180,${0.55*an.glow})`); gr.addColorStop(1, 'rgba(255,236,180,0)'); g.fillStyle = gr; g.fillRect(cx - jsK*1.3, cy - jsK*1.3, jsK*2.6, jsK*2.6); }
+      g.translate(cx + an.dx*jsK + (an.fx == null ? 0 : an.hk*(an.fx*W - cx)), cy + an.dy*jsK + (an.fy == null ? 0 : an.hk*(an.fy*H - cy))); g.rotate(an.rot); g.scale(an.s*an.sx, an.s); g.translate(-cx, -cy); g.globalAlpha *= an.a; }
     let hh = jhK/2, hTop = null;
     const twPhNums = (pr, js) => { if (d.nums){ const np = d.numPos || 'left', ns = Math.max(.5, Math.min(2, +d.numSize || 1)), br = js*0.25*ns, ox = (+d.numX || 0)*js*0.01 + anx, oy = (+d.numY || 0)*js*0.01 + any, bx = (np === 'right' ? cx + pr*0.82 : np === 'left' ? cx - pr*0.82 : cx) + ox, byy = (np === 'above' ? cy - pr - br*0.4 : np === 'shirt' ? cy + pr + br*0.2 : cy + pr*0.62) + oy; g.beginPath(); g.arc(bx, byy, br, 0, Math.PI*2); g.fillStyle = acc; g.fill(); g.font = `700 ${Math.round(br*1.1)}px ${F_TW_NAME}`; g.fillStyle = autoFg(acc); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(i+1), bx, byy + br*0.06); g.textBaseline = 'alphabetic'; } };
     if (ph && !ring){
@@ -6344,7 +6348,8 @@ function drawTotw(g, W, H, d, side, onImg){
     if (fn || ln){
       const sz = twText(g, fn && ln ? [[fn + ' ', 500, '#fff'], [ln, 700, acc]] : [[fn || ln, 700, acc]], cx, y1, maxW, f, 9);
       if (p.t.trim()) twText(g, [['(' + p.t.trim().toUpperCase() + ')', 500, '#fff']], cx, y1 + sz*1.2, maxW, sz, 9);
-    } else { g.globalAlpha = .5; twText(g, [[(posNames ? posNames[i] : 'Player ' + (i+1)).toUpperCase(), 500, '#fff']], cx, y1, maxW, Math.round(f*0.85), 9); }
+    } else { g.globalAlpha *= .5; twText(g, [[(posNames ? posNames[i] : 'Player ' + (i+1)).toUpperCase(), 500, '#fff']], cx, y1, maxW, Math.round(f*0.85), 9); }
+    g.restore();
     g.restore();
   });
   g.restore();
@@ -10750,6 +10755,9 @@ function drawFX(g, W, H, onImg){
   const gap = (rows.some(r => r.off || fxgBadgeFor(r)) ? 30 : 16)*u, rh = Math.min((H/W > 1.5 ? 230 : 170)*u, (bot - top - gap*(rows.length - 1))/Math.max(1, rows.length)), y0 = top + Math.max(0, (bot - top - rows.length*rh - (rows.length - 1)*gap)*0.4);
   rows.forEach((r, i) => {
     const yy = y0 + i*(rh + gap), rad = 12*u, badge = r.off ? (r.off === 'cancelled' ? 'CANCELLED' : 'POSTPONED') : fxgBadgeFor(r); if (g.canvas && g.canvas.id === 'fxgCanvas') FXG_HITS[i] = {x:L, y:yy, w:CW, h:rh};
+    const an = gaElem(i, rows.length); g.save();
+    if (an){ const cxr = L + CW/2, cyr = yy + rh/2, sc = an.intro ? Math.min(1.25, 0.7 + 0.3*an.s) : 1 + (an.s - 1)*0.25;   // rows move less than shirts: they're wide
+      g.translate(cxr + (GAA.fx === 'wave' ? -an.dy*rh*0.9 : an.dx*rh) + (an.fx == null ? 0 : an.hk*(an.fx - 0.5)*W), cyr + (GAA.fx === 'wave' ? 0 : an.dy*rh*0.6) + (an.fy == null ? 0 : an.hk*(an.fy - 0.5)*rh*3)); g.rotate(an.rot*0.06); g.scale(sc, sc*Math.abs(an.sx)); g.translate(-cxr, -cyr); g.globalAlpha *= an.a; }
     g.save(); g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 16*u; g.shadowOffsetY = 5*u; roundRect(g, L, yy, CW, rh, rad);
     const cg = g.createLinearGradient(L, yy, L + CW, yy + rh); cg.addColorStop(0, 'rgba(10,16,34,.86)'); cg.addColorStop(1, 'rgba(4,7,16,.78)'); g.fillStyle = cg; g.fill(); g.restore();
     if (badge){ g.save(); roundRect(g, L, yy, CW, rh, rad); g.clip(); const wg = g.createLinearGradient(L, yy, L + CW, yy); wg.addColorStop(0, 'rgba(0,0,0,0)'); wg.addColorStop(.55, (r.off ? '#5a1010' : mix(acc, '#000000', .55)) + '55'); wg.addColorStop(1, (r.off ? '#7a1414' : mix(acc, '#000000', .3)) + '66'); g.fillStyle = wg; g.fillRect(L, yy, CW, rh); g.restore();
@@ -10784,6 +10792,7 @@ function drawFX(g, W, H, onImg){
     if (badge){ const bh = Math.max(30*u, rh*0.27); g.font = `800 ${Math.round(bh*0.6)}px ${F_COND}`; xvSpaced(g, true, 3*u); const txt = (r.off ? '' : '★  ') + badge, bw = g.measureText(txt).width + 28*u, bx = L + dw + 22*u, by = yy - bh*0.68;
       g.save(); g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 10*u; g.shadowOffsetY = 3*u; roundRect(g, bx, by, bw, bh, bh/2); g.fillStyle = r.off ? '#c62828' : twFoil(g, bx, by, bx + bw, by + bh, acc); g.fill(); g.restore();
       g.fillStyle = r.off ? '#ffffff' : mix(c1, '#000000', .45); g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText(txt, bx + 14*u, by + bh/2 + 1); g.textBaseline = 'alphabetic'; xvSpaced(g, false); }
+    g.restore();
   });
   if (foot){ g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,.8)'; xvSpaced(g, true, 5*u); xvFit(g, foot.toUpperCase(), 700, 24*u, F_COND, CW, 10*u); g.fillText(foot.toUpperCase(), W/2, H - P + 4*u); xvSpaced(g, false); }
   g.restore();
@@ -17154,7 +17163,7 @@ function twAdvFold(box, keep, key, title, sub){
 /* =============================== ANIMATED FRAMES + GIF: for Team of the Week, Fixtures, Results, Cup team and Matchday graphics =============================== */
 // Pick an animated frame under any graphic: it plays over the preview, and Download GIF makes a looping GIF (2.4 seconds) of the
 // graphic with the frame, ready for WhatsApp, Facebook or Instagram stories. The GIF is encoded here on the phone (no upload).
-const GA_FX = [['none', 'None'], ['shimmer', 'Gold shimmer'], ['glow', 'Glow'], ['sparkle', 'Sparkle'], ['sweep', 'Light sweep'], ['confetti', 'Confetti'], ['ball', 'Rugby ball'], ['dust', 'Gold dust'], ['neon', 'Neon'], ['marquee', 'Stadium lights'], ['spot', 'Spotlights'], ['flash', 'Camera flashes'], ['fireworks', 'Fireworks'], ['colours', 'School colours'], ['pulse', 'Pulse'], ['stars', 'Twinkling stars'], ['bokeh', 'Soft lights'], ['embers', 'Embers'], ['balls', 'Falling rugby balls'], ['snow', 'Snow'], ['rain', 'Rain']];
+const GA_FX = [['none', 'None'], ['shimmer', 'Gold shimmer'], ['glow', 'Glow'], ['sparkle', 'Sparkle'], ['sweep', 'Light sweep'], ['confetti', 'Confetti'], ['ball', 'Rugby ball'], ['dust', 'Gold dust'], ['neon', 'Neon']];
 const GA_LOOP = 2.4, GA_FRAMES = 30, GA_GOLD = '#DCC08A', GA_LIGHT = '#FFF4D6', GA_RED = '#D9262B';
 const GA = {fx:{}, raf:0, t0:performance.now()};
 try { GA.fx = JSON.parse(localStorage.getItem('ergs.gaFx') || '{}') || {}; } catch(e){}
@@ -17172,62 +17181,47 @@ const GA_G = [
 const gaRand = s => () => { s = (s * 1664525 + 1013904223) % 4294967296; return s / 4294967296; };
 function gaRect(g, W, H, ins){ g.beginPath(); g.rect(ins, ins, W - 2*ins, H - 2*ins); return 2*(W - 2*ins) + 2*(H - 2*ins); }
 function gaStar(g, x, y, r, a){ g.save(); g.translate(x, y); g.rotate(a); g.beginPath(); for (let i = 0; i < 8; i++){ const rr = i % 2 ? r*0.22 : r, an = i*Math.PI/4; g.lineTo(Math.cos(an)*rr, Math.sin(an)*rr); } g.closePath(); g.fill(); g.restore(); }
+// a match rugby ball, lying along x: white, rounded ends, a seam and navy and red end panels
+function gaRugbyBall(g, r){ const a = r*1.55, b = r, shape = () => { g.beginPath(); g.moveTo(-a, 0); g.bezierCurveTo(-a*0.98, -b*0.75, -a*0.45, -b*1.02, 0, -b); g.bezierCurveTo(a*0.45, -b*1.02, a*0.98, -b*0.75, a, 0); g.bezierCurveTo(a*0.98, b*0.75, a*0.45, b*1.02, 0, b); g.bezierCurveTo(-a*0.45, b*1.02, -a*0.98, b*0.75, -a, 0); g.closePath(); };
+  g.save(); g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = r*0.5; g.shadowOffsetY = r*0.12; shape(); const gr = g.createLinearGradient(0, -b, 0, b); gr.addColorStop(0, '#FFFFFF'); gr.addColorStop(0.6, '#F1F3F6'); gr.addColorStop(1, '#C9CED8'); g.fillStyle = gr; g.fill(); g.restore();
+  g.save(); shape(); g.clip();
+  g.fillStyle = '#1C2342'; g.beginPath(); g.ellipse(-a*1.02, 0, a*0.42, b*1.3, 0, 0, 2*Math.PI); g.fill(); g.beginPath(); g.ellipse(a*1.02, 0, a*0.42, b*1.3, 0, 0, 2*Math.PI); g.fill();
+  g.strokeStyle = '#D9262B'; g.lineWidth = r*0.12; g.beginPath(); g.ellipse(-a*1.02, 0, a*0.5, b*1.4, 0, 0, 2*Math.PI); g.stroke(); g.beginPath(); g.ellipse(a*1.02, 0, a*0.5, b*1.4, 0, 0, 2*Math.PI); g.stroke();
+  g.strokeStyle = 'rgba(28,35,66,.5)'; g.lineWidth = r*0.05; g.beginPath(); g.moveTo(-a, 0); g.quadraticCurveTo(0, -b*0.28, a, 0); g.stroke(); g.restore();
+  g.save(); shape(); g.strokeStyle = 'rgba(20,25,50,.55)'; g.lineWidth = Math.max(1, r*0.05); g.stroke(); g.restore(); }
+/* ---------- animations of the graphic's own content: the shirts (team of the week) or the rows (fixtures) move, not an overlay ---------- */
+// While one of these plays, GAA = {fx, t}; drawTotw and drawFX ask gaElem() where each shirt or row is at that moment.
+let GAA = null;
+// Intros: every shirt (or row) arrives in turn, then the finished picture holds. Loops keep moving for ever.
+const GA_INTRO = {reveal:'Pop in', drop:'Drop in', rise:'Rise up', left:'Slide from the left', right:'Slide from the right', sides:'In from both sides', burst:'Burst from the middle', tunnel:'Run out of the tunnel', deal:'Dealt like cards', zoom:'Zoom in', spin:'Spin in', flip:'Flip over', fade:'Fade in', backs:'Backs first', rand:'Random order', all:'All at once'};
+const GA_MOVE = {wave:'Wave', spotlight:'Spotlight each one', float:'Float'};
+const GA_ELEM = Object.assign({}, GA_INTRO, GA_MOVE), GA_HOLD_S = 10;   // an intro stays on its last frame for 10 seconds
+const gaHold = fx => GA_INTRO[fx] ? GA_HOLD_S : 0;
+// where shirt/row i of n is at this moment: dx, dy (in shirt widths), s and sx (scale), rot, a (alpha), glow,
+// and hk (0-1): how far it still is from home, coming from the point (fx, fy) of the picture
+function gaElem(i, n){ if (!GAA) return null; const t = GAA.t, f = GAA.fx, cl = v => Math.max(0, Math.min(1, v)), out = k => 1 - Math.pow(1 - k, 3), back = k => { const c = 1.7; return 1 + (c + 1)*Math.pow(k - 1, 3) + c*Math.pow(k - 1, 2); };
+  const o = {dx:0, dy:0, s:1, sx:1, rot:0, a:1, glow:0, hk:0, fx:null, fy:null, intro:!!GA_INTRO[f]};
+  if (o.intro){ const ord = f === 'backs' ? n - 1 - i : f === 'rand' ? (i*7 + 3) % n : i, k = f === 'all' ? cl((t - 0.1)/0.3) : cl((t - (0.02 + 0.7*ord/n))/0.26), e = out(k);
+    if (k <= 0){ o.a = 0; return o; } o.a = cl(k*3);
+    if (f === 'reveal' || f === 'backs' || f === 'rand' || f === 'all') o.s = Math.max(0.001, back(k));
+    else if (f === 'drop'){ const b = k < 0.55 ? Math.pow(k/0.55, 2) : 1 - 0.14*Math.sin(Math.PI*(k - 0.55)/0.45); o.dy = -(1 - b)*3.4; }
+    else if (f === 'rise'){ o.dy = (1 - back(k))*1.6; }
+    else if (f === 'left'){ o.hk = 1 - e; o.fx = -0.15; }
+    else if (f === 'right'){ o.hk = 1 - e; o.fx = 1.15; }
+    else if (f === 'sides'){ o.hk = 1 - e; o.fx = i % 2 ? 1.15 : -0.15; }
+    else if (f === 'burst'){ o.hk = 1 - back(k); o.fx = 0.5; o.fy = 0.5; o.s = 0.3 + 0.7*e; }
+    else if (f === 'tunnel'){ o.hk = 1 - e; o.fx = 0.5; o.fy = 1.1; o.s = 0.5 + 0.5*e; }
+    else if (f === 'deal'){ o.hk = 1 - e; o.fx = 0.5; o.fy = -0.15; o.rot = (1 - e)*(i % 2 ? 1.6 : -1.6); }
+    else if (f === 'zoom'){ o.s = 1 + 1.6*(1 - e); }
+    else if (f === 'spin'){ o.rot = -(1 - e)*2*Math.PI; o.s = Math.max(0.001, e); }
+    else if (f === 'flip'){ o.sx = Math.cos((1 - back(k))*Math.PI*1.5); if (Math.abs(o.sx) < 0.02) o.sx = 0.02; }
+    return o; }
+  if (f === 'wave'){ const h = Math.pow(Math.max(0, Math.sin(2*Math.PI*(t - i/n))), 3); o.dy = -0.2*h; o.s = 1 + 0.06*h; }
+  else if (f === 'spotlight'){ let d = Math.abs(t - (i + 0.5)/n); d = Math.min(d, 1 - d); const k = cl(1 - d/(0.9/n)), e = k*k*(3 - 2*k); o.s = 1 + 0.16*e; o.glow = e; }
+  else if (f === 'float'){ o.dy = 0.06*Math.sin(2*Math.PI*(t + i*0.37)); o.dx = 0.03*Math.sin(2*Math.PI*(t + i*0.61)); }
+  return o; }
 const GA_DRAW = {
   phglint(g, W, H, t){ phGlint(g, W, H, t); },
-  // a ring of bulbs round the frame, lit in a chasing pattern
-  marquee(g, W, H, t){ const u = Math.min(W, H), ins = u*0.03, w = W - 2*ins, h = H - 2*ins, per = 2*(w + h), n = Math.round(per/(u*0.05)), r = u*0.009;
-    const at = d => { if (d < w) return [ins + d, ins]; d -= w; if (d < h) return [ins + w, ins + d]; d -= h; if (d < w) return [ins + w - d, ins + h]; d -= w; return [ins, ins + h - d]; };
-    g.save(); for (let i = 0; i < n; i++){ const [x, y] = at(i*per/n), on = ((i + Math.floor(t*6)) % 3) === 0; g.shadowColor = '#FFE7A8'; g.shadowBlur = on ? u*0.03 : 0; g.fillStyle = on ? '#FFF4D6' : 'rgba(220,192,138,.45)'; g.beginPath(); g.arc(x, y, on ? r*1.25 : r, 0, 2*Math.PI); g.fill(); } g.restore(); },
-  // two soft beams sweep across from the top
-  spot(g, W, H, t){ const u = Math.min(W, H); g.save(); g.globalCompositeOperation = 'lighter';
-    [[0.18, 1, 0], [0.82, -1, 0.5]].forEach(([x0, dir, ph]) => { const a = dir*0.5*Math.sin(2*Math.PI*(t + ph)), ox = W*x0, len = H*1.25, half = u*0.16, tx = ox + Math.sin(a)*len, ty = Math.cos(a)*len, nx = Math.cos(a)*half, ny = -Math.sin(a)*half;
-      const gr = g.createLinearGradient(ox, 0, tx, ty); gr.addColorStop(0, 'rgba(255,244,214,.34)'); gr.addColorStop(1, 'rgba(255,244,214,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(ox - u*0.012, 0); g.lineTo(ox + u*0.012, 0); g.lineTo(tx + nx, ty + ny); g.lineTo(tx - nx, ty - ny); g.closePath(); g.fill(); });
-    g.restore(); },
-  // camera flashes going off around the picture
-  flash(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(41), n = 14; g.save(); g.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < n; i++){ const x = rnd()*W, y = rnd()*H, ph = rnd(), sz = u*(0.05 + rnd()*0.07), d = ((t - ph) % 1 + 1) % 1, k = d < 0.12 ? 1 - d/0.12 : 0; if (k <= 0) continue;
-      const gr = g.createRadialGradient(x, y, 0, x, y, sz*(1.2 + 1.2*(1 - k))); gr.addColorStop(0, `rgba(255,255,255,${0.95*k})`); gr.addColorStop(0.25, `rgba(255,250,235,${0.5*k})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x - sz*3, y - sz*3, sz*6, sz*6);
-      g.fillStyle = `rgba(255,255,255,${k})`; gaStar(g, x, y, sz*0.7*k, 0); }
-    g.restore(); },
-  // bursts in the school colours
-  fireworks(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(57), cols = [GA_LIGHT, GA_RED, '#FFFFFF', GA_GOLD, '#7FA6FF']; g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
-    for (let b = 0; b < 5; b++){ const x = W*(0.12 + rnd()*0.76), y = H*(0.1 + rnd()*0.5), ph = rnd(), col = cols[b % cols.length], R = u*(0.12 + rnd()*0.1), d = ((t - ph) % 1 + 1) % 1; if (d > 0.6) continue; const k = d/0.6, e = 1 - Math.pow(1 - k, 3), a = 1 - k;
-      for (let i = 0; i < 18; i++){ const an = i*Math.PI/9 + b, r1 = R*e, r0 = r1*0.72, dy = u*0.05*k*k; g.strokeStyle = col; g.globalAlpha = a; g.lineWidth = u*0.006*(1 - k*0.5); g.beginPath(); g.moveTo(x + Math.cos(an)*r0, y + Math.sin(an)*r0 + dy); g.lineTo(x + Math.cos(an)*r1, y + Math.sin(an)*r1 + dy); g.stroke(); } }
-    g.restore(); },
-  // a navy, red and gold ribbon runs along the top and bottom
-  colours(g, W, H, t){ const u = Math.min(W, H), bh = u*0.022, sw = u*0.16, cols = ['#1C2342', GA_RED, GA_GOLD], off = t*sw*3; g.save();
-    [[0, 1], [H - bh, -1]].forEach(([y, dir]) => { g.save(); g.beginPath(); g.rect(0, y, W, bh); g.clip(); for (let i = -4; i < W/sw + 4; i++){ const x = i*sw + dir*off % (sw*3); g.fillStyle = cols[((i % 3) + 3) % 3]; g.beginPath(); g.moveTo(x, y + bh); g.lineTo(x + sw, y + bh); g.lineTo(x + sw + bh, y); g.lineTo(x + bh, y); g.closePath(); g.fill(); } g.restore(); });
-    g.restore(); },
-  // a red and gold double border that breathes
-  pulse(g, W, H, t){ const u = Math.min(W, H), p = 0.5 - 0.5*Math.cos(2*Math.PI*t); g.save();
-    g.strokeStyle = GA_RED; g.globalAlpha = 0.55 + 0.45*p; g.lineWidth = u*(0.008 + 0.006*p); gaRect(g, W, H, u*0.02); g.stroke();
-    g.strokeStyle = GA_GOLD; g.globalAlpha = 1 - 0.45*p; g.lineWidth = u*0.005; g.shadowColor = '#FFE7A8'; g.shadowBlur = u*0.03*p; gaRect(g, W, H, u*(0.036 + 0.006*p)); g.stroke(); g.restore(); },
-  // small stars twinkle all over the picture
-  stars(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(73), n = 46; g.save(); g.shadowColor = '#FFE7A8';
-    for (let i = 0; i < n; i++){ const x = rnd()*W, y = rnd()*H, ph = rnd(), sz = u*(0.008 + rnd()*0.018), sp = 1 + Math.floor(rnd()*2), k = Math.max(0, Math.sin(2*Math.PI*(t*sp + ph))); if (k < 0.08) continue; g.globalAlpha = k; g.shadowBlur = sz*1.5; g.fillStyle = i % 4 ? '#FFFFFF' : GA_LIGHT; gaStar(g, x, y, sz*(0.5 + 0.5*k), ph*6); }
-    g.restore(); },
-  // soft out-of-focus lights drifting
-  bokeh(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(89), n = 16; g.save(); g.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < n; i++){ const x0 = rnd()*W, y0 = rnd()*H, r = u*(0.035 + rnd()*0.06), ph = rnd(), ax = u*(0.02 + rnd()*0.04), ay = u*(0.02 + rnd()*0.04), gold = rnd() < 0.6, x = x0 + Math.sin(2*Math.PI*(t + ph))*ax, y = y0 + Math.cos(2*Math.PI*(t + ph))*ay, a = 0.10 + 0.10*(0.5 + 0.5*Math.sin(2*Math.PI*(t + ph*2)));
-      const gr = g.createRadialGradient(x, y, r*0.2, x, y, r); gr.addColorStop(0, gold ? `rgba(255,226,160,${a})` : `rgba(255,255,255,${a})`); gr.addColorStop(0.8, gold ? `rgba(255,226,160,${a*0.8})` : `rgba(255,255,255,${a*0.8})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 2*Math.PI); g.fill(); }
-    g.restore(); },
-  // glowing embers rise from the bottom
-  embers(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(97), n = 55; g.save(); g.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < n; i++){ const x0 = rnd()*W, y0 = rnd(), sp = 1 + Math.floor(rnd()*2), sw = u*(0.01 + rnd()*0.04), ph = rnd(), r = u*(0.003 + rnd()*0.006), yy = 1 - ((y0 + t*sp) % 1), y = yy*(H + 20) - 10, x = x0 + Math.sin(2*Math.PI*(t*sp*2 + ph))*sw, a = Math.min(1, yy*2.2);
-      g.fillStyle = `rgba(${i % 3 ? '255,140,60' : '255,200,110'},${0.85*a})`; g.shadowColor = '#FF7A2A'; g.shadowBlur = r*6; g.beginPath(); g.arc(x, y, r, 0, 2*Math.PI); g.fill(); }
-    g.restore(); },
-  // little rugby balls tumble down
-  balls(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(113), n = 16; g.save();
-    for (let i = 0; i < n; i++){ const x0 = rnd()*W, y0 = rnd(), sway = rnd()*u*0.04, ph = rnd(), r = u*(0.016 + rnd()*0.012), spin = (rnd() < 0.5 ? -1 : 1), y = ((y0 + t) % 1)*(H + 6*r) - 3*r, x = x0 + Math.sin(2*Math.PI*(t + ph))*sway;
-      g.save(); g.translate(x, y); g.rotate(2*Math.PI*(t*spin + ph)); g.shadowColor = 'rgba(0,0,0,.4)'; g.shadowBlur = r*0.6; g.fillStyle = '#8B4A1E'; g.beginPath(); g.ellipse(0, 0, r*1.5, r, 0, 0, 2*Math.PI); g.fill(); g.shadowBlur = 0;
-      g.strokeStyle = '#F6EFDF'; g.lineWidth = r*0.14; g.beginPath(); g.moveTo(-r*0.6, 0); g.lineTo(r*0.6, 0); g.stroke(); for (let k = -1; k <= 1; k++){ g.beginPath(); g.moveTo(k*r*0.3, -r*0.25); g.lineTo(k*r*0.3, r*0.25); g.stroke(); } g.restore(); }
-    g.restore(); },
-  snow(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(127), n = 80; g.save(); g.fillStyle = '#fff';
-    for (let i = 0; i < n; i++){ const x0 = rnd()*W, y0 = rnd(), sp = 1 + Math.floor(rnd()*2), sway = rnd()*u*0.03, ph = rnd(), r = u*(0.003 + rnd()*0.006), y = ((y0 + t*sp) % 1)*(H + 20) - 10, x = x0 + Math.sin(2*Math.PI*(t + ph))*sway; g.globalAlpha = 0.55 + 0.4*rnd(); g.beginPath(); g.arc(x, y, r, 0, 2*Math.PI); g.fill(); }
-    g.restore(); },
-  rain(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(131), n = 90, dx = -u*0.012; g.save(); g.strokeStyle = 'rgba(210,225,255,.5)'; g.lineCap = 'round';
-    for (let i = 0; i < n; i++){ const x0 = rnd()*(W + H*0.35), y0 = rnd(), sp = 2 + Math.floor(rnd()*2), len = u*(0.03 + rnd()*0.04), y = ((y0 + t*sp) % 1)*(H + 2*len) - len, x = x0 - y*0.3; g.lineWidth = u*(0.0015 + rnd()*0.0015); g.beginPath(); g.moveTo(x, y); g.lineTo(x - len*0.3, y + len); g.stroke(); }
-    g.restore(); },
   shimmer(g, W, H, t){ const u = Math.min(W, H), ins = u*0.028, lw = u*0.014; g.save(); g.lineJoin = 'miter';
     g.strokeStyle = 'rgba(220,192,138,.85)'; g.lineWidth = lw; const per = gaRect(g, W, H, ins); g.stroke();
     // two bright streaks race round the frame
@@ -17256,9 +17250,7 @@ const GA_DRAW = {
     g.save(); g.strokeStyle = 'rgba(220,192,138,.55)'; g.lineWidth = u*0.006; gaRect(g, W, H, ins); g.stroke();
     const s0 = t*per, tail = per*0.22, N = 40; g.lineCap = 'round';
     for (let k = 0; k < N; k++){ const a = at(s0 - tail*(k + 1)/N), b = at(s0 - tail*k/N), f = 1 - k/N; g.strokeStyle = `rgba(246,227,180,${0.9*f*f})`; g.lineWidth = u*0.012*(0.4 + 0.6*f); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
-    const [x, y, ang] = at(s0), r = u*0.034; g.translate(x, y); g.rotate(ang + Math.sin(t*Math.PI*8)*0.15); g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = u*0.015;
-    g.fillStyle = '#8B4A1E'; g.beginPath(); g.ellipse(0, 0, r*1.45, r, 0, 0, 2*Math.PI); g.fill(); g.shadowBlur = 0;
-    g.strokeStyle = '#F6EFDF'; g.lineWidth = r*0.13; g.beginPath(); g.moveTo(-r*0.55, 0); g.lineTo(r*0.55, 0); g.stroke(); for (let k = -2; k <= 2; k++){ g.beginPath(); g.moveTo(k*r*0.22, -r*0.22); g.lineTo(k*r*0.22, r*0.22); g.stroke(); }
+    const [x, y, ang] = at(s0), r = u*0.03; g.translate(x, y); g.rotate(ang + Math.sin(t*Math.PI*8)*0.12); gaRugbyBall(g, r);
     g.restore(); },
   // glowing specks of gold drifting up the picture
   dust(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(23), n = 60; g.save(); g.globalCompositeOperation = 'lighter';
@@ -17273,13 +17265,17 @@ const GA_DRAW = {
     g.setLineDash([u*0.05, per/10 - u*0.05]); g.lineDashOffset = -t*per/5; g.strokeStyle = '#fff'; g.lineWidth = u*0.009; g.shadowColor = '#ff6b6b'; gaRect(g, W, H, o); g.stroke();
     g.setLineDash([u*0.05, per2/10 - u*0.05]); g.lineDashOffset = t*per2/5; g.shadowColor = '#ffe39a'; gaRect(g, W, H, i2); g.stroke(); g.restore(); }
 };
-Object.keys(GA.fx).forEach(k => { if (!GA_DRAW[GA.fx[k]]) delete GA.fx[k]; });   // a frame that's been removed (Pitch lines) goes back to None
+Object.keys(GA_ELEM).forEach(k => { GA_DRAW[k] = null; });
+Object.keys(GA.fx).forEach(k => { if (!(GA.fx[k] in GA_DRAW) || (GA_ELEM[GA.fx[k]] && !['totw', 'fxg'].includes(k))) delete GA.fx[k]; });   // a frame that's been removed (Pitch lines) goes back to None
 /* ---------- the preview: an overlay on the graphic, playing while the page is open ---------- */
 function gaOverlay(G){
   const base = $(G.canvas); if (!base) return null; let ov = base.parentElement.querySelector(':scope > .ga-ov');
   if (!ov){ ov = document.createElement('canvas'); ov.className = 'ga-ov'; ov.setAttribute('aria-hidden', 'true'); base.after(ov); base.parentElement.classList.add('ga-host'); }
   return ov;
 }
+// one frame of a shirts/rows animation: the whole graphic, redrawn with everything in its place for that moment
+function gaElemDraw(G, g, w, h, fx, t){ const keep = typeof TW === 'object' && TW ? [TW.hit, TW.phits, TW.tabPath] : null; GAA = {fx, t};
+  try { g.save(); G.draw(g, w, h); g.restore(); } finally { GAA = null; if (keep){ TW.hit = keep[0]; TW.phits = keep[1]; TW.tabPath = keep[2]; } } }
 function gaLoop(){
   cancelAnimationFrame(GA.raf); let any = false;
   GA_G.forEach(G => { const fx = gaFx(G.key), on = S.screen === G.screen && fx !== 'none', base = $(G.canvas), ov = base && base.parentElement.querySelector(':scope > .ga-ov');
@@ -17289,7 +17285,7 @@ function gaLoop(){
     const r = {left:r0.left + (r0.width - cw)/2, top:r0.top + (r0.height - ch)/2, width:cw, height:ch}, dpr = Math.min(2, devicePixelRatio || 1), w = Math.max(1, Math.round(r.width*dpr)), h = Math.max(1, Math.round(r.height*dpr));
     o.style.left = (r.left - pr.left + base.parentElement.scrollLeft) + 'px'; o.style.top = (r.top - pr.top + base.parentElement.scrollTop) + 'px'; o.style.width = r.width + 'px'; o.style.height = r.height + 'px';
     if (o.width !== w || o.height !== h){ o.width = w; o.height = h; }
-    const g = o.getContext('2d'), t = ((performance.now() - GA.t0)/1000 % GA_LOOP)/GA_LOOP; g.clearRect(0, 0, w, h); try { GA_DRAW[fx](g, w, h, t); } catch(e){} });
+    const g = o.getContext('2d'), t = Math.min(0.9999, ((performance.now() - GA.t0)/1000 % (GA_LOOP + gaHold(fx)))/GA_LOOP); g.clearRect(0, 0, w, h); try { if (GA_ELEM[fx]) gaElemDraw(G, g, w, h, fx, t); else GA_DRAW[fx](g, w, h, t); } catch(e){ if (!GA.err){ GA.err = 1; console.warn('animation', e); } } });
   if (any) GA.raf = requestAnimationFrame(gaLoop);
 }
 /* ---------- GIF: 256-colour palette (median cut), LZW, looping ---------- */
@@ -17320,7 +17316,7 @@ async function gaGif(G, fx, onProg, maxSide){
   const [W0, H0] = G.size().split('x').map(Number), sc = Math.min(1, (maxSide || 640)/Math.max(W0, H0)), w = Math.round(W0*sc), h = Math.round(H0*sc);
   const base = document.createElement('canvas'); base.width = w; base.height = h; G.draw(base.getContext('2d'), w, h);
   const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d', {willReadFrequently:true}), frames = [];
-  const frame = t => { g.clearRect(0, 0, w, h); g.drawImage(base, 0, 0); GA_DRAW[fx](g, w, h, t); return g.getImageData(0, 0, w, h).data; };
+  const frame = t => { g.clearRect(0, 0, w, h); if (GA_ELEM[fx]) gaElemDraw(G, g, w, h, fx, t); else { g.drawImage(base, 0, 0); GA_DRAW[fx](g, w, h, t); } return g.getImageData(0, 0, w, h).data; };
   // palette from a few frames
   const samp = []; [0, 0.3, 0.6, 0.85].forEach(t => { const d = frame(t); for (let i = 0; i < d.length; i += 4*11) samp.push((d[i] << 16) | (d[i + 1] << 8) | d[i + 2]); });
   const {pal, n} = gaPalette(samp), lut = new Int16Array(32768).fill(-1);
@@ -17329,9 +17325,9 @@ async function gaGif(G, fx, onProg, maxSide){
   out.push(0x21, 0xFF, 0x0B, ...'NETSCAPE2.0'.split('').map(ch => ch.charCodeAt(0)), 0x03, 0x01, 0, 0, 0);
   const delay = Math.round(GA_LOOP*100/GA_FRAMES);
   for (let f = 0; f < GA_FRAMES; f++){
-    const d = frame(f/GA_FRAMES), idx = new Uint8Array(w*h);
+    const hold = gaHold(fx) && f === GA_FRAMES - 1, dl = hold ? gaHold(fx)*100 : delay, d = frame(hold ? 0.9999 : f/GA_FRAMES), idx = new Uint8Array(w*h);
     for (let i = 0, p = 0; i < d.length; i += 4, p++){ const key = ((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3); let v = lut[key]; if (v < 0){ v = near(key); lut[key] = v; } idx[p] = v; }
-    out.push(0x21, 0xF9, 0x04, 0x04, delay & 255, delay >> 8, 0, 0, 0x2C, 0, 0, 0, 0, w & 255, w >> 8, h & 255, h >> 8, 0);
+    out.push(0x21, 0xF9, 0x04, 0x04, dl & 255, dl >> 8, 0, 0, 0x2C, 0, 0, 0, 0, w & 255, w >> 8, h & 255, h >> 8, 0);
     const chunk = []; gaLZW(idx, chunk); for (let i = 0; i < chunk.length; i += 65536) out.push(...chunk.slice(i, i + 65536));
     if (onProg) onProg((f + 1)/GA_FRAMES); await new Promise(r => setTimeout(r, 0)); }
   out.push(0x3B); return new Blob([new Uint8Array(out)], {type:'image/gif'});
@@ -17350,6 +17346,7 @@ function gaBar(G){
   if (!bar){ bar = document.createElement('div'); bar.className = 'ga-bar'; bar.dataset.ga = G.key; host.after(bar); }
   const fx = gaFx(G.key);
   bar.innerHTML = `<div class="ga-h"><b>✨ Animated frame</b><small>Plays on the preview. Download a looping GIF to share.</small></div>
+    ${['totw', 'fxg'].includes(G.key) ? `<div class="ga-sub">Intro: ${G.key === 'totw' ? 'the shirts' : 'the fixtures'} arrive, then it holds for ${GA_HOLD_S} seconds</div><div class="ga-chips">${Object.entries(GA_INTRO).map(([k, t]) => `<button type="button" class="af-chip" data-gafx="${k}" aria-pressed="${fx === k}">${esc(t)}</button>`).join('')}</div><div class="ga-sub">Keeps moving</div><div class="ga-chips">${Object.entries(GA_MOVE).map(([k, t]) => `<button type="button" class="af-chip" data-gafx="${k}" aria-pressed="${fx === k}">${esc(t)}</button>`).join('')}</div><div class="ga-sub">Or a frame round the edge</div>` : ''}
     <div class="ga-chips">${GA_FX.map(([k, t]) => `<button type="button" class="af-chip" data-gafx="${k}" aria-pressed="${fx === k}">${esc(t)}</button>`).join('')}</div>
     ${fx === 'none' ? '' : '<button type="button" class="ga-png" data-gapng>Download a still PNG instead</button>'}`;
   bar.querySelectorAll('[data-gafx]').forEach(b => b.onclick = () => { GA.fx[G.key] = b.dataset.gafx; gaKeep(); GA.t0 = performance.now(); gaBar(G); gaLoop(); });
