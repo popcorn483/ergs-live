@@ -1,7 +1,7 @@
 // ERGS Rugby on GitHub: connects the app's data layer to Firebase, with the same coach logins as ERGS Live.
 // The app asks for "db", "user", "assets" and "downloads"; this module answers with Firebase-backed versions.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { getFirestore, doc, getDoc, setDoc, deleteDoc, onSnapshot, collection, runTransaction, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, doc, getDoc, getDocs, where, setDoc, deleteDoc, onSnapshot, collection, runTransaction, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const CFG = window.ERGS_CONFIG || {};
@@ -183,6 +183,8 @@ window.ERGS_AUTH = {
   async aliases(){ return (await window.ERGS_AUTH.listRaw("players")).filter(d => d.aliasOf); },
   // live: the newest n docs of a collection (Team news), newest first; returns a stop function
   watch(kind, cb, n, err){ return onSnapshot(query(collection(fs, kind), orderBy('at', 'desc'), limit(n || 100)), s => cb(s.docs.map(d => Object.assign({id:d.id}, d.data()))), e => err && err(window.__ergsErr ? window.__ergsErr(e) : e)); },
+  // training drills changed since a time (0 = all of them): read once, not listened to, so opening the app doesn't re-read every drill
+  async drillSync(since){ try { const s = await getDocs(since > 0 ? query(collection(fs, 'drills'), where('u', '>', since)) : collection(fs, 'drills')); return s.docs.map(d => ({id:d.id, u:+(d.data() || {}).u || 0, d:dec(d)})).filter(x => x.d); } catch(e){ throw err(e); } },
   watchDoc(kind, id, cb){ return onSnapshot(doc(fs, kind, String(id).toLowerCase()), s => cb(s.exists() ? s.data() : null), () => cb(null)); },
   async listRaw(kind){ const out = []; await new Promise((res, rej) => { const u = onSnapshot(collection(fs, kind), s => { s.docs.forEach(d => out.push(Object.assign({id:d.id}, d.data()))); u(); res(); }, e => { rej(err(e)); }); }); return out.sort((a, b) => a.id.localeCompare(b.id)); },
   async setAccess(kind, email, data){ try { await setDoc(doc(fs, kind, email.toLowerCase()), data, {merge:true}); } catch(e){ throw err(e); } try { window.__afterSet && window.__afterSet(kind, email.toLowerCase(), data); } catch(e){} }, get admin(){ return EMAIL && EMAIL === ADMIN; }, adminEmail:ADMIN,
