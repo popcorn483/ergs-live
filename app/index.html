@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = 'f9da5f2bda';</script>
+<script>window.ERGS_VER = 'f8dfb0a351';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -2358,6 +2358,11 @@ ol.an-list li::before{counter-increment:an;content:counter(an);width:18px;color:
 .tgf-selbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;padding:8px 10px;border-radius:10px;background:rgba(220,192,138,.1);border:1px solid rgba(220,192,138,.35)}.tgf-seln{font-weight:600}
 .tg-groups.selecting .tg-th{position:relative;outline:2px solid transparent;outline-offset:-2px}.tg-groups.selecting .tg-th::after{content:'';position:absolute;top:5px;left:5px;width:20px;height:20px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.35)}
 .tg-groups.selecting .tg-th.picked{outline-color:var(--flood)}.tg-groups.selecting .tg-th.picked::after{background:var(--flood);border-color:var(--flood)}
+.cc-tap{cursor:pointer}.cc-tap:hover,.cc-tap:focus-visible{filter:brightness(1.25);outline:none}.cc-rec .cc-tap:hover{transform:translateY(-1px)}.cc-row .cc-tap{text-decoration:underline dotted rgba(255,255,255,.35);text-underline-offset:3px}
+.ccm-list{display:grid;gap:0;max-height:min(60vh,560px);overflow-y:auto;margin:6px 0 10px}.ccm-r{display:grid;grid-template-columns:84px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 4px;border-top:1px solid rgba(255,255,255,.08)}.ccm-r:first-child{border-top:0}
+.ccm-d{color:var(--mute);font-size:13px}.ccm-m b{display:block;overflow-wrap:anywhere}.ccm-m small{color:var(--mute);font-size:12.5px}.ccm-s{display:inline-flex;align-items:center;gap:8px;font:800 20px var(--f-display);white-space:nowrap}
+.ccm-s i{font:800 12px var(--f-body);font-style:normal;width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:#10163a}.ccm-s .f-W{background:#7fe0a8}.ccm-s .f-L{background:#ff9d93}.ccm-s .f-D{background:#d9dce6}
+@media (max-width:480px){.ccm-r{grid-template-columns:62px minmax(0,1fr) auto}.ccm-s{font-size:17px}}
 /* share a photo with a frame */
 .ph-share{border:1px solid rgba(255,255,255,.28)}
 .ph-sh{position:fixed;inset:0;z-index:130;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.72);backdrop-filter:blur(6px)}
@@ -14233,12 +14238,25 @@ function coachStats(){
   const mine = m => usOf(m) && (all || codes.has(xvTeamCode(m.team)));
   const score = m => { let h = 0, a = 0, any = false; (m.events || []).forEach(e => { const p = e.miss ? 0 : ({try:5, con:2, pen:3, dg:3, pt:7})[e.k] || 0; if (p) any = true; if (e.s === 'H') h += p; else if (e.s === 'A') a += p; }); return (!any || m.finalSet) && Array.isArray(m.final) ? [+m.final[0], +m.final[1]] : [h, a]; };
   const done = (Cloud.matches || []).filter(m => m.status === 'FT' && mine(m) && inSeason(m)).sort((a, b) => Date.parse(b.ko) - Date.parse(a.ko));
-  let W = 0, D = 0, L = 0, F = 0, A = 0, tries = 0; const form = [];
+  let W = 0, D = 0, L = 0, F = 0, A = 0, tries = 0; const form = [], games = [];
   done.forEach((m, i) => { const [h, a] = score(m), us = usOf(m), f = us === 'H' ? h : a, g = us === 'H' ? a : h; F += f; A += g; const r = f > g ? 'W' : f < g ? 'L' : 'D'; r === 'W' ? W++ : r === 'L' ? L++ : D++;
-    tries += (m.events || []).filter(e => e.s === us && (e.k === 'try' || e.k === 'pt') && !e.miss).length; if (i < 5) form.push({r, f, g, opp:us === 'H' ? m.away : m.home, team:m.team}); });
+    const tr = (m.events || []).filter(e => e.s === us && (e.k === 'try' || e.k === 'pt') && !e.miss); tries += tr.length; if (i < 5) form.push({r, f, g, opp:us === 'H' ? m.away : m.home, team:m.team});
+    games.push({m, r, f, g, us, opp:us === 'H' ? m.away : m.home, tries:tr.length, scorers:tr.filter(e => e.p && e.k === 'try').map(e => String(e.p).replace(/^\s*#?\d{1,2}[.)]?\s+/, ''))}); });
   const next = (Cloud.matches || []).filter(m => m.status !== 'FT' && mine(m) && Date.parse(m.ko) > Date.now() - 3*3600e3).sort((a, b) => Date.parse(a.ko) - Date.parse(b.ko))[0];
   const live = (Cloud.matches || []).find(m => mine(m) && ['1H', 'HT', '2H'].includes(m.status));
-  return {P:done.length, W, D, L, F, A, tries, rate:done.length ? Math.round(W/done.length*100) : 0, form, next, live, label:pick ? (opts.find(([k]) => k === pick) || [0, ''])[1].trim() : all ? 'All squads' : teams.map(t => paTeamName(t)).join(' · '), opts};
+  return {games, P:done.length, W, D, L, F, A, tries, rate:done.length ? Math.round(W/done.length*100) : 0, form, next, live, label:pick ? (opts.find(([k]) => k === pick) || [0, ''])[1].trim() : all ? 'All squads' : teams.map(t => paTeamName(t)).join(' · '), opts};
+}
+// tap a number on the coach card: the matches behind it, with who we played and the score
+function ccMatches(kind){
+  const st = coachStats(), all = st.games, T = {P:'Matches played', W:'Wins', D:'Draws', L:'Defeats', F:'Points scored', A:'Points conceded', T:'Tries', 5:'Last ' + Math.min(5, all.length) + ' results'};
+  let L = kind === 'W' || kind === 'D' || kind === 'L' ? all.filter(x => x.r === kind) : kind === '5' ? all.slice(0, 5) : all.slice();
+  if (kind === 'F') L.sort((a, b) => b.f - a.f); else if (kind === 'A') L.sort((a, b) => b.g - a.g); else if (kind === 'T') L = L.filter(x => x.tries).sort((a, b) => b.tries - a.tries);
+  const day = m => { const t = Date.parse(m.ko); return isNaN(t) ? '' : new Date(t).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}); };
+  const tl = t => typeof teamLabel === 'function' ? teamLabel(t) : (t || ''), sum = kind === 'F' ? `${st.F} points in ${st.P} matches${st.P ? ', ' + (st.F/st.P).toFixed(1) + ' a game' : ''}` : kind === 'A' ? `${st.A} points in ${st.P} matches${st.P ? ', ' + (st.A/st.P).toFixed(1) + ' a game' : ''}` : kind === 'T' ? `${st.tries} tries recorded with live scoring` : `${L.length} match${L.length === 1 ? '' : 'es'} this season`;
+  const names = x => { const c = new Map(); x.scorers.forEach(n => c.set(n, (c.get(n) || 0) + 1)); return [...c].map(([n, k]) => k > 1 ? `${n} ×${k}` : n).join(', '); };
+  tagModal(`<h2>${esc(T[kind] || 'Matches')}</h2><p class="as-sub">${esc(st.label)} · ${esc(sum)}</p>
+    <div class="ccm-list">${L.length ? L.map(x => `<div class="ccm-r"><span class="ccm-d">${esc(day(x.m))}</span><span class="ccm-m"><b>${esc(tl(x.m.team))} ${x.us === 'A' ? '@' : 'v'} ${esc(x.opp)}</b><small>${esc([x.us === 'A' ? 'Away' : 'Home', x.m.comp || '', x.tries ? `${x.tries} ${x.tries === 1 ? 'try' : 'tries'}${names(x) ? ': ' + names(x) : ''}` : ''].filter(Boolean).join(' · '))}</small></span><span class="ccm-s"><i class="f-${x.r}">${x.r}</i>${x.f}–${x.g}</span></div>`).join('') : `<p class="sub">${kind === 'T' ? 'No tries recorded yet. Tries count when a match is scored live.' : 'None yet this season.'}</p>`}</div>
+    <div class="dlg-a"><span style="flex:1"></span><button type="button" class="btn ghost" data-tclose>Close</button></div>`, d => { d.closest('.dialog') && d.closest('.dialog').classList.add('pa-wide'); });
 }
 function coachCard(){
   let el = $('#coCard'); const on = S.screen === 'menu' && Cloud.role === 'coach' && !(typeof VA !== 'undefined' && VA.on);
@@ -14256,12 +14274,13 @@ function coachCard(){
       <span class="cc-mid">${photo ? `<img alt="" src="${esc(photo)}" referrerpolicy="no-referrer">` : ''}<b data-count="${st.rate}">0</b><small>% won</small></span></button>
     <div class="cc-body"><div class="cc-hi">${esc(/^coach\b/i.test(name) ? name : "Coach " + first)} · ${st.opts.length ? `<select class="cc-pick" id="ccPick" aria-label="Show stats for">${st.opts.map(([k, t]) => `<option value="${esc(k)}" ${k === CCP.pick ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>` : esc(st.label)}</div>
       ${st.live ? `<div class="cc-live"><span class="cc-dot"></span>Live now: ${esc(st.live.team || '')} v ${esc(opp(st.live))}</div>` : ''}
-      <div class="cc-rec">${[['P', st.P], ['W', st.W], ['D', st.D], ['L', st.L]].map(([k, n]) => `<div class="k-${k}"><b data-count="${n}">0</b><span>${{P:'Played', W:'Won', D:'Drawn', L:'Lost'}[k]}</span></div>`).join('')}</div>
-      <div class="cc-row"><span><b data-count="${st.F}">0</b> scored</span><span><b data-count="${st.A}">0</b> conceded</span><span><b data-count="${st.tries}">0</b> tries</span></div>
-      ${st.form.length ? `<div class="cc-form" aria-label="Last results">${st.form.map(f => `<i class="f-${f.r}" title="${esc(`${f.r === 'W' ? 'Won' : f.r === 'L' ? 'Lost' : 'Drew'} ${f.f}–${f.g} v ${f.opp}${f.team ? ' (' + f.team + ')' : ''}`)}">${f.r}</i>`).join('')}<small>last ${st.form.length}</small></div>` : '<div class="cc-row"><span>No results yet this season</span></div>'}
+      <div class="cc-rec">${[['P', st.P], ['W', st.W], ['D', st.D], ['L', st.L]].map(([k, n]) => `<div class="k-${k} cc-tap" role="button" tabindex="0" data-ccl="${k}" title="See these matches"><b data-count="${n}">0</b><span>${{P:'Played', W:'Won', D:'Drawn', L:'Lost'}[k]}</span></div>`).join('')}</div>
+      <div class="cc-row"><span class="cc-tap" role="button" tabindex="0" data-ccl="F" title="See the scores"><b data-count="${st.F}">0</b> scored</span><span class="cc-tap" role="button" tabindex="0" data-ccl="A" title="See the scores"><b data-count="${st.A}">0</b> conceded</span><span class="cc-tap" role="button" tabindex="0" data-ccl="T" title="See the try scorers"><b data-count="${st.tries}">0</b> tries</span></div>
+      ${st.form.length ? `<div class="cc-form" aria-label="Last results">${st.form.map(f => `<i class="f-${f.r} cc-tap" role="button" tabindex="0" data-ccl="5" title="${esc(`${f.r === 'W' ? 'Won' : f.r === 'L' ? 'Lost' : 'Drew'} ${f.f}–${f.g} v ${f.opp}${f.team ? ' (' + f.team + ')' : ''}`)}">${f.r}</i>`).join('')}<small>last ${st.form.length}</small></div>` : '<div class="cc-row"><span>No results yet this season</span></div>'}
       ${st.next ? `<div class="cc-next"><small>Next</small><b>${esc((st.next.team ? st.next.team + ' ' : '') + (usOf(st.next) === 'A' ? '@ ' : 'v ') + opp(st.next))}</b><span>${esc(when(st.next))}</span></div>` : ''}</div>`;
   const pk = el.querySelector('#ccPick'); if (pk) pk.onchange = () => { CCP.pick = pk.value; try { localStorage.setItem('ergs.coPick', CCP.pick); } catch(e){} el.dataset.key = ''; coachCard(); };
   el.querySelector('.cc-ring').onclick = () => { try { localStorage.setItem('ergs.coCardMini', mini ? '0' : '1'); } catch(e){} el.dataset.key = ''; coachCard(); };
+  el.querySelectorAll('[data-ccl]').forEach(b => { const open = () => ccMatches(b.dataset.ccl); b.onclick = open; b.onkeydown = e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } }; });
   // the ring sweeps round and the numbers count up
   requestAnimationFrame(() => { const arc = el.querySelector('.cc-arc'); if (arc) arc.style.strokeDashoffset = arc.style.getPropertyValue('--to');
     const t0 = performance.now(), nums = [...el.querySelectorAll('[data-count]')]; const tick = now => { const k = Math.min(1, (now - t0)/1100), e = 1 - Math.pow(1 - k, 3); nums.forEach(n => { n.textContent = Math.round(+n.dataset.count*e); }); if (k < 1) requestAnimationFrame(tick); }; requestAnimationFrame(tick); });
