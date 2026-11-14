@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '44035526cb';</script>
+<script>window.ERGS_VER = '6b817f2ad5';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -19371,8 +19371,16 @@ async function nsuOpen(){
 // asked to sign in (or sign up) first; the album is remembered on that phone and opens once they're in.
 const ALB = {K:'ergs.albumLink', get(){ try { const d = JSON.parse(localStorage.getItem(this.K) || 'null'); return d && d.s && d.f && Date.now() - (d.t || 0) < 21*864e5 ? d : null; } catch(e){ return null; } },
   set(d){ try { d ? localStorage.setItem(this.K, JSON.stringify(d)) : localStorage.removeItem(this.K); } catch(e){} }};
-const albUrl = (season, f) => `${location.origin}${location.pathname}#album=${encodeURIComponent(season)}&f=${encodeURIComponent(f.id)}&n=${encodeURIComponent(f.name || '')}`;
-function albFromHash(){ if (!/^#album=/.test(location.hash)) return; const q = new URLSearchParams(location.hash.slice(1)), s2 = q.get('album') || '', f = q.get('f') || '';
+const albUrl = (season, f) => `${location.origin}${location.pathname}#a=${encodeURIComponent(f.id)}`;
+// a short link carries only the album's folder: its name and the season come from Google Drive (walking up to the season folder)
+async function albResolve(id){ const seasons = new Set(phSeasons().map(x => x.folder)), path = []; let cur = id, name = '';
+  for (let i = 0; i < 5; i++){ const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(cur)}?fields=id,name,parents&supportsAllDrives=true&key=${encodeURIComponent(driveKey())}`); if (!r.ok) throw new Error('drive'); const d = await r.json();
+    if (!i) name = d.name || ''; path.unshift({id:d.id, name:d.name || 'Album'}); const par = (d.parents || [])[0]; if (!par) break; if (seasons.has(par)) return {s:par, path, name}; cur = par; }
+  return {s:'', path:[], name}; }
+function albFromHash(){ const sm = /^#a=([\w-]{5,80})$/.exec(location.hash);
+  if (sm){ ALB.set({s:'?', f:sm[1], n:'', t:Date.now()}); try { history.replaceState(null, '', location.pathname + location.search); } catch(e){}
+    albResolve(sm[1]).then(o => { const d = ALB.get(); if (d && d.f === sm[1] && o.name){ d.n = o.name; ALB.set(d); albNote(); } }, () => {}); return; }
+  if (!/^#album=/.test(location.hash)) return; const q = new URLSearchParams(location.hash.slice(1)), s2 = q.get('album') || '', f = q.get('f') || '';
   if (/^[\w-]{5,80}$/.test(s2) && /^[\w-]{5,80}$/.test(f)) ALB.set({s:s2, f, n:(q.get('n') || '').slice(0, 120), t:Date.now()});
   try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} }
 function albNote(){ const d = ALB.get(), box = $('#gateActs'); let n = $('#albNote'); if (!d || !box || Cloud.squad()){ if (n) n.remove(); return; }
@@ -19382,10 +19390,13 @@ function albNote(){ const d = ALB.get(), box = $('#gateActs'); let n = $('#albNo
 function albTry(){ const d = ALB.get(); if (!d || Cloud.role === 'pending') return; if (!Cloud.squad()){ albNote(); return; } albNote();
   const seasons = phSeasons(); if (!seasons.length) return;   // the photo seasons haven't arrived yet
   ALB.set(null); if (typeof allowed === 'function' && !allowed('photos')) return;
+  if (d.s === '?'){ albResolve(d.f).then(o => { if (!o.s){ toast('That album isn’t in the app any more.'); return; }
+      if (o.path.some(x => phHidden()[x.id]) && !phCoach()){ toast('That album isn’t available.'); PH.season = o.s; PH.path = []; go('photos'); return; }
+      PH.season = o.s; PH.path = o.path; go('photos'); if (S.screen === 'photos') renderPhotos(); }, () => toast('That album couldn’t be opened. Check your connection and tap the link again.')); return; }
   if (!seasons.some(x => x.folder === d.s)){ toast('That album’s season isn’t in the app any more.'); return; }
   if (phHidden()[d.f] && !phCoach()){ toast('That album isn’t available.'); PH.season = d.s; PH.path = []; go('photos'); return; }
   PH.season = d.s; PH.path = [{id:d.f, name:d.n || 'Album'}]; go('photos'); if (S.screen === 'photos') renderPhotos(); }
-async function albShare(){ const here = PH.path[PH.path.length - 1]; if (!here) return; const nm = phName(here.name), url = albUrl(PH.season, here), text = `Photos: ${nm.title}${nm.when ? ' (' + nm.when + ')' : ''} on the ERGS Rugby app`;
+async function albShare(){ const here = PH.path[PH.path.length - 1]; if (!here) return; const nm = phName(here.name), url = albUrl(PH.season, here), text = `ERGS photos: ${nm.title}${nm.when ? ' (' + nm.when + ')' : ''}`;
   if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)){ try { await navigator.share({title:'ERGS Rugby photos', text, url}); return; } catch(e){ if (e && e.name === 'AbortError') return; } }
   try { await navigator.clipboard.writeText(`${text}\n${url}`); toast('Album link copied. Paste it into a message, email or post.'); } catch(e){ prompt('Copy this link to the album:', url); } }
 (() => {
