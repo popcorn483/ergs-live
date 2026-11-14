@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '897a78623b';</script>
+<script>window.ERGS_VER = 'ceb69eaaf6';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -2347,6 +2347,12 @@ ol.an-list li::before{counter-increment:an;content:counter(an);width:18px;color:
 .tg-mebtn:hover{background:rgba(220,192,138,.16)}.tg-mebtn .tg-n{min-width:24px;height:24px;padding:0 7px;border-radius:12px;background:var(--flood);color:#14112a;font:800 12.5px var(--f-body);display:inline-grid;place-items:center}
 .tg-groups h3 .tg-gw{color:var(--mute);font:600 12px var(--f-body);text-transform:none;letter-spacing:0;margin-left:6px}
 .tg-how{margin:6px 0 4px;padding-left:20px;line-height:1.6;color:var(--chalk)}
+
+.ph-bt-top{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;padding:16px 18px 12px;border-bottom:1px solid rgba(255,255,255,.08)}.ph-bt-all{display:grid;gap:6px;align-content:start}
+.ph-bt-list{display:grid;gap:8px;padding:12px 18px;max-height:min(46vh,430px);overflow-y:auto}
+.ph-bt-row{display:flex;align-items:center;gap:14px;padding:6px;border-radius:10px;background:rgba(255,255,255,.04)}.ph-bt-row img{width:96px;height:64px;object-fit:cover;border-radius:6px;flex:none;background:#05070f}
+.ph-bt-foot{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 18px 16px;border-top:1px solid rgba(255,255,255,.08)}
+@media (max-width:520px){.ph-bt-row{gap:8px}.ph-bt-row img{width:64px;height:48px}.ph-bt-row .ph-sh-frames button{padding:0 9px;font-size:12.5px;min-height:34px}}
 /* share a photo with a frame */
 .ph-share{border:1px solid rgba(255,255,255,.28)}
 .ph-sh{position:fixed;inset:0;z-index:130;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.72);backdrop-filter:blur(6px)}
@@ -9855,15 +9861,25 @@ function phFrameDraw(cv, bmp, frame, title, when, res, opt){
     const sub = 'ERGS RUGBY' + (when ? '  ·  ' + when.toUpperCase() : ''); g.fillStyle = PH_GOLD; const sz = Math.min(h*0.15, fit(sub, h*0.15, COND, tw)); spaced(sub, pad, y + h*0.82, sz, COND, sz*0.08); };
   if (frame === 'none'){ W = pw; H = ph; cv.width = W; cv.height = H; g.drawImage(bmp, 0, 0, W, H); }
   else if (frame === 'matchday'){ W = pw; const b = Math.round(Math.max(W*0.13, 96)); H = ph + b; cv.width = W; cv.height = H; g.drawImage(bmp, 0, 0, pw, ph); band(ph, b); }
-  else if (frame === 'gold'){ W = pw; H = ph; cv.width = W; cv.height = H; g.drawImage(bmp, 0, 0, W, H); const m = Math.min(W, H), ins = m*0.03;
-    if (!(opt && opt.noBorder)){ g.strokeStyle = PH_GOLD; g.lineWidth = Math.max(3, m*0.008); g.strokeRect(ins, ins, W - ins*2, H - ins*2); }
-    // a small plate in the corner: ERGS RUGBY, and the result if one is chosen
-    const bh = m*(res && res.score ? 0.13 : 0.085), pad = m*0.022; g.textBaseline = 'alphabetic';
-    const l1 = res && res.score ? `ERGS RUGBY · ${T}` : 'ERGS RUGBY', l2 = res && res.score ? res.score : ''; let s1 = bh*(l2 ? 0.24 : 0.42); g.font = COND.replace('#', s1); g.letterSpacing = (s1*0.12) + 'px'; let w1 = g.measureText(l1).width + bh*0.1; if (w1 > W*0.62){ s1 *= W*0.62/w1; w1 = W*0.62; } g.letterSpacing = '0px'; g.font = DISP.replace('#', bh*0.4); let w2 = l2 ? g.measureText(l2).width : 0; if (l2 && res.out) w2 += pill(res.out, 0, -999, bh*0.3) + bh*0.12;
-    const bw = Math.max(w1, w2) + pad*2, bx = W - ins - bw - m*0.02, by = H - ins - bh - m*0.02; g.fillStyle = 'rgba(11,16,48,.88)'; g.beginPath(); g.roundRect ? g.roundRect(bx, by, bw, bh, bh*0.14) : g.rect(bx, by, bw, bh); g.fill();
-    g.fillStyle = PH_GOLD; if (l2){ spaced(l1, bx + pad, by + bh*0.38, s1, COND, s1*0.12); let x2 = bx + pad; if (res.out){ const pw2 = pill(res.out, 0, -999, bh*0.3); pill(res.out, x2 + pw2, by + bh*0.68, bh*0.3); x2 += pw2 + bh*0.12; }
-      g.fillStyle = '#fff'; g.font = DISP.replace('#', bh*0.4); g.textAlign = 'left'; g.fillText(l2, x2, by + bh*0.82); }
-    else spaced(l1, bx + pad, by + bh*0.66, bh*0.42, COND, bh*0.05); }
+  else if (frame === 'gold'){ W = pw; H = ph; cv.width = W; cv.height = H; g.drawImage(bmp, 0, 0, W, H); const m = Math.min(W, H), ins = m*0.032, hasRes = !!(res && res.score);
+    // a soft vignette, and a deeper fade along the bottom for the words
+    const vg = g.createRadialGradient(W/2, H/2, Math.min(W, H)*0.45, W/2, H/2, Math.hypot(W, H)*0.56); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(4,6,18,.42)'); g.fillStyle = vg; g.fillRect(0, 0, W, H);
+    const fh = m*(hasRes ? 0.36 : 0.27), fd = g.createLinearGradient(0, H - fh, 0, H); fd.addColorStop(0, 'rgba(6,9,26,0)'); fd.addColorStop(0.55, 'rgba(6,9,26,.55)'); fd.addColorStop(1, 'rgba(6,9,26,.86)'); g.fillStyle = fd; g.fillRect(0, H - fh, W, fh);
+    // the frame: a fine brushed-gold line, a hairline inside it, and squared corner pieces
+    const gold = g.createLinearGradient(0, 0, W, H); [[0, '#8E6C2C'], [0.22, '#F6E7B8'], [0.42, '#C49B52'], [0.6, '#FBF1CF'], [0.8, '#B68B43'], [1, '#EBD49A']].forEach(([o2, c]) => gold.addColorStop(o2, c));
+    g.save(); g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = m*0.008; g.strokeStyle = gold; g.lineJoin = 'miter';
+    g.lineWidth = Math.max(2, m*0.0042); g.strokeRect(ins, ins, W - ins*2, H - ins*2);
+    g.shadowBlur = 0; g.globalAlpha = 0.75; g.lineWidth = Math.max(1, m*0.0014); const i2 = ins + m*0.011; g.strokeRect(i2, i2, W - i2*2, H - i2*2); g.globalAlpha = 1;
+    const cl = m*0.055, co = ins - m*0.007; g.lineWidth = Math.max(3, m*0.0085); g.lineCap = 'butt';
+    [[co, co, 1, 1], [W - co, co, -1, 1], [co, H - co, 1, -1], [W - co, H - co, -1, -1]].forEach(([x, y, dx, dy]) => { g.beginPath(); g.moveTo(x + dx*cl, y); g.lineTo(x, y); g.lineTo(x, y + dy*cl); g.stroke(); });
+    g.restore();
+    // the words, centred along the bottom: ERGS RUGBY between two rules, the match, then the result
+    g.textBaseline = 'alphabetic'; const cx = W/2, maxW = W - ins*2 - m*0.12; let y = H - ins - m*0.045;
+    if (hasRes){ const sh = m*0.062; g.font = DISP.replace('#', sh); const sw = g.measureText(res.score).width, ph2 = sh*0.62, pw2 = res.out ? pill(res.out, 0, -9999, ph2) + sh*0.28 : 0, x0 = cx - (pw2 + sw)/2;
+      if (res.out) pill(res.out, x0 + pw2 - sh*0.28, y - sh*0.36, ph2); g.fillStyle = '#fff'; g.font = DISP.replace('#', sh); g.textAlign = 'left'; g.fillText(res.score, x0 + pw2, y); y -= sh*1.25; }
+    if (T && (hasRes || T !== 'ERGS RUGBY')){ g.fillStyle = '#fff'; const ts = fit(T, m*0.04, DISP, maxW); g.textAlign = 'center'; g.fillText(T, cx, y); y -= ts*1.35; }
+    const ls = m*0.021; g.font = COND.replace('#', ls); g.letterSpacing = (ls*0.34) + 'px'; const lw2 = g.measureText('ERGS RUGBY').width; g.fillStyle = gold; g.textAlign = 'center'; g.fillText('ERGS RUGBY', cx + ls*0.17, y); g.letterSpacing = '0px';
+    g.strokeStyle = gold; g.lineWidth = Math.max(1, m*0.0016); const rl = m*0.07, gp = ls*0.9; g.beginPath(); g.moveTo(cx - lw2/2 - gp - rl, y - ls*0.34); g.lineTo(cx - lw2/2 - gp, y - ls*0.34); g.moveTo(cx + lw2/2 + gp, y - ls*0.34); g.lineTo(cx + lw2/2 + gp + rl, y - ls*0.34); g.stroke(); }
   else if (frame === 'square'){ W = H = Math.min(2048, Math.max(pw, ph)); cv.width = W; cv.height = H; blurBg(); const b = Math.round(W*0.15), aw = W*0.94, ah = H - b - W*0.06, c = Math.min(aw/iw, ah/ih), dw = iw*c, dh = ih*c;
     g.save(); g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = W*0.02; g.drawImage(bmp, (W - dw)/2, W*0.03 + (ah - dh)/2, dw, dh); g.restore(); band(H - b, b); }
   else if (frame === 'story'){ W = 1080; H = 1920; cv.width = W; cv.height = H; blurBg(); g.fillStyle = PH_GOLD; spaced('ERGS RUGBY', W/2, 190, 46, COND, 9, 'center');
@@ -9889,9 +9905,13 @@ function phResOf(m){ if (!m) return null; const us = usOf(m), sc = mdScore(m), f
   const tm = teamLabel(m.team) || 'ERGS', ft = m.status === 'FT', out = ft ? (f > a ? 'WIN' : f < a ? 'LOSS' : 'DRAW') : '';
   return {title:`${tm} v ${rpOpp(m)}`, score:played ? `${f}–${a}` : '', out, tag:ft ? 'FULL TIME' : played ? 'LATEST' : '', label:`${tm} v ${rpOpp(m)}${played ? ` · ${ft ? ({WIN:'Won', LOSS:'Lost', DRAW:'Drew'})[out] + ' ' : 'Latest '}${f}–${a}` : ''}`}; }
 const PH_OUT = {WIN:'#1FA463', LOSS:'#D9362B', DRAW:'#6B7280'};
+// a glint of light runs round the gold frame (t 0–1, loops)
+function phGlint(g, W, H, t){ const m = Math.min(W, H), ins = m*0.032, per = 2*(W - 2*ins) + 2*(H - 2*ins), seg = per*0.09; g.save(); g.lineCap = 'round';
+  [[seg, m*0.0075, 'rgba(255,240,200,.55)', m*0.03], [seg*0.45, m*0.004, '#FFFFFF', m*0.012]].forEach(([sg, lw, col, blur], k) => { g.setLineDash([sg, per/2 - sg]); g.lineDashOffset = -t*per - (k ? (seg - sg)/2 : 0); g.strokeStyle = col; g.lineWidth = lw; g.shadowColor = '#FFE9B0'; g.shadowBlur = blur; g.strokeRect(ins, ins, W - 2*ins, H - 2*ins); });
+  g.restore(); }
 // the gold edge with its shimmer, as a short looping MP4 (or a GIF where the browser can't make video)
 async function phShimmerVideo(base, onProg){
-  return gaGif({size:() => `${base.width}x${base.height}`, draw:(ctx, ww, hh) => ctx.drawImage(base, 0, 0, ww, hh)}, 'shimmer', onProg, 900);
+  return gaGif({size:() => `${base.width}x${base.height}`, draw:(ctx, ww, hh) => ctx.drawImage(base, 0, 0, ww, hh)}, 'phglint', onProg, 900);
 }
 // the photo for framing: a 2048px copy loads in a moment; the full original (often 10 MB+) only if that fails
 const PH_BMP = new Map();
@@ -9939,10 +9959,10 @@ async function phShareOpen(f, title){
   const lab = (b, t) => { b.dataset.l = b.dataset.l || b.innerHTML; b.innerHTML = t || b.dataset.l; };
   let rt = 0; const draw = () => { o.querySelectorAll('[data-fr]').forEach(b => b.setAttribute('aria-checked', b.dataset.fr === frame)); cap.parentElement.hidden = frame === 'none'; rrow.hidden = !DM.list.length || frame === 'none'; arow.hidden = frame !== 'gold';
     const moving = frame === 'gold' && anim;
-    phFrameDraw(base, bmp, frame, cap.value.trim(), nm.when || (DM.day ? new Date(DM.day + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short', year:'numeric'}) : ''), res, {noBorder:moving}); spin.hidden = true;
+    phFrameDraw(base, bmp, frame, cap.value.trim(), nm.when || (DM.day ? new Date(DM.day + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short', year:'numeric'}) : ''), res); spin.hidden = true;
     // the preview: a smaller copy, with the shimmer playing on it
     const k2 = Math.min(1, 1000/Math.max(base.width, base.height)); cv.width = Math.round(base.width*k2); cv.height = Math.round(base.height*k2); const pg = cv.getContext('2d');
-    cancelAnimationFrame(o._raf); const t0 = performance.now(), paint = () => { pg.drawImage(base, 0, 0, cv.width, cv.height); if (moving) GA_DRAW.shimmer(pg, cv.width, cv.height, ((performance.now() - t0)/1000/GA_LOOP) % 1); if (moving && !o.hidden) o._raf = requestAnimationFrame(paint); }; paint();
+    cancelAnimationFrame(o._raf); const t0 = performance.now(), paint = () => { pg.drawImage(base, 0, 0, cv.width, cv.height); if (moving) phGlint(pg, cv.width, cv.height, ((performance.now() - t0)/1000/GA_LOOP) % 1); if (moving && !o.hidden) o._raf = requestAnimationFrame(paint); }; paint();
     o._blob = null; go.disabled = sv.disabled = true; const my = ++rt; if (o._vt) o._vt.dead = true;
     if (!moving){ lab(go); lab(sv); cv.toBlob(b => { if (my !== rt) return; o._blob = b; go.disabled = sv.disabled = false; }, 'image/jpeg', 0.92); return; }
     // make the video now, so Share works straight from the tap
@@ -9993,21 +10013,57 @@ function phToggle(f, el){
 function phSelBar(){
   let bar = $('#phSelBar');
   if (!bar){ bar = document.createElement('div'); bar.id = 'phSelBar'; bar.className = 'ph-selbar'; bar.hidden = true;
-    bar.innerHTML = `<span class="ph-selcount" id="phSelN"></span><span class="sp"></span><button type="button" class="btn ghost" id="phSelX">Cancel</button><button type="button" class="btn" id="phSelSave">Save</button><button type="button" class="btn primary" id="phSelShare"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Share</button>`;
+    bar.innerHTML = `<span class="ph-selcount" id="phSelN"></span><span class="sp"></span><button type="button" class="btn ghost" id="phSelX">Cancel</button><button type="button" class="btn" id="phSelFrames">Add frames</button><button type="button" class="btn" id="phSelSave">Save</button><button type="button" class="btn primary" id="phSelShare"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>Share</button>`;
     document.body.appendChild(bar);
     bar.querySelector('#phSelX').onclick = () => { PH.sel.ids.clear(); PH.sel.on = false; renderPhotos(); };
     bar.querySelector('#phSelShare').onclick = () => phShareSel(true);
-    bar.querySelector('#phSelSave').onclick = () => phShareSel(false); }
+    bar.querySelector('#phSelSave').onclick = () => phShareSel(false); bar.querySelector('#phSelFrames').onclick = phBatchOpen; }
   const S = PH.sel, n = S ? S.ids.size : 0, on = S && S.on && S$screen() === 'photos';
   bar.hidden = !on; if (!on) return;
   const ready = [...S.ids.keys()].filter(id => PH.blobs.has(id) && PH.ready && PH.ready.has(id)).length;
   $('#phSelN').textContent = n ? `${n} selected${ready < n ? ` · getting ${n - ready} ready…` : ''}` : 'Tap photos to choose them (up to 10)';
-  $('#phSelShare').disabled = $('#phSelSave').disabled = !n;
+  $('#phSelShare').disabled = $('#phSelSave').disabled = $('#phSelFrames').disabled = !n;
 }
 const S$screen = () => (typeof S !== 'undefined' && S.screen) || '';
 async function phFiles(){
   const out = []; for (const [id, f] of PH.sel.ids){ const blob = await phPrefetch(f); const name = (f.name || 'ergs-photo').replace(/[\\/:*?"<>|]/g, '_') + (/\.(jpe?g|png|heic|webp)$/i.test(f.name || '') ? '' : '.jpg'); out.push(new File([blob], name, {type:blob.type || 'image/jpeg'})); }
   return out; }
+/* several photos at once: choose a frame for each (or none), then download them all */
+async function phBatchOpen(){
+  const items = [...PH.sel.ids.values()]; if (!items.length) return;
+  let o = $('#phBatch'); if (!o){ o = document.createElement('div'); o.id = 'phBatch'; o.className = 'ph-sh'; document.body.appendChild(o); o.addEventListener('click', e => { if (e.target === o && !o._busy) o.hidden = true; });
+    document.addEventListener('keydown', e => { if (!o.hidden && e.key === 'Escape' && !o._busy){ e.stopPropagation(); o.hidden = true; } }, true); }
+  let def = 'matchday'; try { def = localStorage.getItem('ergs.phFrame') || 'matchday'; } catch(e){} if (!PH_FRAMES.some(x => x[0] === def)) def = 'matchday';
+  const pick = new Map(items.map(f => [f.id, def])), nm = phName(PH.here && PH.here.name || ''), DM = phDayMatches(items[0]); let res = DM.best ? phResOf(DM.best) : null, edited = false;
+  const when = nm.when || (DM.day ? new Date(DM.day + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short', year:'numeric'}) : '');
+  const seg = (id, cur) => PH_FRAMES.map(([k, t]) => `<button type="button" role="radio" data-bf="${k}" ${id ? `data-id="${esc(id)}"` : ''} aria-checked="${cur === k}">${t}</button>`).join('');
+  o.innerHTML = `<div class="ph-sh-card" role="dialog" aria-modal="true" aria-labelledby="phBtH"><div class="ph-sh-head"><b id="phBtH">Frames for ${items.length} photo${items.length === 1 ? '' : 's'}</b><button type="button" class="ph-ib" id="phBtX" aria-label="Close">${PH_IC.x}</button></div>
+    <div class="ph-bt-top"><div class="ph-bt-all"><span class="label">Set all to</span><div class="ph-sh-frames" role="radiogroup" aria-label="Frame for every photo">${seg('', '')}</div></div>
+      ${DM.list.length ? `<label class="ph-sh-cap"><span class="label">Result on the frames</span><select class="input" id="phBtRes">${DM.list.map((m, n) => `<option value="${n}" ${m === DM.best ? 'selected' : ''}>${esc(phResOf(m).label)}</option>`).join('')}<option value="">No result</option></select></label>` : ''}
+      <label class="ph-sh-cap"><span class="label">Words on the frames</span><input class="input" id="phBtCap" maxlength="48" autocomplete="off"></label></div>
+    <div class="ph-bt-list">${items.map(f => `<div class="ph-bt-row" data-row="${esc(f.id)}"><img alt="" loading="lazy" referrerpolicy="no-referrer" src="${esc(thumbOf(f, 300))}"><div class="ph-sh-frames" role="radiogroup" aria-label="Frame for this photo">${seg(f.id, def)}</div></div>`).join('')}</div>
+    <div class="ph-bt-foot"><span class="ph-sh-note" id="phBtNote"></span><span style="flex:1"></span><button type="button" class="btn ghost" id="phBtCancel">Cancel</button><button type="button" class="btn primary" id="phBtGo"></button></div></div>`;
+  const cap = o.querySelector('#phBtCap'), go2 = o.querySelector('#phBtGo'), note = o.querySelector('#phBtNote'), rs = o.querySelector('#phBtRes'), mobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+  cap.value = (res && res.title) || nm.title || 'ERGS Rugby'; cap.oninput = () => { edited = true; };
+  if (rs) rs.onchange = () => { res = phResOf(rs.value === '' ? null : DM.list[+rs.value]); if (!edited) cap.value = (res && res.title) || nm.title || 'ERGS Rugby'; };
+  const paint = () => { o.querySelectorAll('.ph-bt-row [data-bf]').forEach(b => b.setAttribute('aria-checked', pick.get(b.dataset.id) === b.dataset.bf));
+    const vals = new Set(pick.values()); o.querySelectorAll('.ph-bt-all [data-bf]').forEach(b => b.setAttribute('aria-checked', vals.size === 1 && vals.has(b.dataset.bf)));
+    const nf = [...pick.values()].filter(v => v !== 'none').length; go2.textContent = `${mobile ? 'Save' : 'Download'} ${items.length} photo${items.length === 1 ? '' : 's'}`; note.textContent = nf === items.length ? 'All with a frame.' : nf ? `${nf} with a frame, ${items.length - nf} without.` : 'No frames: the photos as they are.'; };
+  o.querySelectorAll('[data-bf]').forEach(b => b.onclick = () => { if (o._busy) return; if (b.dataset.id) pick.set(b.dataset.id, b.dataset.bf); else items.forEach(f => pick.set(f.id, b.dataset.bf)); paint(); });
+  const close = () => { if (!o._busy) o.hidden = true; }; o.querySelector('#phBtX').onclick = close; o.querySelector('#phBtCancel').onclick = close;
+  go2.onclick = async () => { if (o._busy) return; o._busy = true; go2.disabled = true; const files = [], cv = document.createElement('canvas'), slug = (cap.value || 'photo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'photo'; let failed = 0;
+    try { await Promise.all(["800 40px 'Big Shoulders Display'", "800 20px 'Barlow Condensed'", "600 20px 'Barlow'"].map(x => document.fonts.load(x))); } catch(e){}
+    for (let i = 0; i < items.length; i++){ const f = items[i], fr = pick.get(f.id); go2.textContent = `Getting photo ${i + 1} of ${items.length}…`;
+      try { if (fr === 'none'){ const b = await phPrefetch(f); files.push(new File([b], (f.name || `ergs-${i + 1}`).replace(/[\\/:*?"<>|]/g, '_') + (/\.(jpe?g|png|heic|webp)$/i.test(f.name || '') ? '' : '.jpg'), {type:b.type || 'image/jpeg'})); }
+        else { const bmp = await phShareBitmap(f); phFrameDraw(cv, bmp, fr, cap.value.trim(), when, res); const b = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.92)); files.push(new File([b], `ergs-rugby-${slug}-${String(i + 1).padStart(2, '0')}.jpg`, {type:'image/jpeg'})); } }
+      catch(e){ failed++; } }
+    o._busy = false; go2.disabled = false; paint();
+    if (!files.length){ note.textContent = 'The photos couldn’t be loaded. Check your connection and try again.'; return; }
+    if (mobile && navigator.canShare && navigator.canShare({files})){ try { await navigator.share({files}); o.hidden = true; return; } catch(e){ if (e && e.name === 'AbortError') return; if (e && e.name === 'NotAllowedError'){ o._files = files; note.textContent = 'Ready. Tap the button again to save them.'; go2.onclick = async () => { try { await navigator.share({files}); o.hidden = true; } catch(x){} }; return; } } }
+    for (const fl of files){ const a = document.createElement('a'); a.href = URL.createObjectURL(fl); a.download = fl.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 8000); await new Promise(r => setTimeout(r, 300)); }
+    o.hidden = true; toast(`${files.length} photo${files.length === 1 ? '' : 's'} saved to your downloads${failed ? `; ${failed} couldn’t be loaded` : ''}.`); };
+  o._busy = false; o.hidden = false; paint();
+}
 async function phShareSel(share){
   if (!PH.sel.ids.size) return;
   let files; try { files = await phFiles(); } catch(e){ toast('Some photos couldn’t be downloaded. Try again.'); return; }
@@ -17064,6 +17120,7 @@ const gaRand = s => () => { s = (s * 1664525 + 1013904223) % 4294967296; return 
 function gaRect(g, W, H, ins){ g.beginPath(); g.rect(ins, ins, W - 2*ins, H - 2*ins); return 2*(W - 2*ins) + 2*(H - 2*ins); }
 function gaStar(g, x, y, r, a){ g.save(); g.translate(x, y); g.rotate(a); g.beginPath(); for (let i = 0; i < 8; i++){ const rr = i % 2 ? r*0.22 : r, an = i*Math.PI/4; g.lineTo(Math.cos(an)*rr, Math.sin(an)*rr); } g.closePath(); g.fill(); g.restore(); }
 const GA_DRAW = {
+  phglint(g, W, H, t){ phGlint(g, W, H, t); },
   shimmer(g, W, H, t){ const u = Math.min(W, H), ins = u*0.028, lw = u*0.014; g.save(); g.lineJoin = 'miter';
     g.strokeStyle = 'rgba(220,192,138,.85)'; g.lineWidth = lw; const per = gaRect(g, W, H, ins); g.stroke();
     // two bright streaks race round the frame
@@ -19262,6 +19319,51 @@ function gpOpen(){
 .gp-cta{display:flex;flex-direction:column;align-items:flex-start;gap:2px;width:100%;text-align:left;margin:8px 0 10px;padding:10px 14px;border-radius:12px;border:1px dashed var(--gold,#e6c27a);background:rgba(230,194,122,.07);color:inherit;font:inherit;cursor:pointer}.gp-cta b{color:var(--gold,#e6c27a);font-size:14px;text-transform:uppercase;letter-spacing:.04em}.gp-cta span{font-size:13px;opacity:.8}.gp-cta:hover{background:rgba(230,194,122,.14)}
 body.dr-player .gp-cta{display:none}`;
   document.head.appendChild(st);
+})();
+/* =============================== SQUADS: who hasn't signed up yet, squad by squad =============================== */
+// A player on a squad list counts as signed up once an email is linked to them on the Access page (they asked to join and were
+// accepted, or a coach added their email). "Never opened" are linked players who haven't opened the app yet.
+const NSU = {never:false, team:''};
+const nsuTeam = p => { const t = sqNorm(p.t); return t === 'SENIOR' ? sqXvName(p.xv || sqXvOf(p.t)) : t === 'MEDS' ? 'Medallions' : t ? sqName(t) : 'No squad'; };
+async function nsuLoad(){
+  const A = window.ERGS_AUTH; let pl = [], al = []; pl = await A.listFull('players'); try { if (A.aliases) al = await A.aliases(); } catch(e){}
+  const seen = typeof seenBy === 'function' ? seenBy() : {}, byRid = new Map(), byName = new Map();
+  pl.filter(d => !d.aliasOf).forEach(d => { const emails = [d.id].concat(al.filter(a => String(a.aliasOf).toLowerCase() === String(d.id).toLowerCase()).map(a => a.id)), last = Math.max(0, ...emails.map(e => seen[String(e).toLowerCase()] || 0)), o = {last};
+    if (d.rid) byRid.set(d.rid, o); if (d.name) byName.set(normName(d.name), o); });
+  const order = sqTeams();
+  return clone(roster()).filter(p => ((p.f || '') + (p.l || '')).trim()).map(p => { const name = ((p.f || '') + ' ' + (p.l || '')).trim(), acc = byRid.get(p.id) || byName.get(normName(name)) || null, t = sqNorm(p.t);
+    return {name, l:p.l || '', team:nsuTeam(p), ord:(order.indexOf(t) + 1 || 99)*10 + (t === 'SENIOR' ? ['1XV', '2XV', '3XV'].indexOf(p.xv || sqXvOf(p.t)) : 0), state:!acc ? 'none' : acc.last ? 'ok' : 'never'}; });
+}
+async function nsuOpen(){
+  let all; try { all = await nsuLoad(); } catch(e){ toast('The sign-in list couldn’t be read. Try again in a moment.'); return; }
+  const draw = () => {
+    const rows = all.filter(r => r.state === 'none' || (NSU.never && r.state === 'never')).filter(r => !NSU.team || r.team === NSU.team).sort((a, b) => a.ord - b.ord || a.l.localeCompare(b.l) || a.name.localeCompare(b.name));
+    const teams = [...new Map(all.slice().sort((a, b) => a.ord - b.ord).map(r => [r.team, 1])).keys()], groups = new Map(); rows.forEach(r => { if (!groups.has(r.team)) groups.set(r.team, []); groups.get(r.team).push(r); });
+    const nNone = all.filter(r => r.state === 'none').length, nNever = all.filter(r => r.state === 'never').length;
+    const text = () => `ERGS Rugby: players not signed up (${new Date().toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'})})\n\n` + [...groups].map(([t, L]) => `${t} (${L.length})\n` + L.map(r => `- ${r.name}${r.state === 'never' ? ' (has access, never opened the app)' : ''}`).join('\n')).join('\n\n');
+    tagModal(`<h2>Not signed up yet</h2><p class="as-sub">${nNone} of ${all.length} players on the squad lists have no sign-in yet${nNever ? `, and ${nNever} more ${nNever === 1 ? "has" : "have"} access but ${nNever === 1 ? "has" : "have"} never opened the app` : ''}.</p>
+      <div class="nsu-opts"><select class="input" id="nsuTeam" aria-label="Squad"><option value="">All squads</option>${teams.map(t => `<option ${NSU.team === t ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>
+        <label class="check"><input type="checkbox" id="nsuNever" ${NSU.never ? 'checked' : ''}> Include players who have never opened the app</label></div>
+      <div class="nsu-list">${rows.length ? [...groups].map(([t, L]) => `<section><h3>${esc(t)} <small>${L.length}</small></h3><ul>${L.map(r => `<li>${esc(r.name)}${r.state === 'never' ? ' <em>never opened</em>' : ''}</li>`).join('')}</ul></section>`).join('') : '<p class="nsu-none">Everyone here has signed up. 🎉</p>'}</div>
+      <div class="dlg-a"><button type="button" class="btn" id="nsuCopy" ${rows.length ? '' : 'disabled'}>Copy list</button><button type="button" class="btn ghost" id="nsuCsv" ${rows.length ? '' : 'disabled'}>Download spreadsheet</button><span style="flex:1"></span><button type="button" class="btn ghost" data-tclose>Close</button></div>`, d => {
+      d.closest('.dialog') && d.closest('.dialog').classList.add('pa-wide');
+      d.querySelector('#nsuTeam').onchange = e => { NSU.team = e.target.value; draw(); };
+      d.querySelector('#nsuNever').onchange = e => { NSU.never = e.target.checked; draw(); };
+      d.querySelector('#nsuCopy').onclick = async () => { try { await navigator.clipboard.writeText(text()); toast('List copied. Paste it into an email or message.'); } catch(e){ toast('Copying isn’t allowed here. Use Download spreadsheet instead.'); } };
+      d.querySelector('#nsuCsv').onclick = () => { const q = v => '"' + String(v).replace(/"/g, '""') + '"';
+        saveFile('ergs-not-signed-up.csv', new Blob(['﻿' + ['Team,Player,Status'].concat(rows.map(r => [q(r.team), q(r.name), q(r.state === 'never' ? 'Has access, never opened the app' : 'Not signed up')].join(','))).join('\r\n')], {type:'text/csv'})); };
+    });
+  };
+  if (NSU.team && !all.some(r => r.team === NSU.team)) NSU.team = '';
+  draw();
+}
+(() => {
+  const paste = $('#sqSqPaste'); if (!paste) return;
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost'; b.id = 'sqNsu'; b.textContent = 'Not signed up'; b.title = 'A list of players who haven’t signed up yet, by team'; b.onclick = nsuOpen; ($('#sqSqSort') || paste).after(b);
+  const st = document.createElement('style'); st.textContent = `.nsu-opts{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:6px 0 10px}.nsu-opts .input{width:auto;min-width:170px}
+.nsu-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px 20px;max-height:min(56vh,560px);overflow-y:auto;margin:0 0 10px}
+.nsu-list h3{margin:0 0 4px;font:700 13px var(--f-cond);letter-spacing:.06em;text-transform:uppercase;color:var(--flood)}.nsu-list h3 small{color:var(--mute);font-weight:600;margin-left:4px}
+.nsu-list ul{margin:0;padding:0;list-style:none;line-height:1.7}.nsu-list em{font-style:normal;color:var(--mute);font-size:12px;margin-left:4px}.nsu-none{color:var(--mute)}`; document.head.appendChild(st);
 })();
 /* =============================== A CLEAN HOME SCREEN: running the club lives in Settings (⚙ in the top corner) =============================== */
 // Settings opens on "Manage": players and access, approvals, coaches, sponsors, photo seasons and approval emails,
