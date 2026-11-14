@@ -3381,26 +3381,26 @@ function rgGames(){
 }
 const RG_CLUBS = [['Enniskillen', /enniskillen/i], ['Clogher Valley', /clogher/i], ['Omagh', /omagh/i], ['Dungannon', /dungannon/i], ['Strabane', /strabane/i], ['Cookstown', /cookstown/i]];
 const RG_GROUPS = [['Adult Mens', 'Men'], ['Adult Womens', 'Women'], ['Youth Boys', 'Youth boys'], ['Youth Girls', 'Youth girls']];
-/* the 1st XVs: every fixture and result for Enniskillen RFC and Clogher Valley RFC across the All-Ireland League, Towns Cup and Senior Cup/Shield */
-const RG_FIRST = [['Enniskillen', /^enniskillen( rfc)?$/i, 'Enniskillen RFC'], ['Clogher Valley', /^clogher valley( rfc)?$/i, 'Clogher Valley RFC']];
-function rgFirst(C0){
-  const comps = C0.filter(c => c.first || /all.?ireland|towns?\s*cup|senior (cup|shield)/i.test(c.name)); if (!comps.length) return '';
-  const k = RG_FIRST.find(([n]) => n === V.rgF) || RG_FIRST.find(([n]) => n === V.rgC) || RG_FIRST[0], [, rx, full] = k;
-  const short = n => String(n || '').replace(/^Energia\s+/i, '').replace(/^Bank of Ireland\s+/i, '').replace(/\s+\d{2}\/\d{2}$/, '').replace(/\s+Fixtures\s*&\s*Results$/i, '').replace(/^All[- ]Ireland League/i, 'AIL');
-  const games = comps.flatMap(c => c.games.filter(g => rx.test(g.h) || rx.test(g.a)).map(g => Object.assign({comp:short(c.name)}, g)));
-  const seen = new Set(), G = games.filter(g => { const key = g.date + g.h + g.a; if (seen.has(key)) return false; seen.add(key); return true; });
-  const res = G.filter(g => g.hs != null).sort((a, b) => (b.date || '').localeCompare(a.date || '')), fx = G.filter(g => g.hs == null).sort((a, b) => (a.date || '9').localeCompare(b.date || '9'));
-  const lg = comps.find(c => /all.?ireland/i.test(c.name) && c.table.some(r => rx.test(r.n))), pos = lg ? lg.table.findIndex(r => rx.test(r.n)) : -1, me = pos >= 0 ? lg.table[pos] : null;
+/* one club: every fixture and result across all its teams (or one section), with its league place and next match */
+const rgShort = n => String(n || '').replace(/^Energia\s+/i, '').replace(/^Bank of Ireland\s+/i, '').replace(/\s+\d{2}\/\d{2}$/, '').replace(/\s+Fixtures\s*&\s*Results$/i, '').replace(/^All[- ]Ireland League/i, 'AIL');
+function rgClub(C0, pk){
+  const [name, rx] = pk, secs = RG_GROUPS.filter(([g]) => C0.some(c => String(c.group || '').trim() === g && c.games.some(x => rx.test(x.h) || rx.test(x.a))));
+  const sec = secs.some(([g]) => g === V.rgT) ? V.rgT : '', comps = C0.filter(c => !sec || String(c.group || '').trim() === sec);
+  const games = comps.flatMap(c => c.games.filter(g => rx.test(g.h) || rx.test(g.a)).map(g => Object.assign({comp:rgShort(c.name)}, g)));
+  const seen = new Set(), G = games.filter(g => { const key = g.date + g.h + g.a + g.comp; if (seen.has(key)) return false; seen.add(key); return true; });
+  const res = G.filter(g => g.hs != null).sort((a, b) => (b.date || '').localeCompare(a.date || '')), since = new Date().toISOString().slice(0, 10), fx = G.filter(g => g.hs == null && (!g.date || g.date >= since)).sort((a, b) => (a.date || '9').localeCompare(b.date || '9'));   // old games with no score entered are left out
+  // the senior men's league place, when the club is in a table
+  const one = new RegExp('^' + name.replace(/\s+/g, '\\s+') + '(\\s+rfc)?$', 'i'), lg = C0.find(c => String(c.group || '').trim() === 'Adult Mens' && (c.table || []).some(r => one.test(r.n)) && (!sec || sec === 'Adult Mens')), pos = lg ? lg.table.findIndex(r => one.test(r.n)) : -1, me = pos >= 0 ? lg.table[pos] : null;
   const ord = n => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
-  const wdl = res.map(g => { const us = rx.test(g.h), f = us ? g.hs : g.as, a = us ? g.as : g.hs; return f > a ? 'W' : f < a ? 'L' : 'D'; });
   const day = d => d ? new Date(d + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}) : 'Date TBC';
-  const row = g => { const us = rx.test(g.h), opp = us ? g.a : g.h, done = g.hs != null, f = us ? g.hs : g.as, a = us ? g.as : g.hs, r = done ? (f > a ? 'W' : f < a ? 'L' : 'D') : '';
-    return `<div class="rf-r"><span class="rf-d">${esc(day(g.date))}</span><span class="rf-m"><b>${us ? 'v' : '@'} ${esc(opp)}</b><small>${esc(g.comp)}${g.venue && !done ? ' · ' + esc(g.venue) : ''}</small></span>${done ? `<span class="rf-s ${r}"><i>${r}</i>${f}–${a}</span>` : `<span class="rf-s">${esc(g.time || 'TBC')}</span>`}</div>`; };
-  const nx = fx[0];
+  const side = n => { const t = String(n || '').replace(new RegExp('^' + name + '(\\s+rfc)?\\s*', 'i'), '').trim(); return /\//.test(n) ? n : t; };   // "U16 Girls", "Women", or a joint team's full name
+  const row = g => { const us = rx.test(g.h), opp = us ? g.a : g.h, done = g.hs != null, f = us ? g.hs : g.as, a = us ? g.as : g.hs, r = done ? (f > a ? 'W' : f < a ? 'L' : 'D') : '', tm = side(us ? g.h : g.a);
+    return `<div class="rf-r"><span class="rf-d">${esc(day(g.date))}</span><span class="rf-m"><b>${us ? 'v' : '@'} ${esc(opp)}</b><small>${tm ? esc(tm) + ' · ' : ''}${esc(g.comp)}${g.venue && !done ? ' · ' + esc(g.venue) : ''}</small></span>${done ? `<span class="rf-s ${r}"><i>${r}</i>${f}–${a}</span>` : `<span class="rf-s">${esc(g.time || 'TBC')}</span>`}</div>`; };
+  const nx = fx[0], wdl = res.map(g => { const us = rx.test(g.h), f = us ? g.hs : g.as, a = us ? g.as : g.hs; return f > a ? 'W' : f < a ? 'L' : 'D'; });
   return `<div class="rf">
-    <div class="fx-view rg-chips rf-pick" role="tablist" aria-label="1st XV">${RG_FIRST.map(([n]) => `<button type="button" data-rgf="${n}" aria-pressed="${n === k[0]}">${n} 1st XV</button>`).join('')}</div>
-    <div class="rf-h"><div><b>${esc(full)} 1st XV</b><small>${me ? `${ord(pos + 1)} in ${esc(short(lg.name))} · P${me.P} W${me.W} D${me.D} L${me.L} · ${me.Pts} pts` : esc(comps.map(c => short(c.name)).join(' · '))}</small></div>${wdl.length ? `<span class="rf-form" aria-label="Recent form">${wdl.slice(0, 5).reverse().map(x => `<i class="${x}">${x}</i>`).join('')}</span>` : ''}</div>
-    ${nx ? `<div class="rf-next"><small>Next match</small><b>${rx.test(nx.h) ? 'v' : '@'} ${esc(rx.test(nx.h) ? nx.a : nx.h)}</b><span>${esc(day(nx.date))}${nx.time ? ' · ' + esc(nx.time) : ''} · ${rx.test(nx.h) ? 'Home' : 'Away'} · ${esc(nx.comp)}</span></div>` : ''}
+    <div class="rf-h"><div><b>${esc(name)}</b><small>${me ? `${ord(pos + 1)} in ${esc(rgShort(lg.name))} · P${me.P} W${me.W} D${me.D} L${me.L} · ${me.Pts} pts` : `${G.length} game${G.length === 1 ? '' : 's'} this season`}</small></div>${wdl.length ? `<span class="rf-form" aria-label="Recent form">${wdl.slice(0, 5).reverse().map(x => `<i class="${x}">${x}</i>`).join('')}</span>` : ''}</div>
+    ${secs.length > 1 ? `<label class="rg-pick sm"><span>Teams</span><select data-rgsel="t" aria-label="Which teams"><option value="">All teams</option>${secs.map(([g, t]) => `<option value="${esc(g)}" ${g === sec ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select></label>` : ''}
+    ${nx ? `<div class="rf-next"><small>Next match</small><b>${rx.test(nx.h) ? 'v' : '@'} ${esc(rx.test(nx.h) ? nx.a : nx.h)}</b><span>${esc(day(nx.date))}${nx.time ? ' · ' + esc(nx.time) : ''} · ${rx.test(nx.h) ? 'Home' : 'Away'} · ${esc([side(rx.test(nx.h) ? nx.h : nx.a), nx.comp].filter(Boolean).join(' · '))}</span></div>` : ''}
     <div class="fx-view rg-chips" role="tablist" aria-label="Show"><button type="button" data-rgfs="fx" aria-pressed="${(V.rgFS || 'fx') === 'fx'}">Fixtures <small>${fx.length}</small></button><button type="button" data-rgfs="res" aria-pressed="${V.rgFS === 'res'}">Results <small>${res.length}</small></button></div>
     <div class="rf-list">${(V.rgFS === 'res' ? res : fx).map(row).join('') || `<p class="hint">No ${V.rgFS === 'res' ? 'results' : 'fixtures'} published yet.</p>`}</div></div>`;
 }
@@ -3408,8 +3408,9 @@ function rgClubs(){
   const C0 = (NEWS && NEWS.clubs) || [];
   if (!C0.length) return '<div class="empty">The Ulster Towns Cup and the leagues of Enniskillen RFC, Clogher Valley and the other town clubs appear here from Ulster Rugby once their fixtures are published.</div>';
   const clubs = RG_CLUBS.filter(([, r]) => C0.some(c => (c.ours || []).some(n => r.test(n))));
+  if (V.rgC == null){ try { V.rgC = localStorage.getItem('ergsLive.rgClub'); } catch(e){} if (V.rgC == null) V.rgC = 'Enniskillen'; }
   const pk = clubs.find(([k]) => k === V.rgC), rx = pk ? pk[1] : /enniskillen|clogher/i, isPick = n => rx.test(n || '');
-  const chips = `<div class="fx-view rg-chips rg-clubs" role="tablist" aria-label="Club"><button type="button" data-rgc="" aria-pressed="${!pk}">All</button>${clubs.map(([k]) => `<button type="button" data-rgc="${esc(k)}" aria-pressed="${!!pk && pk[0] === k}">${esc(k)}</button>`).join('')}</div>`;
+  const chips = `<label class="rg-pick"><span>Club</span><select data-rgsel="c" aria-label="Choose a club">${clubs.map(([k]) => `<option value="${esc(k)}" ${pk && pk[0] === k ? 'selected' : ''}>${esc(k)}</option>`).join('')}<option value="" ${pk ? '' : 'selected'}>All local clubs and the Towns Cup</option></select></label>`;
   const C = C0.filter(c => !pk || (c.ours || []).some(isPick));
   const day = d => d ? new Date(d + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}) : 'Date TBC';
   const row = g => { const done = g.hs != null, w = done && (g.hs > g.as ? 'h' : g.as > g.hs ? 'a' : '');
@@ -3424,8 +3425,9 @@ function rgClubs(){
     return `<details class="cup-g rg-cd${c.towns ? ' ours' : ''}"${open ? ' open' : ''}><summary class="cup-gh"><b>${esc(c.name.replace(/\s+Fixtures\s*&\s*Results$/i, ''))}<small class="rg-sub">${esc(sub)}</small></b>${c.url ? `<a class="lnk" href="${esc(c.url)}" target="_blank" rel="noopener">Ulster Rugby ↗</a>` : ''}</summary>${tbl}
       ${fx.length ? `<div class="ko-d">Coming up</div>${fx.map(row).join('')}` : ''}${res.length ? `<div class="ko-d">Results</div>${res.map(row).join('')}` : ''}${!fx.length && !res.length && !tbl ? '<p class="hint">No games published yet.</p>' : ''}</details>`; };
   const towns = C.filter(c => c.towns), groups = RG_GROUPS.map(([g, t]) => [t, C.filter(c => !c.towns && String(c.group || '').trim() === g)]).concat([['Other', C.filter(c => !c.towns && !RG_GROUPS.some(([g]) => String(c.group || '').trim() === g))]]).filter(x => x[1].length);
-  const first = !pk || /enniskillen|clogher/i.test(pk[0]) ? rgFirst(C0) : '';
-  return first + chips + (C.length ? towns.map(comp).join('') + groups.map(([t, l]) => `<div class="rg-gh">${esc(t)} <small>${l.length}</small></div>${l.map(comp).join('')}`).join('') : '<div class="empty">Nothing for that club yet.</div>');
+  const first = pk ? rgClub(C0, pk) + `<div class="rg-gh">${esc(pk[0])}’s competitions and tables</div>` : '';
+  if (pk) opened = 99;   // with a club picked, the tables start folded: the list above already has every game
+  return chips + first + (C.length ? towns.map(comp).join('') + groups.map(([t, l]) => `<div class="rg-gh">${esc(t)} <small>${l.length}</small></div>${l.map(comp).join('')}`).join('') : '<div class="empty">Nothing for that club yet.</div>');
 }
 function viewRugby(){
   if (!NEWS) newsLoad();
@@ -3435,6 +3437,8 @@ function viewRugby(){
     ${!NEWS ? '<div class="empty">Loading…</div>' : sec === 'games' ? rgGames() : sec === 'clubs' ? rgClubs() : rgNews()}
     ${NEWS && NEWS.updated ? `<p class="hint rg-src">Headlines and scores from BBC Sport and RTÉ; club rugby from <a href="https://ulsterrugby.sportlomo.com/" target="_blank" rel="noopener">Ulster Rugby</a>. Updated ${esc(agoN(Date.parse(NEWS.updated)))}.</p>` : ''}`;
 }
+document.addEventListener('change', e => { const t = e.target.closest && e.target.closest('[data-rgsel]'); if (!t || V.tab !== 'rugby') return;
+  if (t.dataset.rgsel === 'c'){ V.rgC = t.value; V.rgT = ''; try { localStorage.setItem('ergsLive.rgClub', V.rgC); } catch(x){} } else V.rgT = t.value; render(); });
 document.addEventListener('click', e => { const t = e.target.closest && e.target.closest('[data-rg], [data-rgn], [data-rgg], [data-rgc], [data-rgf], [data-rgfs], [data-rgback]'); if (!t || V.tab !== 'rugby') return;
   if (t.hasAttribute('data-rgback')){ V.tab = V.tabBefore && !['cup', 'meds', 'rugby'].includes(V.tabBefore) ? V.tabBefore : 'matches'; render(); scrollTo(0, 0); return; }
   if (t.dataset.rgf) V.rgF = t.dataset.rgf; else if (t.dataset.rgfs) V.rgFS = t.dataset.rgfs; else if (t.dataset.rgc != null) V.rgC = t.dataset.rgc; else if (t.dataset.rg) V.rg = t.dataset.rg; else if (t.dataset.rgn) V.rgN = t.dataset.rgn; else V.rgG = t.dataset.rgg; render(); });

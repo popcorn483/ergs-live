@@ -61,7 +61,7 @@ async function clubs(){
           // 1st XV competitions (All-Ireland League, Towns Cup, Senior Cup and Shield): the whole season's games for the local clubs
           const firsts = /all.?ireland|towns?\s*cup|senior cup|senior shield/i.test(c.name) && !/women|u\d\d/i.test(c.name + ' ' + (l.group || ''));
           c.first = firsts;
-          c.games = c.games.filter(x => firsts && (OURS.test(x.h) || OURS.test(x.a)) || ((towns || !x.date || (x.date >= lo && x.date <= hi)) && (!big || OURS.test(x.h) || OURS.test(x.a))));
+          c.games = c.games.filter(x => (OURS.test(x.h) || OURS.test(x.a)) || ((towns || !x.date || (x.date >= lo && x.date <= hi)) && (!big || OURS.test(x.h) || OURS.test(x.a))));
           if (/friendl/i.test(c.name)) c.table = [];
           c.towns = towns; c.ours = teams.filter(t => OURS.test(t)).filter((t, i, a) => a.indexOf(t) === i); c.group = String(l.group || '').trim();
           if (!towns && !c.table.length && !c.games.length) continue;
