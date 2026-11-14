@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = 'df79b39137';</script>
+<script>window.ERGS_VER = '5431810ac9';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -9884,6 +9884,16 @@ function phResOf(m){ if (!m) return null; const us = usOf(m), sc = mdScore(m), f
 async function phShimmerVideo(base, onProg){
   return gaGif({size:() => `${base.width}x${base.height}`, draw:(ctx, ww, hh) => ctx.drawImage(base, 0, 0, ww, hh)}, 'shimmer', onProg, 900);
 }
+// the photo for framing: a 2048px copy loads in a moment; the full original (often 10 MB+) only if that fails
+const PH_BMP = new Map();
+async function phShareBitmap(f){
+  if (PH_BMP.has(f.id)) return PH_BMP.get(f.id);
+  const to = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+  const thumb = async () => { const r = await fetch(thumbOf(f, 2048), {referrerPolicy:'no-referrer'}); if (!r.ok) throw new Error('thumb'); const b = await r.blob(); if (!/^image\//.test(b.type) || b.size < 2000) throw new Error('thumb'); return createImageBitmap(b); };
+  const orig = async () => createImageBitmap(await phPrefetch(f));
+  let bmp; try { bmp = await to(thumb(), 15000); } catch(e){ bmp = await to(orig(), 60000); }
+  PH_BMP.set(f.id, bmp); if (PH_BMP.size > 6) PH_BMP.delete(PH_BMP.keys().next().value); return bmp;
+}
 async function phShareOpen(f, title){
   let o = $('#phShareBox');
   if (!o){ o = document.createElement('div'); o.id = 'phShareBox'; o.className = 'ph-sh'; o.innerHTML = `<div class="ph-sh-card" role="dialog" aria-modal="true" aria-labelledby="phShH">
@@ -9911,7 +9921,10 @@ async function phShareOpen(f, title){
   cap.value = (res && res.title) || title || nm.title || 'ERGS Rugby'; note.textContent = ''; o.hidden = false; spin.hidden = false; go.disabled = sv.disabled = true; o._blob = null;
   const mobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
   note.textContent = mobile ? 'Your phone’s share menu opens: choose Facebook to post it to your own account.' : '';
-  let bmp; try { const blob = await phPrefetch(f); bmp = await createImageBitmap(blob); } catch(e){ if (o._tok !== tok) return; spin.hidden = true; note.textContent = 'This photo couldn’t be loaded for sharing. Check your connection and try again.'; return; }
+  o.querySelectorAll('[data-fr]').forEach(b => b.setAttribute('aria-checked', b.dataset.fr === frame)); arow.hidden = frame !== 'gold';
+  const n0 = note.textContent, slow = setTimeout(() => { if (o._tok === tok && !o._blob) note.textContent = 'Still loading the photo… a slow connection can take a little while.'; }, 4000);
+  let bmp; try { bmp = await phShareBitmap(f); } catch(e){ clearTimeout(slow); if (o._tok !== tok) return; spin.hidden = true; note.textContent = 'This photo couldn’t be loaded for sharing. Check your connection, close this and try again.'; return; }
+  clearTimeout(slow); note.textContent = n0;
   try { await Promise.all(["800 40px 'Big Shoulders Display'", "800 20px 'Barlow Condensed'", "600 20px 'Barlow'"].map(x => document.fonts.load(x))); } catch(e){}
   if (o._tok !== tok) return;
   const lab = (b, t) => { b.dataset.l = b.dataset.l || b.innerHTML; b.innerHTML = t || b.dataset.l; };
