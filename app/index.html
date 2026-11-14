@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '6b817f2ad5';</script>
+<script>window.ERGS_VER = 'cb7deed89f';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -19371,13 +19371,24 @@ async function nsuOpen(){
 // asked to sign in (or sign up) first; the album is remembered on that phone and opens once they're in.
 const ALB = {K:'ergs.albumLink', get(){ try { const d = JSON.parse(localStorage.getItem(this.K) || 'null'); return d && d.s && d.f && Date.now() - (d.t || 0) < 21*864e5 ? d : null; } catch(e){ return null; } },
   set(d){ try { d ? localStorage.setItem(this.K, JSON.stringify(d)) : localStorage.removeItem(this.K); } catch(e){} }};
-const albUrl = (season, f) => `${location.origin}${location.pathname}#a=${encodeURIComponent(f.id)}`;
+// the built-in shortener: team/photos.links maps a 3-letter code to an album folder, so a link is just …/ergs-live/#p7kq
+// (ERGS Live passes #p… links on to this app). Codes are made when a coach opens Photos; until an album has one, the longer #a= link is used.
+const albLinks = () => phDoc().links || {};
+const albCodeOf = id => Object.keys(albLinks()).find(c => albLinks()[c] === id) || '';
+const albRoot = () => location.origin + (/\/app\//.test(location.pathname) ? location.pathname.replace(/\/app\/.*$/, '/') : location.pathname);
+const albUrl = (season, f) => { const c = albCodeOf(f.id); return c ? `${albRoot()}#p${c}` : `${location.origin}${location.pathname}#a=${encodeURIComponent(f.id)}`; };
+let albBusy = false;
+async function albEnsure(ids){ if (!phCoach() || albBusy || !phSeasons().length) return; const links = Object.assign({}, albLinks()), have = new Set(Object.values(links)), need = ids.filter(id => id && !have.has(id)); if (!need.length) return;
+  const AZ = 'abcdefghjkmnpqrstuvwxyz23456789'; need.forEach(id => { let c; do { c = Array.from({length:3}, () => AZ[Math.floor(Math.random()*AZ.length)]).join(''); } while (links[c]); links[c] = id; });
+  albBusy = true; try { await Cloud.set('team/photos', Object.assign({seasons:[], hidden:{}}, clone(phDoc()), {links, updated:Date.now()})); } catch(e){} albBusy = false; }
 // a short link carries only the album's folder: its name and the season come from Google Drive (walking up to the season folder)
 async function albResolve(id){ const seasons = new Set(phSeasons().map(x => x.folder)), path = []; let cur = id, name = '';
   for (let i = 0; i < 5; i++){ const r = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(cur)}?fields=id,name,parents&supportsAllDrives=true&key=${encodeURIComponent(driveKey())}`); if (!r.ok) throw new Error('drive'); const d = await r.json();
     if (!i) name = d.name || ''; path.unshift({id:d.id, name:d.name || 'Album'}); const par = (d.parents || [])[0]; if (!par) break; if (seasons.has(par)) return {s:par, path, name}; cur = par; }
   return {s:'', path:[], name}; }
-function albFromHash(){ const sm = /^#a=([\w-]{5,80})$/.exec(location.hash);
+function albFromHash(){ const cm = /^#p([a-z0-9]{3,6})$/.exec(location.hash);
+  if (cm){ ALB.set({s:'?', f:'~' + cm[1], n:'', t:Date.now()}); try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} return; }
+  const sm = /^#a=([\w-]{5,80})$/.exec(location.hash);
   if (sm){ ALB.set({s:'?', f:sm[1], n:'', t:Date.now()}); try { history.replaceState(null, '', location.pathname + location.search); } catch(e){}
     albResolve(sm[1]).then(o => { const d = ALB.get(); if (d && d.f === sm[1] && o.name){ d.n = o.name; ALB.set(d); albNote(); } }, () => {}); return; }
   if (!/^#album=/.test(location.hash)) return; const q = new URLSearchParams(location.hash.slice(1)), s2 = q.get('album') || '', f = q.get('f') || '';
@@ -19390,13 +19401,14 @@ function albNote(){ const d = ALB.get(), box = $('#gateActs'); let n = $('#albNo
 function albTry(){ const d = ALB.get(); if (!d || Cloud.role === 'pending') return; if (!Cloud.squad()){ albNote(); return; } albNote();
   const seasons = phSeasons(); if (!seasons.length) return;   // the photo seasons haven't arrived yet
   ALB.set(null); if (typeof allowed === 'function' && !allowed('photos')) return;
+  if (d.f[0] === '~'){ const id = albLinks()[d.f.slice(1)]; if (!id){ toast('That album link isn’t recognised. Ask for it to be shared again.'); return; } d.f = id; }
   if (d.s === '?'){ albResolve(d.f).then(o => { if (!o.s){ toast('That album isn’t in the app any more.'); return; }
       if (o.path.some(x => phHidden()[x.id]) && !phCoach()){ toast('That album isn’t available.'); PH.season = o.s; PH.path = []; go('photos'); return; }
       PH.season = o.s; PH.path = o.path; go('photos'); if (S.screen === 'photos') renderPhotos(); }, () => toast('That album couldn’t be opened. Check your connection and tap the link again.')); return; }
   if (!seasons.some(x => x.folder === d.s)){ toast('That album’s season isn’t in the app any more.'); return; }
   if (phHidden()[d.f] && !phCoach()){ toast('That album isn’t available.'); PH.season = d.s; PH.path = []; go('photos'); return; }
   PH.season = d.s; PH.path = [{id:d.f, name:d.n || 'Album'}]; go('photos'); if (S.screen === 'photos') renderPhotos(); }
-async function albShare(){ const here = PH.path[PH.path.length - 1]; if (!here) return; const nm = phName(here.name), url = albUrl(PH.season, here), text = `ERGS photos: ${nm.title}${nm.when ? ' (' + nm.when + ')' : ''}`;
+async function albShare(){ const here = PH.path[PH.path.length - 1]; if (!here) return; if (!albCodeOf(here.id)) await albEnsure([here.id]); const nm = phName(here.name), url = albUrl(PH.season, here), text = `ERGS photos: ${nm.title}${nm.when ? ' (' + nm.when + ')' : ''}`;
   if (navigator.share && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)){ try { await navigator.share({title:'ERGS Rugby photos', text, url}); return; } catch(e){ if (e && e.name === 'AbortError') return; } }
   try { await navigator.clipboard.writeText(`${text}\n${url}`); toast('Album link copied. Paste it into a message, email or post.'); } catch(e){ prompt('Copy this link to the album:', url); } }
 (() => {
@@ -19404,6 +19416,7 @@ async function albShare(){ const here = PH.path[PH.path.length - 1]; if (!here) 
   Cloud.on(albTry); whenRole(albTry);
   const jg = joinGate; joinGate = function(){ const r = jg.apply(this, arguments); try { albNote(); } catch(e){} return r; };
   const rp = renderPhotos; renderPhotos = function(){ const r = rp.apply(this, arguments); let b = $('#albShareBtn'); const c = $('#phCrumbs');
+    if (phCoach() && PH.here){ const hid = PH.here.id, inAlbum = PH.path && PH.path.length; driveList(hid).then(L => albEnsure((inAlbum ? [hid] : []).concat(L.filter(isFolder).map(x => x.id))), () => {}); }
     if (!PH.path || !PH.path.length || !c || !c.querySelector('.ph-ttl')){ if (b) b.remove(); return r; }
     if (!b){ b = document.createElement('button'); b.type = 'button'; b.id = 'albShareBtn'; b.className = 'alb-share'; b.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V4m0 0L7.5 8.5M12 4l4.5 4.5M5 13v6h14v-6"/></svg>Share album'; b.onclick = albShare; }
     c.after(b); return r; };
