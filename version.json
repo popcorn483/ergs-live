@@ -1,0 +1,10 @@
+{
+  "version": "1.1.0",
+  "file": "rugby_photo_enhancer.py",
+  "sha256": "a16a922f44b0aa5f38e7ff5b7c8587768b1c87a21ad22219c5b5db81cc732ee8",
+  "requires": [
+    "pillow",
+    "numpy"
+  ],
+  "notes": "Automatic updates, keeps photo dates and rotation, full-size uploads via Google Drive for desktop."
+}
