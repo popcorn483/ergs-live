@@ -120,6 +120,12 @@ service cloud.firestore {
       allow create, update: if (isCoach() || (isPlayer() && mine(email))) && request.resource.data.keys().hasOnly(['p', 'name', 'at']) && request.resource.data.p is map && request.resource.data.p.size() <= 400 && request.resource.data.at is number;
       allow delete: if isCoach() || mine(email);
     }
+    // activity log: every coach's approvals and access changes are written as they happen; only the admin account reads or clears it
+    match /audit/{id} {
+      allow read, delete: if isAdmin();
+      allow create: if isCoach() && request.resource.data.keys().hasOnly(['at', 'by', 'act', 'who', 'det']) && request.resource.data.by == me() && request.resource.data.at is number
+        && request.resource.data.act is string && request.resource.data.act.size() < 100 && request.resource.data.who is string && request.resource.data.who.size() < 150 && request.resource.data.det is string && request.resource.data.det.size() < 400;
+    }
     match /sponsors/{doc} { allow read, write: if isCoach(); }
     match /sheets/{doc} { allow read, write: if isCoach(); }
     match /members/{uid} {

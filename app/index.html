@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '13f13b326b';</script>
+<script>window.ERGS_VER = 'f9da5f2bda';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -19492,6 +19492,54 @@ async function albShare(){ const here = PH.path[PH.path.length - 1]; if (!here) 
   const st = document.createElement('style'); st.textContent = `.alb-share{display:inline-flex;align-items:center;gap:7px;min-height:36px;margin:2px 8px 10px 0;padding:0 14px;border-radius:99px;border:1px solid rgba(255,255,255,.25);background:transparent;color:var(--chalk);font:700 13.5px var(--f-body);cursor:pointer}.alb-share:hover{border-color:var(--flood);color:var(--flood)}
 .alb-note{display:grid;gap:4px;max-width:520px;margin:0 auto 14px;padding:12px 16px;border-radius:14px;border:1px solid rgba(220,192,138,.5);background:rgba(220,192,138,.1);text-align:left}.alb-note b{color:var(--flood);font-size:16px}.alb-note span{color:var(--chalk);font-size:13.5px;line-height:1.5}`; document.head.appendChild(st);
 })();
+/* =============================== ACTIVITY LOG: who approved, added, changed or removed what (admin account only) =============================== */
+// audit/<time-id> = {at, by, act, who, det}. Every coach's access changes are written as they happen; only the admin account can read them.
+const AU = {list:null, q:'', err:'', recent:{}};
+function auLog(act, who, det){ const A = window.ERGS_AUTH; if (!A || !A.__auSet || Cloud.role !== 'coach' || !A.email) return;
+  const at = Date.now(), id = at + '-' + Math.random().toString(36).slice(2, 7);
+  A.__auSet('audit', id, {at, by:String(A.email).toLowerCase(), act:String(act).slice(0, 80), who:String(who || '').slice(0, 120), det:String(det || '').slice(0, 300)}).catch(() => {}); }
+(() => {
+  const hook = () => { const A = window.ERGS_AUTH; if (!A || A.__auSet || !A.setAccess) return; const sa = A.setAccess.bind(A), rm = A.remove ? A.remove.bind(A) : null; A.__auSet = sa;
+    const nameOf = (kind, id, data) => (data && data.name) || id;
+    A.setAccess = async function(kind, email, data){ const r = await sa(kind, email, data); try { const e = String(email).toLowerCase(), d = data || {};
+        if (kind === 'players' || kind === 'coaches'){ const what = kind === 'players' ? 'player' : 'coach';
+          if (d.aliasOf) auLog('Added a second sign-in email', e, `for ${d.aliasOf}${d.mainRel === 'guardian' || d.rel === 'guardian' ? ' (parent or guardian)' : ''}`);
+          else if (d.added){ AU.recent[e] = Date.now(); auLog(`Approved or added a ${what}`, `${d.name ? d.name + ' · ' : ''}${e}`, [d.team ? 'Team: ' + (typeof paTeamName === 'function' ? paTeamName(d.team) : d.team) : '', d.scope ? 'Access: ' + d.scope : ''].filter(Boolean).join(' · ')); }
+          else { const ks = Object.keys(d).filter(k => !['access', 'updated', 'at'].includes(k)); if (ks.length && !(ks.length === 1 && ks[0] === 'rid')) auLog(`Changed a ${what}`, `${d.name ? d.name + ' · ' : ''}${e}`, ks.map(k => k === 'team' ? 'team → ' + (d.team ? (typeof paTeamName === 'function' ? paTeamName(d.team) : d.team) : 'none') : k === 'name' ? 'name' : k === 'scope' ? 'access → ' + d.scope : k === 'perms' || k === 'p' || k === 'teams' ? 'permissions' : k).filter((x, i, a) => a.indexOf(x) === i).join(', ')); } }
+        else if (kind === 'headshots' && d.status && Cloud.role === 'coach' && e !== String(A.email).toLowerCase()) auLog(d.status === 'approved' ? 'Approved a headshot' : d.status === 'rejected' ? 'Turned down a headshot' : 'Changed a headshot: ' + d.status, nameOf(kind, e, d));
+      } catch(x){} return r; };
+    if (rm) A.remove = async function(kind, email){ const r = await rm(kind, email); try { const e = String(email).toLowerCase();
+        if (kind === 'players') auLog('Removed a player', e); else if (kind === 'coaches') auLog('Removed a coach', e);
+        else if (kind === 'requests' && !(AU.recent[e] && Date.now() - AU.recent[e] < 60000)) auLog('Declined or cleared a sign-in request', e); } catch(x){} return r; }; };
+  setInterval(hook, 1000); hook();
+  // games confirmed and score requests
+  const pc = pcApprove; pcApprove = async function(rows, ok){ const r = await pc.apply(this, arguments); try { rows.forEach(x => auLog(ok ? 'Confirmed a player played' : 'Said a player didn’t play', x.d.name || x.em, `${x.m.team || ''} v ${rpOpp(x.m)}, ${gdDay(x.m.ko)}`)); } catch(e){} return r; };
+  const sd = srqDecide; srqDecide = async function(x, ok){ const r = await sd.apply(this, arguments); try { auLog(ok ? 'Added a player’s scores to a result' : 'Declined a score request', x.d.name || x.em, `${srqLine(x.g.sc)} · ${x.m.team || ''} v ${rpOpp(x.m)}, ${gdDay(x.m.ko)}`); } catch(e){} return r; };
+})();
+async function auPanel(){
+  const pg = $('#people .page'); if (!pg || !isAdminCoach() || !(window.ERGS_AUTH && ERGS_AUTH.admin)){ const b0 = $('#auBox'); if (b0) b0.remove(); return; }
+  let box = $('#auBox'); if (!box){ box = document.createElement('details'); box.id = 'auBox'; box.className = 'dx-box'; const after = $('#dxBox') || $('#hsAcc') || $('#accReqs'); after ? after.after(box) : pg.prepend(box);
+    box.innerHTML = '<summary><b>Activity log</b><span>Who approved, added, changed or removed what. Only this admin account can see it.</span></summary><div class="au-body"></div>';
+    box.addEventListener('toggle', () => { if (box.open) auLoad(true); }); }
+  if (box.open) auLoad(false);
+}
+async function auLoad(force){
+  const body = $('#auBox .au-body'); if (!body) return; if (force || !AU.list){ body.innerHTML = '<p class="sub">Loading…</p>'; try { AU.list = (await ERGS_AUTH.listFull('audit')).sort((a, b) => (b.at || 0) - (a.at || 0)); AU.err = ''; } catch(e){ AU.list = []; AU.err = String(e && (e.code || e.message) || e); } }
+  let co = []; try { co = await ERGS_AUTH.listFull('coaches'); } catch(e){}
+  const who = e => e === String(ERGS_AUTH.adminEmail || '').toLowerCase() ? 'Admin account' : ((co.find(c => String(c.id).toLowerCase() === e) || {}).name || e);
+  const draw = () => { const q = AU.q.trim().toLowerCase(), L = AU.list.filter(r => !q || `${who(r.by)} ${r.by} ${r.act} ${r.who} ${r.det}`.toLowerCase().includes(q)).slice(0, 400);
+    body.querySelector('.au-rows').innerHTML = L.length ? L.map(r => `<tr><td class="au-t">${esc(new Date(r.at).toLocaleString('en-GB', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'}))}</td><td><b>${esc(who(r.by))}</b></td><td>${esc(r.act)}</td><td>${esc(r.who || '')}${r.det ? `<small>${esc(r.det)}</small>` : ''}</td></tr>`).join('') : `<tr><td colspan="4" class="sub">${AU.list.length ? 'Nothing matches that search.' : 'Nothing logged yet. Entries appear from now on, as coaches approve and change things.'}</td></tr>`; };
+  body.innerHTML = `${/permission/i.test(AU.err) ? '<div class="dx-warn"><b>The log can’t be read or written yet.</b> Open Firebase › Firestore › Rules, paste in <code>firestore.rules</code> from the GitHub repo and press Publish. Nothing is recorded until then.</div>' : ''}
+    <div class="au-top"><input class="input" type="search" id="auQ" placeholder="Search by coach, player or action…" value="${esc(AU.q)}" aria-label="Search the log"><button type="button" class="btn ghost" id="auRe">Refresh</button><button type="button" class="btn ghost" id="auCsv">Download</button></div>
+    <div class="au-wrap"><table class="au-tbl"><thead><tr><th>When</th><th>Who did it</th><th>What</th><th>Who or what it was about</th></tr></thead><tbody class="au-rows"></tbody></table></div>`;
+  body.querySelector('#auQ').oninput = e => { AU.q = e.target.value; draw(); }; body.querySelector('#auRe').onclick = () => auLoad(true);
+  body.querySelector('#auCsv').onclick = () => { const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; saveFile('ergs-activity-log.csv', new Blob(['﻿' + ['When,Who did it,Email,What,About,Details'].concat(AU.list.map(r => [q(new Date(r.at).toLocaleString('en-GB')), q(who(r.by)), q(r.by), q(r.act), q(r.who), q(r.det)].join(','))).join('\r\n')], {type:'text/csv'})); };
+  draw();
+}
+(() => { const dp = dxPanel; dxPanel = async function(){ const r = await dp.apply(this, arguments); try { auPanel(); } catch(e){} return r; };
+  const st = document.createElement('style'); st.textContent = `.au-top{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 8px}.au-top .input{flex:1;min-width:200px}.au-wrap{max-height:min(60vh,520px);overflow:auto;border-radius:10px;border:1px solid rgba(255,255,255,.08)}
+.au-tbl{width:100%;border-collapse:collapse;font-size:13.5px}.au-tbl th{position:sticky;top:0;background:#141a3c;text-align:left;padding:8px 10px;font:700 12px var(--f-cond);letter-spacing:.06em;text-transform:uppercase;color:var(--mute)}
+.au-tbl td{padding:8px 10px;border-top:1px solid rgba(255,255,255,.06);vertical-align:top}.au-tbl td small{display:block;color:var(--mute);font-size:12px}.au-t{white-space:nowrap;color:var(--mute)}`; document.head.appendChild(st); })();
 /* =============================== A CLEAN HOME SCREEN: running the club lives in Settings (⚙ in the top corner) =============================== */
 // Settings opens on "Manage": players and access, approvals, coaches, sponsors, photo seasons and approval emails,
 // then the feature switches and defaults. Play IQ, match-day plans, the register, reports and Settings itself leave a coach's
