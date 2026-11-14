@@ -1,10 +1,10 @@
 {
-  "version": "1.5.0",
+  "version": "1.6.0",
   "file": "rugby_photo_enhancer.py",
-  "sha256": "295a83c55f051305ec26dc9bba55967c095b572fc372cd8062cc62d46b2a808f",
+  "sha256": "647d7dfc508dd14b598567424a833716a9e76665ac614e63683f33e184120bee",
   "requires": [
     "pillow",
     "numpy"
   ],
-  "notes": "New app icon (Desktop, Start menu, window and taskbar)."
+  "notes": "Save on this PC only - for the camera card and for earlier Drive uploads."
 }

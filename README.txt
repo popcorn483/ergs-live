@@ -55,7 +55,10 @@ IMPROVING EARLIER UPLOADS
 OPTIONS
   - "Also keep a copy on this PC" saves the enhanced photos in Pictures\Rugby Photos too.
   - "Also upload untouched originals" adds an "Originals" subfolder.
-  - Prefer Google Drive for desktop? Choose "A folder on this PC" and pick the synced folder.
+  - Just want them on your PC? Choose "Save on this PC only" (default: Pictures\Rugby Photos).
+    Nothing is uploaded. (Pointing it at a Google Drive for desktop folder also works.)
+  - On the Google Drive tab, "Save on this PC only" enhances earlier uploads into folders on
+    your PC (one per match) without changing anything in Drive.
 
 NOTES
   - Photos on the card are never changed.

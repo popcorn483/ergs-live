@@ -24,7 +24,7 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 APP_NAME = "Rugby Photo Enhancer"
-APP_VERSION = "1.5.0"
+APP_VERSION = "1.6.0"
 # Updates are published here (branch "photo-enhancer" of github.com/popcorn483/ergs-live)
 UPDATE_BASE = "https://raw.githubusercontent.com/popcorn483/ergs-live/photo-enhancer/"
 DEFAULT_SOURCE = r"E:\DCIM\100CANON"
@@ -692,8 +692,9 @@ class App:
         return {
             "source": c.get("source", DEFAULT_SOURCE),
             "mode": c.get("mode", "direct"),
-            "dest": c.get("dest") or find_drive_rugby_folder(),
+            "dest": c.get("dest") or find_drive_rugby_folder() or os.path.join(os.path.expanduser("~"), "Pictures", "Rugby Photos"),
             "localDir": c.get("local_copy_dir") or os.path.join(os.path.expanduser("~"), "Pictures", "Rugby Photos"),
+            "driveLocalDir": c.get("drive_local_dir") or os.path.join(os.path.expanduser("~"), "Pictures", "Rugby Photos"),
             "keepLocal": c.get("keep_local", True),
             "onlyDate": c.get("only_date", True),
             "skip": c.get("skip_imported", True),
@@ -704,6 +705,7 @@ class App:
 
     def save_settings(self, s):
         m = {"source": "source", "mode": "mode", "dest": "dest", "localDir": "local_copy_dir", "keepLocal": "keep_local",
+             "driveLocalDir": "drive_local_dir",
              "onlyDate": "only_date", "skip": "skip_imported", "keepOriginals": "keep_originals",
              "preset": "preset", "quality": "quality_num"}
         with self.cfg_lock:
@@ -831,7 +833,7 @@ class App:
         self.photos = photos
         return {"ok": True, "photos": out, "total": total, "skipped": skipped}
 
-    def _work_drive(self, ids, looks, quality, action):
+    def _work_drive(self, ids, looks, quality, action, local_root=""):
         """Re-enhance photos already in Drive: download, enhance, then replace or save to an 'Enhanced' subfolder."""
         from concurrent.futures import ThreadPoolExecutor
         job, lock, up = self.job, threading.Lock(), self.uploader()
@@ -850,9 +852,22 @@ class App:
                     base, ext = os.path.splitext(ph["name"])
                     import hashlib
                     dst = os.path.join(staging, hashlib.sha1(ph["drive"].encode()).hexdigest()[:16] + (".png" if ext.lower() == ".png" else ".jpg"))
+                    if action == "local":
+                        out_dir = os.path.join(local_root, safe_folder_name(ph["folderName"]) or "Drive photos")
+                        os.makedirs(out_dir, exist_ok=True)
+                        dst = os.path.join(out_dir, base + os.path.splitext(dst)[1])
                     tags = ex.submit(process_one, src, dst, looks[pid], quality).result()
                     with lock:
                         job["enh"] += 1
+                    if action == "local":
+                        job["status"][pid] = "done"
+                        self._log(f"✓ {ph['folderName']} / {ph['name']}  ({', '.join(tags)})")
+                        try:
+                            os.remove(src)
+                        except OSError:
+                            pass
+                        ph["path"] = None
+                        return
                     job["status"][pid] = "uploading"
                     if action == "subfolder":
                         with sub_lock:
@@ -883,7 +898,9 @@ class App:
                     self._log(f"✗ {ph['folderName']} / {ph['name']}: {e}")
             with ThreadPoolExecutor(max_workers=3) as pool:
                 list(pool.map(one, ids))
-        job["message"] = (f"{job['up']} of {job['total']} photos " + ("replaced in Google Drive" if action == "replace" else "saved to ‘Enhanced’ folders")
+        done_n = job["enh"] if action == "local" else job["up"]
+        where = {"replace": "replaced in Google Drive", "subfolder": "saved to ‘Enhanced’ folders", "local": "saved on this PC"}[action]
+        job["message"] = (f"{done_n} of {job['total']} photos {where}"
                           + (f" — {job['fail']} failed, run again to retry them" if job["fail"] else ""))
         job["running"] = False
         job["finished"] = True
@@ -901,18 +918,24 @@ class App:
                     return {"ok": False, "error": "setup"}
                 s = req.get("settings", {})
                 self.save_settings(s)
-                action = "subfolder" if req.get("action") == "subfolder" else "replace"
+                action = req.get("action") if req.get("action") in ("subfolder", "local") else "replace"
+                local_root = (s.get("driveLocalDir") or "").strip()
+                if action == "local":
+                    try:
+                        os.makedirs(local_root, exist_ok=True)
+                    except OSError:
+                        return {"ok": False, "error": "Choose a folder on this PC to save into"}
                 with self.cfg_lock:
                     self.cfg["drive_action"] = action
                     save_config(self.cfg)
                 default = PRESETS.get(s.get("preset"), PRESETS["Balanced"])
                 given = req.get("looks") or {}
                 looks = {i: (look_from_list(given[i]) if i in given else dict(default)) for i in ids}
-                folders = {self.photos[i]["folderUrl"] for i in ids}
-                self.job = {"running": True, "total": len(ids), "enh": 0, "up": 0, "fail": 0, "direct": True,
+                folders = {self.photos[i]["folderUrl"] for i in ids} if action != "local" else {local_root}
+                self.job = {"running": True, "total": len(ids), "enh": 0, "up": 0, "fail": 0, "direct": action != "local",
                             "status": {i: "queued" for i in ids}, "errors": {}, "log": [], "name": "",
                             "open": folders.pop() if len(folders) == 1 else "", "started": time.time(), "message": "Starting…"}
-                threading.Thread(target=self._work_drive, args=(ids, looks, int(s.get("quality", 93)), action), daemon=True).start()
+                threading.Thread(target=self._work_drive, args=(ids, looks, int(s.get("quality", 93)), action, local_root), daemon=True).start()
                 return {"ok": True}
             name = safe_folder_name(req.get("name", ""))
             s = req.get("settings", {})
@@ -930,8 +953,12 @@ class App:
                     os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "RugbyPhotoEnhancer", "staging")
             else:
                 base = s.get("dest", "")
-                if not os.path.isdir(base):
+                if not base:
                     return {"ok": False, "error": "Choose the folder to save into"}
+                try:
+                    os.makedirs(base, exist_ok=True)
+                except OSError:
+                    return {"ok": False, "error": f"Can't use {base} — choose another folder"}
             out_dir = os.path.join(base, name)
             try:
                 os.makedirs(out_dir, exist_ok=True)
@@ -1506,6 +1533,9 @@ UI_HTML = r"""<!DOCTYPE html>
       <div class="note" style="margin-left:23px">Originals go to Drive’s Bin (restore within 30 days).</div>
       <label class="chk"><input type="radio" name="driveAction" value="subfolder"> Save to an “Enhanced” subfolder</label>
       <div class="note" style="margin-left:23px">Each photo stays with its own match folder, even when several folders are selected.</div>
+      <label class="chk"><input type="radio" name="driveAction" value="local"> Save on this PC only</label>
+      <div class="note" style="margin-left:23px">Drive isn’t changed. Each match folder is recreated inside:</div>
+      <div class="path" style="margin-left:23px"><input type="text" id="driveLocalDir" spellcheck="false"><button class="btn ghost sm" data-browse="driveLocalDir" data-title="Where to save enhanced photos">Browse</button></div>
     </div>
 
     <div class="sec" id="cardSec">
@@ -1536,8 +1566,8 @@ UI_HTML = r"""<!DOCTYPE html>
         </div>
       </div>
       <div class="dest" data-mode="folder">
-        <div class="t"><input type="radio" name="mode" value="folder"> A folder on this PC</div>
-        <div class="d">e.g. a Google Drive for desktop folder</div>
+        <div class="t"><input type="radio" name="mode" value="folder"> Save on this PC only</div>
+        <div class="d">No upload — enhanced photos go into a new folder inside this one.</div>
         <div class="more"><div class="path"><input type="text" id="dest" spellcheck="false"><button class="btn ghost sm" data-browse="dest" data-title="Choose the folder to save into">Browse</button></div></div>
       </div>
       <label class="chk"><input type="checkbox" id="keepOriginals"> Also upload untouched originals</label>
@@ -1549,7 +1579,7 @@ UI_HTML = r"""<!DOCTYPE html>
   <main>
     <div class="top">
       <div class="namebox" id="nameBox">
-        <label for="folderName">New folder in Rugby</label>
+        <label for="folderName" id="nameLabel">New folder in Rugby</label>
         <input type="text" id="folderName" placeholder="e.g. Dungannon 14 11 26" spellcheck="false">
       </div>
       <div class="namebox gone" id="driveBox"><label>Improving earlier uploads</label><div style="font-size:18px;padding:9px 0" id="driveSummary">Pick folders on the left, then Load photos.</div></div>
@@ -1669,7 +1699,7 @@ UI_HTML = r"""<!DOCTYPE html>
       preset: globalPreset(), quality: +$("quality").value,
       mode: document.querySelector("input[name=mode]:checked").value,
       keepLocal: $("keepLocal").checked, localDir: $("localDir").value.trim(), dest: $("dest").value.trim(),
-      keepOriginals: $("keepOriginals").checked,
+      keepOriginals: $("keepOriginals").checked, driveLocalDir: $("driveLocalDir").value.trim(),
     };
   }
   let saveT; const saveSettings = () => { clearTimeout(saveT); saveT = setTimeout(() => api("/api/settings", settings()), 400); };
@@ -1681,6 +1711,7 @@ UI_HTML = r"""<!DOCTYPE html>
     $("driveState").innerHTML = S.drive.ok ? `<span class="pill ok">✓ Connected${S.drive.root ? " to “" + esc(S.drive.root) + "”" : ""}</span> <button class="link" id="reSetup">change</button>`
                                            : `<span class="pill bad">Not set up</span> <button class="link" id="reSetup">Set up…</button>`;
     $("reSetup").onclick = e => { e.stopPropagation(); openSetup(); };
+    $("nameLabel").textContent = m === "direct" ? "New folder in Rugby (Google Drive)" : "New folder on this PC";
     updateGo();
   }
 
@@ -1692,7 +1723,8 @@ UI_HTML = r"""<!DOCTYPE html>
     $("day").value = S.today; $("quality").value = String(st.quality);
     $("keepLocal").checked = st.keepLocal; $("localDir").value = st.localDir; $("dest").value = st.dest;
     $("keepOriginals").checked = st.keepOriginals; $("skipEnhanced").checked = S.drive.skipEnhanced;
-    document.querySelector(`input[name=driveAction][value=${S.drive.action === "subfolder" ? "subfolder" : "replace"}]`).checked = true;
+    $("driveLocalDir").value = st.driveLocalDir;
+    document.querySelector(`input[name=driveAction][value=${["subfolder","local"].includes(S.drive.action) ? S.drive.action : "replace"}]`).checked = true;
     document.querySelector(`input[name=mode][value=${st.mode === "folder" ? "folder" : "direct"}]`).checked = true;
     $("presets").innerHTML = Object.keys(S.presets).map(p => `<button data-p="${p}" class="${p === st.preset ? "on" : ""}">${p}</button>`).join("");
     const d = new Date(); $("folderName").value = [d.getDate(), d.getMonth()+1, d.getFullYear()%100].map(n => String(n).padStart(2,"0")).join(" ");
@@ -1706,7 +1738,7 @@ UI_HTML = r"""<!DOCTYPE html>
 
   /* ---------- sidebar events ---------- */
   ["source","day","onlyDate","skip"].forEach(id => $(id).addEventListener("change", () => { saveSettings(); scan(); }));
-  ["quality","keepLocal","localDir","dest","keepOriginals"].forEach(id => $(id).addEventListener("change", saveSettings));
+  ["quality","keepLocal","localDir","dest","keepOriginals","driveLocalDir"].forEach(id => $(id).addEventListener("change", saveSettings));
   $("presets").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
     document.querySelectorAll("#presets button").forEach(x => x.classList.toggle("on", x === b));
@@ -1877,7 +1909,8 @@ UI_HTML = r"""<!DOCTYPE html>
     if (!st) { b.className = "badge gone"; return; }
     const [txt, cls] = BADGE[st] || [st, ""];
     b.className = "badge " + cls;
-    b.textContent = st === "done" ? (source === "drive" ? "✓ Improved" : settings().mode === "direct" ? "✓ In Drive" : "✓ Saved") : txt;
+    const dAct = document.querySelector("input[name=driveAction]:checked").value;
+    b.textContent = st === "done" ? (source === "drive" ? (dAct === "local" ? "✓ Saved" : "✓ Improved") : settings().mode === "direct" ? "✓ In Drive" : "✓ Saved") : txt;
     b.title = st === "error" && p.err ? p.err : "";
   }
   function setStatus(t, eta){ $("status").textContent = t || ""; $("eta").textContent = eta || ""; }
@@ -1920,7 +1953,7 @@ UI_HTML = r"""<!DOCTYPE html>
       photos.forEach(p => { if (lastStatus[p.id] === "done") { p.include = false; p.done = true; } });
       updateCount(); updateGo();
       setStatus(j.message || "Done.", "");
-      if (j.open) { $("openBtn").classList.remove("gone"); $("openBtn").textContent = j.direct ? "Open in Google Drive" : "Open folder"; $("openBtn").onclick = () => api("/api/open", {target: j.open}); }
+      if (j.open) { $("openBtn").classList.remove("gone"); $("openBtn").textContent = String(j.open).startsWith("http") ? "Open in Google Drive" : "Open folder"; $("openBtn").onclick = () => api("/api/open", {target: j.open}); }
       if (j.finished) toast(j.fail ? "Finished with some failures — click the button again to retry them" : "All done!");
     }
   }

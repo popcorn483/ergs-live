@@ -162,6 +162,9 @@
       <div class="note" style="margin-left:23px">Originals go to Drive’s Bin (restore within 30 days).</div>
       <label class="chk"><input type="radio" name="driveAction" value="subfolder"> Save to an “Enhanced” subfolder</label>
       <div class="note" style="margin-left:23px">Each photo stays with its own match folder, even when several folders are selected.</div>
+      <label class="chk"><input type="radio" name="driveAction" value="local"> Save on this PC only</label>
+      <div class="note" style="margin-left:23px">Drive isn’t changed. Each match folder is recreated inside:</div>
+      <div class="path" style="margin-left:23px"><input type="text" id="driveLocalDir" spellcheck="false"><button class="btn ghost sm" data-browse="driveLocalDir" data-title="Where to save enhanced photos">Browse</button></div>
     </div>
 
     <div class="sec" id="cardSec">
@@ -192,8 +195,8 @@
         </div>
       </div>
       <div class="dest" data-mode="folder">
-        <div class="t"><input type="radio" name="mode" value="folder"> A folder on this PC</div>
-        <div class="d">e.g. a Google Drive for desktop folder</div>
+        <div class="t"><input type="radio" name="mode" value="folder"> Save on this PC only</div>
+        <div class="d">No upload — enhanced photos go into a new folder inside this one.</div>
         <div class="more"><div class="path"><input type="text" id="dest" spellcheck="false"><button class="btn ghost sm" data-browse="dest" data-title="Choose the folder to save into">Browse</button></div></div>
       </div>
       <label class="chk"><input type="checkbox" id="keepOriginals"> Also upload untouched originals</label>
@@ -205,7 +208,7 @@
   <main>
     <div class="top">
       <div class="namebox" id="nameBox">
-        <label for="folderName">New folder in Rugby</label>
+        <label for="folderName" id="nameLabel">New folder in Rugby</label>
         <input type="text" id="folderName" placeholder="e.g. Dungannon 14 11 26" spellcheck="false">
       </div>
       <div class="namebox gone" id="driveBox"><label>Improving earlier uploads</label><div style="font-size:18px;padding:9px 0" id="driveSummary">Pick folders on the left, then Load photos.</div></div>
@@ -325,7 +328,7 @@
       preset: globalPreset(), quality: +$("quality").value,
       mode: document.querySelector("input[name=mode]:checked").value,
       keepLocal: $("keepLocal").checked, localDir: $("localDir").value.trim(), dest: $("dest").value.trim(),
-      keepOriginals: $("keepOriginals").checked,
+      keepOriginals: $("keepOriginals").checked, driveLocalDir: $("driveLocalDir").value.trim(),
     };
   }
   let saveT; const saveSettings = () => { clearTimeout(saveT); saveT = setTimeout(() => api("/api/settings", settings()), 400); };
@@ -337,6 +340,7 @@
     $("driveState").innerHTML = S.drive.ok ? `<span class="pill ok">✓ Connected${S.drive.root ? " to “" + esc(S.drive.root) + "”" : ""}</span> <button class="link" id="reSetup">change</button>`
                                            : `<span class="pill bad">Not set up</span> <button class="link" id="reSetup">Set up…</button>`;
     $("reSetup").onclick = e => { e.stopPropagation(); openSetup(); };
+    $("nameLabel").textContent = m === "direct" ? "New folder in Rugby (Google Drive)" : "New folder on this PC";
     updateGo();
   }
 
@@ -348,7 +352,8 @@
     $("day").value = S.today; $("quality").value = String(st.quality);
     $("keepLocal").checked = st.keepLocal; $("localDir").value = st.localDir; $("dest").value = st.dest;
     $("keepOriginals").checked = st.keepOriginals; $("skipEnhanced").checked = S.drive.skipEnhanced;
-    document.querySelector(`input[name=driveAction][value=${S.drive.action === "subfolder" ? "subfolder" : "replace"}]`).checked = true;
+    $("driveLocalDir").value = st.driveLocalDir;
+    document.querySelector(`input[name=driveAction][value=${["subfolder","local"].includes(S.drive.action) ? S.drive.action : "replace"}]`).checked = true;
     document.querySelector(`input[name=mode][value=${st.mode === "folder" ? "folder" : "direct"}]`).checked = true;
     $("presets").innerHTML = Object.keys(S.presets).map(p => `<button data-p="${p}" class="${p === st.preset ? "on" : ""}">${p}</button>`).join("");
     const d = new Date(); $("folderName").value = [d.getDate(), d.getMonth()+1, d.getFullYear()%100].map(n => String(n).padStart(2,"0")).join(" ");
@@ -362,7 +367,7 @@
 
   /* ---------- sidebar events ---------- */
   ["source","day","onlyDate","skip"].forEach(id => $(id).addEventListener("change", () => { saveSettings(); scan(); }));
-  ["quality","keepLocal","localDir","dest","keepOriginals"].forEach(id => $(id).addEventListener("change", saveSettings));
+  ["quality","keepLocal","localDir","dest","keepOriginals","driveLocalDir"].forEach(id => $(id).addEventListener("change", saveSettings));
   $("presets").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
     document.querySelectorAll("#presets button").forEach(x => x.classList.toggle("on", x === b));
@@ -533,7 +538,8 @@
     if (!st) { b.className = "badge gone"; return; }
     const [txt, cls] = BADGE[st] || [st, ""];
     b.className = "badge " + cls;
-    b.textContent = st === "done" ? (source === "drive" ? "✓ Improved" : settings().mode === "direct" ? "✓ In Drive" : "✓ Saved") : txt;
+    const dAct = document.querySelector("input[name=driveAction]:checked").value;
+    b.textContent = st === "done" ? (source === "drive" ? (dAct === "local" ? "✓ Saved" : "✓ Improved") : settings().mode === "direct" ? "✓ In Drive" : "✓ Saved") : txt;
     b.title = st === "error" && p.err ? p.err : "";
   }
   function setStatus(t, eta){ $("status").textContent = t || ""; $("eta").textContent = eta || ""; }
@@ -576,7 +582,7 @@
       photos.forEach(p => { if (lastStatus[p.id] === "done") { p.include = false; p.done = true; } });
       updateCount(); updateGo();
       setStatus(j.message || "Done.", "");
-      if (j.open) { $("openBtn").classList.remove("gone"); $("openBtn").textContent = j.direct ? "Open in Google Drive" : "Open folder"; $("openBtn").onclick = () => api("/api/open", {target: j.open}); }
+      if (j.open) { $("openBtn").classList.remove("gone"); $("openBtn").textContent = String(j.open).startsWith("http") ? "Open in Google Drive" : "Open folder"; $("openBtn").onclick = () => api("/api/open", {target: j.open}); }
       if (j.finished) toast(j.fail ? "Finished with some failures — click the button again to retry them" : "All done!");
     }
   }
