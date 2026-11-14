@@ -31,6 +31,7 @@ rem ---- copy the app ----
 set "APPDIR=%LOCALAPPDATA%\RugbyPhotoEnhancer"
 if not exist "%APPDIR%" mkdir "%APPDIR%"
 copy /y "rugby_photo_enhancer.py" "%APPDIR%\" >nul
+if exist "app.ico" copy /y "app.ico" "%APPDIR%\" >nul
 
 rem ---- find pythonw.exe (runs without a black console window) ----
 for /f "usebackq delims=" %%i in (`%PY% -c "import sys,os;print(os.path.join(os.path.dirname(sys.executable),'pythonw.exe'))"`) do set "PYW=%%i"
@@ -42,7 +43,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "foreach($dir in @([Environment]::GetFolderPath('Desktop'), (Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs'))){" ^
   " $s=$ws.CreateShortcut((Join-Path $dir 'Rugby Photo Enhancer.lnk'));" ^
   " $s.TargetPath='%PYW%'; $s.Arguments='\"%APPDIR%\rugby_photo_enhancer.py\"';" ^
-  " $s.WorkingDirectory='%APPDIR%'; $s.IconLocation='%SystemRoot%\System32\imageres.dll,67'; $s.Save() }"
+  " $s.WorkingDirectory='%APPDIR%'; $s.IconLocation='%APPDIR%\app.ico,0'; $s.Save() }"
 
 echo.
 echo  Done! Open "Rugby Photo Enhancer" from your Desktop or Start menu.

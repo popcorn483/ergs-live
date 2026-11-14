@@ -1,10 +1,10 @@
 {
-  "version": "1.4.1",
+  "version": "1.5.0",
   "file": "rugby_photo_enhancer.py",
-  "sha256": "b2690d07043642c04306b387f1a4655b1e0ff44e01d19e101b2c69a10843216e",
+  "sha256": "295a83c55f051305ec26dc9bba55967c095b572fc372cd8062cc62d46b2a808f",
   "requires": [
     "pillow",
     "numpy"
   ],
-  "notes": "Fixes the photo grid when loading hundreds of photos; Drive photos grouped by match folder."
+  "notes": "New app icon (Desktop, Start menu, window and taskbar)."
 }
