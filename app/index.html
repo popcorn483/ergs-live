@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '5431810ac9';</script>
+<script>window.ERGS_VER = '04a71d29d0';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -9878,8 +9878,11 @@ function phDayMatches(f){
   const best = PH.here ? tgMatchFor(PH.here.name, season, myPlayer() && myPlayer().acc && myPlayer().acc.team) : null;
   return {day, list, best:best && list.includes(best) ? best : list[0] || null};
 }
+// the Meds are written out as Medallions on anything people see
+const teamLabel = t => /^\s*meds?\s*$/i.test(t || '') ? 'Medallions' : (t || '');
 function phResOf(m){ if (!m) return null; const us = usOf(m), sc = mdScore(m), f = us === 'H' ? sc[0] : sc[1], a = us === 'H' ? sc[1] : sc[0], played = m.status === 'FT' || f || a;
-  return {title:`${m.team || 'ERGS'} v ${rpOpp(m)}`, score:played ? `${f}–${a}` : '', tag:m.status === 'FT' ? 'FULL TIME' : played ? 'LATEST' : '', label:`${m.team || 'ERGS'} v ${rpOpp(m)}${played ? ` · ${f}–${a}` : ''}`}; }
+  const tm = teamLabel(m.team) || 'ERGS';
+  return {title:`${tm} v ${rpOpp(m)}`, score:played ? `${f}–${a}` : '', tag:m.status === 'FT' ? 'FULL TIME' : played ? 'LATEST' : '', label:`${tm} v ${rpOpp(m)}${played ? ` · ${f}–${a}` : ''}`}; }
 // the gold edge with its shimmer, as a short looping MP4 (or a GIF where the browser can't make video)
 async function phShimmerVideo(base, onProg){
   return gaGif({size:() => `${base.width}x${base.height}`, draw:(ctx, ww, hh) => ctx.drawImage(base, 0, 0, ww, hh)}, 'shimmer', onProg, 900);
@@ -19470,7 +19473,7 @@ function tgCtx(squad){
   return Object.assign({f:al.id, fn:String(al.name).slice(0, 60)}, m ? {m:m.id} : {});
 }
 const tgMatchLabel = m => { const us = usOf(m), sc = mdScore(m), f = us === 'H' ? sc[0] : sc[1], a = us === 'H' ? sc[1] : sc[0];
-  return `${m.team || ''} v ${rpOpp(m)} · ${gdDay(m.ko)}${m.status === 'FT' ? ` · ${f > a ? 'W' : f < a ? 'L' : 'D'} ${f}–${a}` : ''}`.trim(); };
+  return `${(typeof teamLabel === 'function' ? teamLabel(m.team) : m.team) || ''} v ${rpOpp(m)} · ${gdDay(m.ko)}${m.status === 'FT' ? ` · ${f > a ? 'W' : f < a ? 'L' : 'D'} ${f}–${a}` : ''}`.trim(); };
 // in the viewer: which match this album is from
 (() => { const tb = tgBar; tgBar = function(v){ tb.apply(this, arguments); const bar = v.querySelector('#tgBar'); if (!bar || !tgOK()) return;
   const al = PH.path && PH.path.length ? PH.path[PH.path.length - 1] : null, f = v._tgf, tg = f && (TG.mine[f.id] || (tgOn(f.id)[0] && null));
