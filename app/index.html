@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = 'a637d86c28';</script>
+<script>window.ERGS_VER = '45e17df547';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -2359,6 +2359,7 @@ ol.an-list li::before{counter-increment:an;content:counter(an);width:18px;color:
 .ph-sh-frames{display:flex;flex-wrap:wrap;gap:6px}.ph-sh-frames button{min-height:38px;padding:0 14px;border-radius:99px;border:1px solid rgba(255,255,255,.2);background:transparent;color:#fff;font:600 13.5px var(--f-body);cursor:pointer}
 .ph-sh-frames button[aria-checked="true"]{background:#DCC08A;border-color:#DCC08A;color:#14112a}
 .ph-sh-cap{display:grid;gap:6px}
+.ph-sh-anim{display:flex;align-items:flex-start;gap:10px;cursor:pointer}.ph-sh-anim input{width:20px;height:20px;margin-top:2px;accent-color:#DCC08A}.ph-sh-anim small{display:block;color:var(--mute);font-size:12.5px}
 .ph-sh-act{display:grid;gap:8px}.ph-sh-fb{background:#1877F2!important;border-color:#1877F2!important;color:#fff!important;gap:8px;min-height:46px}.ph-sh-fb:hover{background:#166FE5!important}
 .ph-sh-note{margin:0;color:var(--mute);font-size:13px;line-height:1.5}
 @media (max-width:700px){.ph-sh{padding:0;place-items:end stretch}.ph-sh-card{border-radius:16px 16px 0 0;max-height:94dvh}.ph-sh-body{grid-template-columns:1fr;padding:14px}.ph-sh-prev canvas{max-height:42vh}}
@@ -9831,36 +9832,68 @@ function phView(list, i, title){
 /* ---------- share one photo (to Facebook or anywhere) with an ERGS frame ---------- */
 // Facebook can't take a photo from a web page directly, so the framed photo goes through the phone's share menu
 // (choose Facebook there, and it posts to the pupil's own account). On a computer it's saved and Facebook opens.
-const PH_FRAMES = [['matchday', 'Matchday'], ['gold', 'Gold edge'], ['square', 'Square post'], ['story', 'Story'], ['none', 'No frame']];
+const PH_FRAMES = [['matchday', 'Matchday'], ['gold', 'Gold edge'], ['none', 'No frame']];
 const PH_NAVY = '#10163A', PH_GOLD = '#DCC08A';
-function phFrameDraw(cv, bmp, frame, title, when){
+// res: {score:'24–10', tag:'FULL TIME'} for the match chosen, or null
+function phFrameDraw(cv, bmp, frame, title, when, res, opt){
   const iw = bmp.width, ih = bmp.height, max = 2048, k = Math.min(1, max/Math.max(iw, ih)), pw = Math.round(iw*k), ph = Math.round(ih*k);
-  let W, H; const g = cv.getContext('2d');
-  const crest = (x, y, h) => { if (!crestOK(SCHOOL_CREST)) return 0; const w = h*SCHOOL_CREST.naturalWidth/SCHOOL_CREST.naturalHeight; g.save(); g.shadowColor = 'rgba(0,0,0,.35)'; g.shadowBlur = h*0.08; g.drawImage(SCHOOL_CREST, x, y, w, h); g.restore(); return w; };
+  let W, H; const g = cv.getContext('2d'), T = (title || '').toUpperCase();
+  const DISP = "800 #px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif", COND = "800 #px 'Barlow Condensed', 'Arial Narrow', sans-serif", BODY = "600 #px 'Barlow', system-ui, sans-serif";
   const fit = (t, size, font, maxW) => { let s2 = size; g.font = font.replace('#', s2); while (s2 > 8 && g.measureText(t).width > maxW){ s2 *= 0.94; g.font = font.replace('#', s2); } return s2; };
+  const spaced = (t, x, y, size, font, sp, align) => { g.font = font.replace('#', size); g.letterSpacing = sp + 'px'; g.textAlign = align || 'left'; g.fillText(t, x, y); g.letterSpacing = '0px'; };
   const blurBg = () => { const c = Math.max(W/iw, H/ih); g.save(); g.filter = 'blur(' + Math.round(W*0.03) + 'px) brightness(.45)'; g.drawImage(bmp, (W - iw*c)/2 - W*0.05, (H - ih*c)/2 - H*0.05, iw*c*1.1, ih*c*1.1); g.restore(); g.fillStyle = 'rgba(16,22,58,.35)'; g.fillRect(0, 0, W, H); };
   const band = (y, h) => { const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, '#151C48'); gr.addColorStop(1, '#0B1030'); g.fillStyle = gr; g.fillRect(0, y, W, h); g.fillStyle = PH_GOLD; g.fillRect(0, y, W, Math.max(2, h*0.045));
-    const pad = h*0.2, cw = crest(pad, y + h*0.16, h*0.7), tx = pad + (cw ? cw + pad*0.8 : 0), right = W - pad;
-    g.textBaseline = 'alphabetic'; g.textAlign = 'right'; g.fillStyle = PH_GOLD; const rs = fit('ERGS RUGBY', h*0.17, "800 #px 'Barlow Condensed', 'Arial Narrow', sans-serif", W*0.22); g.font = `800 ${rs}px 'Barlow Condensed', 'Arial Narrow', sans-serif`; g.letterSpacing = '0.12em'; g.fillText('ERGS RUGBY', right, y + h*0.6); g.letterSpacing = '0px';
-    const rw = g.measureText('ERGS RUGBY').width + pad, tw = right - rw - tx; g.textAlign = 'left'; g.fillStyle = '#fff';
-    const ts = fit((title || '').toUpperCase(), h*0.34, "800 #px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif", tw); g.fillText((title || '').toUpperCase(), tx, y + (when ? h*0.52 : h*0.62));
-    if (when){ g.fillStyle = 'rgba(255,255,255,.72)'; fit(when, h*0.17, "600 #px 'Barlow', system-ui, sans-serif", tw); g.fillText(when, tx, y + h*0.8); } };
+    const pad = h*0.26, right = W - pad; g.textBaseline = 'alphabetic';
+    // the result on the right: a big score with FULL TIME above it
+    let rw = 0; if (res && res.score){ g.textAlign = 'right'; g.fillStyle = '#fff'; const ss = fit(res.score, h*0.46, DISP, W*0.3); rw = g.measureText(res.score).width; g.fillText(res.score, right, y + h*0.78);
+      if (res.tag){ g.fillStyle = PH_GOLD; spaced(res.tag, right, y + h*0.34, h*0.15, COND, h*0.02, 'right'); rw = Math.max(rw, g.measureText(res.tag).width); } rw += pad*1.2; }
+    const tw = right - rw - pad; g.textAlign = 'left'; g.fillStyle = '#fff'; fit(T, h*0.36, DISP, tw); g.fillText(T, pad, y + h*0.56);
+    const sub = 'ERGS RUGBY' + (when ? '  ·  ' + when.toUpperCase() : ''); g.fillStyle = PH_GOLD; const sz = Math.min(h*0.15, fit(sub, h*0.15, COND, tw)); spaced(sub, pad, y + h*0.82, sz, COND, sz*0.08); };
   if (frame === 'none'){ W = pw; H = ph; cv.width = W; cv.height = H; g.drawImage(bmp, 0, 0, W, H); }
-  else if (frame === 'matchday'){ W = pw; const b = Math.round(Math.max(W*0.13, 90)); H = ph + b; cv.width = W; cv.height = H; g.drawImage(bmp, 0, 0, pw, ph); band(ph, b); }
+  else if (frame === 'matchday'){ W = pw; const b = Math.round(Math.max(W*0.13, 96)); H = ph + b; cv.width = W; cv.height = H; g.drawImage(bmp, 0, 0, pw, ph); band(ph, b); }
   else if (frame === 'gold'){ W = pw; H = ph; cv.width = W; cv.height = H; g.drawImage(bmp, 0, 0, W, H); const m = Math.min(W, H), ins = m*0.03;
-    g.strokeStyle = PH_GOLD; g.lineWidth = Math.max(3, m*0.008); g.strokeRect(ins, ins, W - ins*2, H - ins*2);
-    const bh = m*0.11, pad = bh*0.18; g.font = `800 ${bh*0.3}px 'Barlow Condensed', 'Arial Narrow', sans-serif`; const lab = 'ERGS RUGBY', lw = g.measureText(lab).width, cwid = crestOK(SCHOOL_CREST) ? bh*0.72*SCHOOL_CREST.naturalWidth/SCHOOL_CREST.naturalHeight : 0;
-    const bw = pad*3 + cwid + lw, bx = W - ins - bw - m*0.02, by = H - ins - bh - m*0.02; g.fillStyle = 'rgba(11,16,48,.86)'; g.beginPath(); g.roundRect ? g.roundRect(bx, by, bw, bh, bh*0.2) : g.rect(bx, by, bw, bh); g.fill();
-    crest(bx + pad, by + bh*0.14, bh*0.72); g.fillStyle = PH_GOLD; g.textBaseline = 'middle'; g.fillText(lab, bx + pad*2 + cwid, by + bh/2); }
-  else if (frame === 'square'){ W = H = Math.min(2048, Math.max(pw, ph)); cv.width = W; cv.height = H; blurBg(); const b = Math.round(W*0.14), aw = W*0.94, ah = H - b - W*0.06, c = Math.min(aw/iw, ah/ih), dw = iw*c, dh = ih*c;
+    if (!(opt && opt.noBorder)){ g.strokeStyle = PH_GOLD; g.lineWidth = Math.max(3, m*0.008); g.strokeRect(ins, ins, W - ins*2, H - ins*2); }
+    // a small plate in the corner: ERGS RUGBY, and the result if one is chosen
+    const bh = m*(res && res.score ? 0.13 : 0.085), pad = m*0.022; g.textBaseline = 'alphabetic';
+    const l1 = 'ERGS RUGBY', l2 = res && res.score ? `${T}  ${res.score}` : ''; g.font = COND.replace('#', bh*(l2 ? 0.26 : 0.42)); const w1 = g.measureText(l1).width + bh*0.1; g.font = DISP.replace('#', bh*0.36); const w2 = l2 ? Math.min(g.measureText(l2).width, W*0.6) : 0;
+    const bw = Math.max(w1, w2) + pad*2, bx = W - ins - bw - m*0.02, by = H - ins - bh - m*0.02; g.fillStyle = 'rgba(11,16,48,.88)'; g.beginPath(); g.roundRect ? g.roundRect(bx, by, bw, bh, bh*0.14) : g.rect(bx, by, bw, bh); g.fill();
+    g.fillStyle = PH_GOLD; if (l2){ spaced(l1, bx + pad, by + bh*0.38, bh*0.24, COND, bh*0.03); g.fillStyle = '#fff'; fit(l2, bh*0.36, DISP, W*0.6); g.textAlign = 'left'; g.fillText(l2, bx + pad, by + bh*0.8); }
+    else spaced(l1, bx + pad, by + bh*0.66, bh*0.42, COND, bh*0.05); }
+  else if (frame === 'square'){ W = H = Math.min(2048, Math.max(pw, ph)); cv.width = W; cv.height = H; blurBg(); const b = Math.round(W*0.15), aw = W*0.94, ah = H - b - W*0.06, c = Math.min(aw/iw, ah/ih), dw = iw*c, dh = ih*c;
     g.save(); g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = W*0.02; g.drawImage(bmp, (W - dw)/2, W*0.03 + (ah - dh)/2, dw, dh); g.restore(); band(H - b, b); }
-  else if (frame === 'story'){ W = 1080; H = 1920; cv.width = W; cv.height = H; blurBg(); const ch = 150; if (crestOK(SCHOOL_CREST)){ const cw = ch*SCHOOL_CREST.naturalWidth/SCHOOL_CREST.naturalHeight; crest((W - cw)/2, 110, ch); }
-    const aw = W*0.88, ah = H*0.58, c = Math.min(aw/iw, ah/ih), dw = iw*c, dh = ih*c, x = (W - dw)/2, y = 330 + (ah - dh)/2;
+  else if (frame === 'story'){ W = 1080; H = 1920; cv.width = W; cv.height = H; blurBg(); g.fillStyle = PH_GOLD; spaced('ERGS RUGBY', W/2, 190, 46, COND, 9, 'center');
+    const aw = W*0.88, ah = H*0.56, c = Math.min(aw/iw, ah/ih), dw = iw*c, dh = ih*c, x = (W - dw)/2, y = 290 + (ah - dh)/2;
     g.save(); g.shadowColor = 'rgba(0,0,0,.55)'; g.shadowBlur = 50; g.beginPath(); g.roundRect ? g.roundRect(x, y, dw, dh, 28) : g.rect(x, y, dw, dh); g.fillStyle = '#000'; g.fill(); g.restore();
     g.save(); g.beginPath(); g.roundRect ? g.roundRect(x, y, dw, dh, 28) : g.rect(x, y, dw, dh); g.clip(); g.drawImage(bmp, x, y, dw, dh); g.restore();
-    g.textAlign = 'center'; g.fillStyle = '#fff'; const ty = 330 + ah + 150; fit((title || '').toUpperCase(), 92, "800 #px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif", W*0.86); g.fillText((title || '').toUpperCase(), W/2, ty);
-    if (when){ g.fillStyle = 'rgba(255,255,255,.75)'; g.font = "600 40px 'Barlow', system-ui, sans-serif"; g.fillText(when, W/2, ty + 66); }
-    g.fillStyle = PH_GOLD; g.font = "800 38px 'Barlow Condensed', 'Arial Narrow', sans-serif"; g.letterSpacing = '0.2em'; g.fillText('ERGS RUGBY', W/2, H - 110); g.letterSpacing = '0px'; }
+    let ty = 290 + ah + 140; g.textAlign = 'center'; g.fillStyle = '#fff'; fit(T, 92, DISP, W*0.86); g.fillText(T, W/2, ty);
+    if (res && res.score){ ty += 150; g.font = DISP.replace('#', 150); g.fillText(res.score, W/2, ty); if (res.tag){ g.fillStyle = PH_GOLD; spaced(res.tag, W/2, ty - 150, 34, COND, 6, 'center'); } }
+    if (when){ g.fillStyle = 'rgba(255,255,255,.75)'; g.font = BODY.replace('#', 40); g.textAlign = 'center'; g.fillText(when, W/2, ty + 72); } }
+}
+// the ERGS Live matches on the day of this photo (album date, or when it was taken)
+function phDayMatches(f){
+  const season = (phSeasons().find(x => x.folder === PH.season) || {}).label, A = PH.here ? tgParseAlbum(PH.here.name, season) : {};
+  let day = A.day || ''; const t = f && f.imageMediaMetadata && f.imageMediaMetadata.time; if (!day && t) day = t.slice(0, 10).replace(/:/g, '-');
+  if (!day) return {day:'', list:[], best:null};
+  const list = (Cloud.matches || []).filter(m => usOf(m) && (m.ko || '').slice(0, 10) === day).sort((a, b) => (a.ko || '').localeCompare(b.ko || ''));
+  const best = PH.here ? tgMatchFor(PH.here.name, season, myPlayer() && myPlayer().acc && myPlayer().acc.team) : null;
+  return {day, list, best:best && list.includes(best) ? best : list[0] || null};
+}
+function phResOf(m){ if (!m) return null; const us = usOf(m), sc = mdScore(m), f = us === 'H' ? sc[0] : sc[1], a = us === 'H' ? sc[1] : sc[0], played = m.status === 'FT' || f || a;
+  return {title:`${m.team || 'ERGS'} v ${rpOpp(m)}`, score:played ? `${f}–${a}` : '', tag:m.status === 'FT' ? 'FULL TIME' : played ? 'LATEST' : '', label:`${m.team || 'ERGS'} v ${rpOpp(m)}${played ? ` · ${f}–${a}` : ''}`}; }
+// the gold edge with its shimmer, as a short looping MP4 (or a GIF where the browser can't make video)
+async function phShimmerVideo(base, onProg, tok){
+  const sc = Math.min(1, 1080/Math.max(base.width, base.height)), w = Math.round(base.width*sc/2)*2, h = Math.round(base.height*sc/2)*2;
+  const cfg = typeof avcConfig === 'function' ? await avcConfig(w, h) : null;
+  if (!cfg) return gaGif({size:() => `${base.width}x${base.height}`, draw:(ctx, ww, hh) => ctx.drawImage(base, 0, 0, ww, hh)}, 'shimmer', onProg);
+  const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
+  const muxer = new Mp4Muxer.Muxer({target:new Mp4Muxer.ArrayBufferTarget(), video:{codec:cfg.mux, width:w, height:h}, fastStart:'in-memory'});
+  let err = null; const enc = new VideoEncoder({output:(ch, m) => muxer.addVideoChunk(ch, m), error:e => { err = e; }}); const ec = Object.assign({}, cfg, {bitrate:6e6}); delete ec.mux; enc.configure(ec);
+  const FPS = 30, n = Math.round(GA_LOOP*3*FPS);
+  for (let i = 0; i < n; i++){ if (err || (tok && tok.dead)) break; g.drawImage(base, 0, 0, w, h); GA_DRAW.shimmer(g, w, h, (i/FPS/GA_LOOP) % 1);
+    const vf = new VideoFrame(c, {timestamp:Math.round(i*1e6/FPS), duration:Math.round(1e6/FPS)}); enc.encode(vf, {keyFrame:i % 45 === 0}); vf.close();
+    if (i % 5 === 0 || enc.encodeQueueSize > 6){ if (onProg) onProg((i + 1)/n); await new Promise(r => setTimeout(r, 0)); } }
+  if (err || (tok && tok.dead)){ try { enc.close(); } catch(e){} if (err) throw err; return null; }
+  await enc.flush(); muxer.finalize(); try { enc.close(); } catch(e){} return new Blob([muxer.target.buffer], {type:'video/mp4'});
 }
 async function phShareOpen(f, title){
   let o = $('#phShareBox');
@@ -9868,36 +9901,55 @@ async function phShareOpen(f, title){
       <div class="ph-sh-head"><b id="phShH">Share this photo</b><button type="button" class="ph-ib" id="phShX" aria-label="Close">${PH_IC.x}</button></div>
       <div class="ph-sh-body"><div class="ph-sh-prev"><canvas id="phShCv" aria-label="Preview"></canvas><div class="ph-spin" id="phShSpin"></div></div>
       <div class="ph-sh-side"><span class="label">Frame</span><div class="ph-sh-frames" role="radiogroup" aria-label="Frame">${PH_FRAMES.map(([k2, t]) => `<button type="button" role="radio" data-fr="${k2}">${t}</button>`).join('')}</div>
+        <label class="check ph-sh-anim" id="phShAnimRow"><input type="checkbox" id="phShAnim"> <span>Gold shimmer animation <small>Shares as a short looping video</small></span></label>
+        <label class="ph-sh-cap" id="phShResRow"><span class="label">Result on the frame</span><select class="input" id="phShRes"></select></label>
         <label class="ph-sh-cap"><span class="label">Words on the frame</span><input class="input" id="phShCap" maxlength="48" autocomplete="off"></label>
         <div class="ph-sh-act"><button type="button" class="btn primary ph-sh-fb" id="phShGo"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M13.5 21v-7.5h2.6l.4-3h-3V8.6c0-.9.3-1.5 1.5-1.5h1.6V4.4c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4V10.5H8v3h2.4V21z"/></svg>Share to Facebook</button>
           <button type="button" class="btn ghost" id="phShSave">Save image</button></div>
         <p class="ph-sh-note" id="phShNote"></p></div></div></div>`;
     document.body.appendChild(o);
-    const close = () => { o.hidden = true; }; o.querySelector('#phShX').onclick = close; o.addEventListener('click', e => { if (e.target === o) close(); });
+    const close = () => { o.hidden = true; cancelAnimationFrame(o._raf); if (o._vt) o._vt.dead = true; }; o.querySelector('#phShX').onclick = close; o.addEventListener('click', e => { if (e.target === o) close(); });
     document.addEventListener('keydown', e => { if (!o.hidden && e.key === 'Escape'){ e.stopPropagation(); close(); } }, true);
   }
   const cv = o.querySelector('#phShCv'), spin = o.querySelector('#phShSpin'), note = o.querySelector('#phShNote'), cap = o.querySelector('#phShCap'), go = o.querySelector('#phShGo'), sv = o.querySelector('#phShSave');
   const nm = phName(PH.here && PH.here.name || ''), tok = o._tok = {};
-  let frame = 'matchday'; try { frame = localStorage.getItem('ergs.phFrame') || 'matchday'; } catch(e){}
-  cap.value = title || nm.title || 'ERGS Rugby'; note.textContent = ''; o.hidden = false; spin.hidden = false; go.disabled = sv.disabled = true; o._blob = null;
+  let frame = 'matchday', anim = true; try { frame = localStorage.getItem('ergs.phFrame') || 'matchday'; anim = localStorage.getItem('ergs.phShim') !== '0'; } catch(e){}
+  if (!PH_FRAMES.some(x => x[0] === frame)) frame = 'matchday';
+  const base = document.createElement('canvas'), an = o.querySelector('#phShAnim'), arow = o.querySelector('#phShAnimRow'); an.checked = anim; cancelAnimationFrame(o._raf); if (o._vt) o._vt.dead = true;
+  const DM = phDayMatches(f), rs = o.querySelector('#phShRes'), rrow = o.querySelector('#phShResRow'); let res = DM.best ? phResOf(DM.best) : null, edited = false;
+  rs.innerHTML = DM.list.map((m, n) => `<option value="${n}" ${m === DM.best ? 'selected' : ''}>${esc(phResOf(m).label)}</option>`).join('') + '<option value="">No result</option>';
+  rrow.hidden = !DM.list.length;
+  cap.value = (res && res.title) || title || nm.title || 'ERGS Rugby'; note.textContent = ''; o.hidden = false; spin.hidden = false; go.disabled = sv.disabled = true; o._blob = null;
   const mobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
   note.textContent = mobile ? 'Your phone’s share menu opens: choose Facebook to post it to your own account.' : '';
   let bmp; try { const blob = await phPrefetch(f); bmp = await createImageBitmap(blob); } catch(e){ if (o._tok !== tok) return; spin.hidden = true; note.textContent = 'This photo couldn’t be loaded for sharing. Check your connection and try again.'; return; }
   try { await Promise.all(["800 40px 'Big Shoulders Display'", "800 20px 'Barlow Condensed'", "600 20px 'Barlow'"].map(x => document.fonts.load(x))); } catch(e){}
   if (o._tok !== tok) return;
-  let rt = 0; const draw = () => { o.querySelectorAll('[data-fr]').forEach(b => b.setAttribute('aria-checked', b.dataset.fr === frame)); cap.parentElement.hidden = frame === 'none' || frame === 'gold';
-    phFrameDraw(cv, bmp, frame, cap.value.trim(), nm.when); spin.hidden = true; o._blob = null; go.disabled = sv.disabled = true;
-    const my = ++rt; cv.toBlob(b => { if (my !== rt) return; o._blob = b; go.disabled = sv.disabled = false; }, 'image/jpeg', 0.92); };
+  const lab = (b, t) => { b.dataset.l = b.dataset.l || b.innerHTML; b.innerHTML = t || b.dataset.l; };
+  let rt = 0; const draw = () => { o.querySelectorAll('[data-fr]').forEach(b => b.setAttribute('aria-checked', b.dataset.fr === frame)); cap.parentElement.hidden = frame === 'none'; rrow.hidden = !DM.list.length || frame === 'none'; arow.hidden = frame !== 'gold';
+    const moving = frame === 'gold' && anim;
+    phFrameDraw(base, bmp, frame, cap.value.trim(), nm.when || (DM.day ? new Date(DM.day + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short', year:'numeric'}) : ''), res, {noBorder:moving}); spin.hidden = true;
+    // the preview: a smaller copy, with the shimmer playing on it
+    const k2 = Math.min(1, 1000/Math.max(base.width, base.height)); cv.width = Math.round(base.width*k2); cv.height = Math.round(base.height*k2); const pg = cv.getContext('2d');
+    cancelAnimationFrame(o._raf); const t0 = performance.now(), paint = () => { pg.drawImage(base, 0, 0, cv.width, cv.height); if (moving) GA_DRAW.shimmer(pg, cv.width, cv.height, ((performance.now() - t0)/1000/GA_LOOP) % 1); if (moving && !o.hidden) o._raf = requestAnimationFrame(paint); }; paint();
+    o._blob = null; go.disabled = sv.disabled = true; const my = ++rt; if (o._vt) o._vt.dead = true;
+    if (!moving){ lab(go); lab(sv); cv.toBlob(b => { if (my !== rt) return; o._blob = b; go.disabled = sv.disabled = false; }, 'image/jpeg', 0.92); return; }
+    // make the video now, so Share works straight from the tap
+    const vt = o._vt = {}; clearTimeout(o._vtT); o._vtT = setTimeout(async () => { if (my !== rt) return; try { lab(go, 'Making the animation… 0%');
+      const b = await phShimmerVideo(base, pr => { if (my === rt) go.textContent = `Making the animation… ${Math.round(pr*100)}%`; }, vt); if (!b || my !== rt) return;
+      o._blob = b; lab(go); lab(sv, b.type === 'video/mp4' ? 'Save video' : 'Save animation'); go.disabled = sv.disabled = false; } catch(e){ if (my !== rt) return; anim = false; an.checked = false; toast('This device can’t make the animation, so the still photo is ready instead.'); draw(); } }, 350); };
+  an.onchange = () => { anim = an.checked; try { localStorage.setItem('ergs.phShim', anim ? '1' : '0'); } catch(e){} draw(); };
   o.querySelectorAll('[data-fr]').forEach(b => b.onclick = () => { frame = b.dataset.fr; try { localStorage.setItem('ergs.phFrame', frame); } catch(e){} draw(); });
-  let ct = 0; cap.oninput = () => { clearTimeout(ct); ct = setTimeout(draw, 250); };
-  const file = () => new File([o._blob], `ergs-rugby-${(cap.value || 'photo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'photo'}.jpg`, {type:'image/jpeg'});
+  let ct = 0; cap.oninput = () => { edited = true; clearTimeout(ct); ct = setTimeout(draw, 250); };
+  rs.onchange = () => { const m = rs.value === '' ? null : DM.list[+rs.value]; res = phResOf(m); if (!edited) cap.value = (res && res.title) || title || nm.title || 'ERGS Rugby'; draw(); };
+  const file = () => { const ty = o._blob.type || 'image/jpeg', ext = ty === 'video/mp4' ? 'mp4' : ty === 'image/gif' ? 'gif' : 'jpg'; return new File([o._blob], `ergs-rugby-${(cap.value || 'photo').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'photo'}.${ext}`, {type:ty}); };
   const dl = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(o._blob); a.download = file().name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
   go.onclick = async () => { if (!o._blob) return; const fl = file();
     if (navigator.canShare && navigator.canShare({files:[fl]})){ try { await navigator.share({files:[fl]}); return; } catch(e){ if (e && e.name === 'AbortError') return; } }
     dl(); window.open('https://www.facebook.com/', '_blank', 'noopener'); note.textContent = 'The framed photo is in your downloads, and Facebook has opened in a new tab. Start a post, choose Photo, and add it.'; };
   sv.onclick = async () => { if (!o._blob) return; const fl = file();
     if (mobile && navigator.canShare && navigator.canShare({files:[fl]})){ try { await navigator.share({files:[fl]}); return; } catch(e){ if (e && e.name === 'AbortError') return; } }
-    dl(); toast('Framed photo saved to your downloads.'); };
+    dl(); toast(o._blob.type === 'video/mp4' ? 'The animated photo is in your downloads.' : 'Framed photo saved to your downloads.'); };
   draw();
 }
 /* fetch the original in the background so Save can hand it straight to the share sheet (phones only allow that right after a tap) */
