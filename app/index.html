@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '6864c98259';</script>
+<script>window.ERGS_VER = '13f13b326b';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -18012,7 +18012,7 @@ function psTotals(season){ const t = {}; psPlayed(season).forEach(x => Object.en
 /* ---------- the editor: one match ---------- */
 function psEdit(m, back){
   if (!m) return; const P = myPlayer(); if (!P) return; const cur = psOf(m.id), par = nwIsGuardian(), first = P.name.split(/\s+/)[0];
-  if (!PS.edit || PS.edit.id !== m.id) PS.edit = {id:m.id, p:cur ? cur.p : 1, st:(cur && cur.st) || 's', pos:(cur && cur.pos) || String(P.me.pos || '').replace(/\D/g, '') || '', c:Object.assign({}, cur && cur.c), n:(cur && cur.n) || ''};
+  if (!PS.edit || PS.edit.id !== m.id) PS.edit = {id:m.id, p:cur ? cur.p : 1, st:(cur && cur.st) || 's', pos:(cur && cur.pos) || String(P.me.pos || '').replace(/\D/g, '') || '', c:Object.assign({}, cur && cur.c), sc:Object.assign({}, cur && cur.sc), n:(cur && cur.n) || ''};
   const e = PS.edit, us = usOf(m), sc = mdScore(m), f = us === 'H' ? sc[0] : sc[1], a = us === 'H' ? sc[1] : sc[0], veo = psVeo(m), you = par ? first : 'you';
   const open = (L, k) => L.some(([x]) => e.c[x]) || k < 2;
   tagModal(`<h2>📊 ${esc(m.team || '')} ${f}–${a} v ${esc(rpOpp(m))}</h2><p class="as-sub">${esc(gdDay(m.ko, {weekday:'long', day:'numeric', month:'long'}))}${m.comp ? ' · ' + esc(m.comp) : ''}</p>
@@ -18022,6 +18022,7 @@ function psEdit(m, back){
         <label>Position <select class="input" id="psPos"><option value="">Pick a position…</option>${POS.union.slice(0, 15).map((p, i) => `<option value="${i + 1}" ${String(i + 1) === String(e.pos) ? 'selected' : ''}>${i + 1} · ${esc(p[0])}</option>`).join('')}<option value="R" ${e.pos === 'R' ? 'selected' : ''}>Replacement (bench)</option></select></label></div>
       <div class="ps-groups">${psGroups().map(([g, ic, L], gi) => `<details class="ps-g" ${open(L, gi) ? 'open' : ''}><summary><span>${ic} ${esc(g)}</span><em>${L.reduce((t, [k]) => t + (+e.c[k] || 0), 0) || ''}</em></summary>
         <div class="ps-cs">${L.map(([k, t]) => `<div class="ps-c"><span>${esc(t)}</span><button type="button" class="ps-m" data-psm="${k}" aria-label="One less ${esc(t)}">−</button><b data-psv="${k}">${+e.c[k] || 0}</b><button type="button" class="ps-p" data-psa="${k}" aria-label="One more ${esc(t)}">＋</button></div>`).join('')}</div></details>`).join('')}</div>
+      ${srqBlock(m, e, par ? first : '')}
       <label class="ps-n">Notes <textarea class="input" id="psNote" rows="2" maxlength="300" placeholder="e.g. Good lineout throws in the second half. Work on tackle height.">${esc(e.n)}</textarea></label>` : ''}
     <div class="dlg-a">${back ? '<button type="button" class="btn ghost" id="psBack">‹ Back</button>' : '<button type="button" class="btn ghost" data-tclose>Cancel</button>'}<span style="flex:1"></span><button type="button" class="btn primary" id="psSave">Save</button></div>`, d => {
     d.closest('.dialog') && d.closest('.dialog').classList.add('pa-wide');
@@ -18032,14 +18033,16 @@ function psEdit(m, back){
       const g = v && v.closest('.ps-g'), em = g && g.querySelector('summary em'); if (em) em.textContent = [...g.querySelectorAll('[data-psv]')].reduce((t, x) => t + +x.textContent, 0) || ''; };
     d.querySelectorAll('[data-psa]').forEach(b => b.onclick = () => bump(b.dataset.psa, 1));
     d.querySelectorAll('[data-psm]').forEach(b => b.onclick = () => bump(b.dataset.psm, -1));
+    d.querySelectorAll('[data-scb]').forEach(b => b.onclick = () => { const k = b.dataset.scb, by = +b.dataset.by, room = srqRoom(m, ERGS_AUTH.email), cur2 = srqPts(e.sc); if (by > 0 && room != null && cur2 + SRQ_PTS[k] > room){ toast(`That would be more points than the ${m.team || 'team'} scored.`); return; }
+      e.sc[k] = Math.max(0, Math.min(15, (+e.sc[k] || 0) + by)); if (!e.sc[k]) delete e.sc[k]; const v = d.querySelector(`[data-scv="${k}"]`); if (v) v.textContent = e.sc[k] || 0; const t = d.querySelector('.srq-tot'); if (t) t.textContent = srqPts(e.sc) ? `${srqPts(e.sc)} points` : ''; });
     const bk = d.querySelector('#psBack'); if (bk) bk.onclick = () => { PS.edit = null; back(); };
     d.querySelector('#psSave').onclick = async () => { grab(); const A = ERGS_AUTH, now = Date.now();
-      const rec = e.p ? {p:1, st:e.st, pos:e.pos || '', c:Object.fromEntries(Object.entries(e.c).filter(([, v]) => +v > 0).map(([k, v]) => [k, +v])), n:String(e.n || '').trim().slice(0, 300), d:(m.ko || '').slice(0, 10), at:now} : {p:0, st:'', pos:'', c:{}, n:'', d:(m.ko || '').slice(0, 10), at:now};
+      const rec = e.p ? {p:1, st:e.st, pos:e.pos || '', c:Object.fromEntries(Object.entries(e.c).filter(([, v]) => +v > 0).map(([k, v]) => [k, +v])), n:String(e.n || '').trim().slice(0, 300), d:(m.ko || '').slice(0, 10), at:now, ...(srqPts(e.sc) ? {sc:srqClean(e.sc), scAt:srqSame(e.sc, cur && cur.sc) ? (cur.scAt || now) : now} : {})} : {p:0, st:'', pos:'', c:{}, n:'', d:(m.ko || '').slice(0, 10), at:now};
       // the whole map each time (newest 140 matches), so nothing depends on how the database merges maps
       const g = Object.assign({}, psG(), {[m.id]:rec}), keep = Object.fromEntries(Object.entries(g).sort((x, y) => (y[1].at || 0) - (x[1].at || 0)).slice(0, 140));
       const btn = d.querySelector('#psSave'); btn.disabled = true;
       try { await A.setAccess('pstats', A.email, {g:keep, name:P.name.slice(0, 60), team:P.acc.team || '', at:now}); PS.doc = Object.assign({}, PS.doc, {g:keep, at:now}); PS.pend = now; PS.edit = null; psChanged();
-        toast(e.p ? `Saved${psSum(rec.c) ? ': ' + psLine(rec.c, 3) : ''}. That game counts towards ${par ? first + '’s' : 'your'} games played.` : 'Saved as not played.'); back ? back() : tagModalClose(); }
+        toast(e.p ? (rec.sc && srqState(A.email, m.id, rec) === 'wait' ? `Saved. A coach has been asked to add ${par ? first + '’s' : 'your'} ${srqLine(rec.sc)} to the result.` : `Saved${psSum(rec.c) ? ': ' + psLine(rec.c, 3) : ''}. That game counts towards ${par ? first + '’s' : 'your'} games played.`) : 'Saved as not played.'); back ? back() : tagModalClose(); }
       catch(err){ btn.disabled = false; toast(/permission|not_granted/.test(String(err && (err.code || err.message))) ? 'That didn’t save: the latest Firebase rules need publishing.' : 'That didn’t save. Try again.'); } };
   });
 }
@@ -18142,6 +18145,68 @@ function paOpen(){
   const ro = rpOpen; rpOpen = function(){ ro.apply(this, arguments); const mid = RP.mid; setTimeout(() => { const box = $('#tagModal .ps-coach'); if (!box || RP.mid !== mid) return; const m = (Cloud.matches || []).find(x => x.id === mid);
     box.querySelectorAll('tbody tr').forEach(tr => { const name = tr.cells[0].textContent, d = (PSC.list || []).find(x => (x.name || x.id) === name); if (!d || tr.querySelector('.pa-tag')) return; const st = paClaim(d.id, d.name, mid);
       if (st === 'live' || st === 'ok') return; const t = document.createElement('span'); t.className = 'pa-tag ' + st; t.textContent = st === 'no' ? '✗ not confirmed' : '⏳ to confirm'; tr.cells[0].appendChild(t); }); }, 1500); };
+})();
+/* ---------- scores a player asks to have added: for results entered without live scoring ---------- */
+// The player adds their tries and kicks to g.sc in their own record. A coach approves it (team/papprove.scOk / scNo), which
+// writes the scores into the match as events marked claim:<email>, keeping the final score as it was entered.
+const SRQ_PTS = {try:5, con:2, pen:3, dg:3}, SRQ_NAME = [['try', 'Tries', 'try', 'tries'], ['con', 'Conversions', 'conversion', 'conversions'], ['pen', 'Penalties', 'penalty', 'penalties'], ['dg', 'Drop goals', 'drop goal', 'drop goals']];
+const srqClean = c => Object.fromEntries(SRQ_NAME.map(([k]) => [k, Math.max(0, Math.min(15, Math.round(+((c || {})[k]) || 0)))]).filter(([, v]) => v > 0));
+const srqPts = c => Object.entries(srqClean(c)).reduce((t, [k, v]) => t + SRQ_PTS[k]*v, 0);
+const srqSame = (a, b) => JSON.stringify(srqClean(a)) === JSON.stringify(srqClean(b));
+const srqLine = c => { const x = srqClean(c); return SRQ_NAME.filter(([k]) => x[k]).map(([k, , one, many]) => `${x[k]} ${x[k] === 1 ? one : many}`).join(', '); };
+// points our side scored that no scorer has been given for yet (null if there's no final score to check against)
+function srqRoom(m, exceptEmail){ const us = usOf(m); if (!us || !Array.isArray(m.final)) return null; const ours = +m.final[us === 'H' ? 0 : 1] || 0, ex = String(exceptEmail || '').toLowerCase();
+  const got = (m.events || []).reduce((t, e) => t + (e.s === us && !e.miss && !(ex && e.claim === ex) ? ({try:5, con:2, pen:3, dg:3, pt:7})[e.k] || 0 : 0), 0); return Math.max(0, ours - got); }
+function srqState(email, mid, g){ if (!g || !srqPts(g.sc)) return ''; const d = paDoc(), e = String(email || '').toLowerCase(), ok = d.scOk && d.scOk[e] && d.scOk[e][mid], no = d.scNo && d.scNo[e] && d.scNo[e][mid];
+  if (ok && srqSame(ok, g.sc)) return 'ok'; if (no && no >= (g.scAt || 0)) return 'no'; return 'wait'; }
+function srqBlock(m, e, first){
+  if (m.status !== 'FT' || !usOf(m)) return ''; const em = ERGS_AUTH.email, room = srqRoom(m, em), cur = psOf(m.id), st = cur ? srqState(em, m.id, cur) : '';
+  if (!(room > 0) && !srqPts(e.sc)) return '';
+  const note = st === 'ok' && srqSame(cur.sc, e.sc) ? '✓ A coach has added these to the result.' : st === 'no' ? 'A coach didn’t add these. Ask them if that’s wrong, or change them and save again.' : st === 'wait' ? '⏳ Waiting for a coach to confirm.' : 'A coach checks these before they’re added to the result and your season.';
+  return `<details class="ps-g srq-g" open><summary><span>🏉 ${first ? `Did ${esc(first)} score?` : 'Did you score?'}</span><em class="srq-tot">${srqPts(e.sc) ? srqPts(e.sc) + ' points' : ''}</em></summary>
+    <p class="ps-tip">This result was added without the scorers. Add ${first ? esc(first) + '’s' : 'your'} scores and a coach will be asked to confirm them.</p>
+    <div class="ps-cs">${SRQ_NAME.map(([k, t]) => `<div class="ps-c"><span>${t}</span><button type="button" class="ps-m" data-scb="${k}" data-by="-1" aria-label="One less: ${t}">−</button><b data-scv="${k}">${+e.sc[k] || 0}</b><button type="button" class="ps-p" data-scb="${k}" data-by="1" aria-label="One more: ${t}">＋</button></div>`).join('')}</div>
+    <p class="ps-tip srq-st ${st}">${note}</p></details>`;
+}
+/* coaches: the requests, a reminder on the home screen, add or decline */
+function srqPending(){ const out = []; if (typeof feat === 'function' && !feat('pstats')) return out;
+  (PA2.list || []).forEach(d => { const em = String(d.id || '').toLowerCase(); Object.entries(d.g || {}).forEach(([mid, g]) => { if (!g || g.p !== 1 || srqState(em, mid, g) !== 'wait') return; const m = (Cloud.matches || []).find(x => x.id === mid); if (!m || m.status !== 'FT' || !usOf(m) || !paMineMatch(m)) return; out.push({em, d, g, m}); }); });
+  return out.sort((a, b) => (b.g.scAt || 0) - (a.g.scAt || 0)); }
+function srqHome(){ const ml = $('#menuList'); let box = $('#srqNote'); const n = Cloud.role === 'coach' && S.screen === 'menu' && !(typeof VA !== 'undefined' && VA.on) ? srqPending().length : 0;
+  if (!n){ if (box) box.remove(); return; } if (!ml) return;
+  if (!box){ box = document.createElement('button'); box.type = 'button'; box.id = 'srqNote'; box.className = 'hs-home pa-home'; box.onclick = srqOpen; ml.before(box); }
+  box.innerHTML = `<span class="pa-ic">🏉</span><span><b>${n} score request${n === 1 ? '' : 's'}</b><small>Players asking for their scores to be added to a result</small></span><span class="mc-go">›</span>`; }
+async function srqDecide(r, ok){
+  const now = Date.now(), em = r.em, want = srqClean(r.g.sc);
+  if (ok){ const m = (Cloud.matches || []).find(x => x.id === r.m.id); if (!m) throw new Error('gone'); const room = srqRoom(m, em); if (room != null && srqPts(want) > room) throw new Error('room');
+    const x = clone(m), us = usOf(m), ts = Date.parse(m.ko || '') || now; delete x.id; x.events = (x.events || []).filter(e => e.claim !== em);
+    SRQ_NAME.forEach(([k]) => { for (let i = 0; i < (want[k] || 0); i++) x.events.push({id:uid(), k, s:us, p:(r.d.name || em).slice(0, 60), m:0, at:0, ts, claim:em}); });
+    if (Array.isArray(x.final)) x.finalSet = true;   // the score stays as it was entered
+    await Cloud.set('matches/' + r.m.id, x); }
+  const d = JSON.parse(JSON.stringify(paDoc())); d.scOk = d.scOk || {}; d.scNo = d.scNo || {};
+  if (ok){ (d.scOk[em] = d.scOk[em] || {})[r.m.id] = Object.assign({at:now}, want); if (d.scNo[em]) delete d.scNo[em][r.m.id]; } else (d.scNo[em] = d.scNo[em] || {})[r.m.id] = now;
+  d.updated = now; await Cloud.set('team/papprove', d);
+}
+function srqOpen(){
+  const L = srqPending();
+  tagModal(`<h2>🏉 Score requests</h2><p class="as-sub">These results were added without the scorers. Add a player’s scores and they go on the result and count in their season. The final score doesn’t change.</p>
+    ${L.length ? `<ul class="pa-list" id="srqList">${L.map((r, i) => { const us = usOf(r.m), sc = mdScore(r.m), f = us === 'H' ? sc[0] : sc[1], a = us === 'H' ? sc[1] : sc[0], room = srqRoom(r.m, r.em), over = room != null && srqPts(r.g.sc) > room;
+        return `<li><div><b>${esc(r.d.name || r.em)}</b><small>${esc(typeof teamLabel === 'function' ? teamLabel(r.m.team) : r.m.team || '')} ${f}–${a} v ${esc(rpOpp(r.m))}, ${esc(gdDay(r.m.ko))}</small><small><b>${esc(srqLine(r.g.sc))}</b> (${srqPts(r.g.sc)} points)${over ? ` · <span class="srq-over">more than the ${room} points left to give</span>` : ''}</small></div>
+          <span class="pa-btns"><button type="button" class="btn ghost" data-scn="${i}">✗ No</button><button type="button" class="btn primary" data-scy="${i}" ${over ? 'disabled' : ''}>✓ Add</button></span></li>`; }).join('')}</ul>`
+      : '<div id="srqList"><p class="sub">No score requests. 🎉</p></div>'}
+    <div class="dlg-a"><button type="button" class="btn ghost" data-tclose>Close</button></div>`, dl => {
+    dl.closest('.dialog') && dl.closest('.dialog').classList.add('pa-wide');
+    const act = async (r, ok) => { dl.querySelectorAll('button').forEach(b => b.disabled = true);
+      try { await srqDecide(r, ok); toast(ok ? `Added: ${r.d.name}, ${srqLine(r.g.sc)}.` : `${r.d.name}’s scores weren’t added.`); } catch(e){ toast(e && e.message === 'room' ? 'That’s more points than the team scored. Check the other scorers first.' : 'That didn’t save. Try again.'); }
+      setTimeout(() => { srqHome(); srqOpen(); }, 400); };
+    dl.querySelectorAll('[data-scy]').forEach(b => b.onclick = () => act(L[+b.dataset.scy], true));
+    dl.querySelectorAll('[data-scn]').forEach(b => b.onclick = () => act(L[+b.dataset.scn], false));
+  });
+}
+(() => {
+  const ph = paHome; paHome = function(){ const r = ph.apply(this, arguments); try { srqHome(); } catch(e){} return r; };
+  let seen; Cloud.on(() => { const k = [Cloud.docs['team/papprove'], Cloud.matches]; if (seen && k.every((x, i) => x === seen[i])) return; seen = k; try { srqHome(); const m = $('#tagModal'); if (m && !m.hidden && m.querySelector('#srqList') && !m.querySelector('button:disabled')) srqOpen(); } catch(e){} });
+  const st = document.createElement('style'); st.textContent = '.srq-g{border-color:rgba(220,192,138,.45)}.srq-st.ok{color:#7fe0a8}.srq-st.no{color:#ff9d93}.srq-over{color:#ff9d93}#srqNote{margin-top:8px}'; document.head.appendChild(st);
 })();
 /* =============================== SETTINGS: switch features on or off for everyone, set the defaults, and tidy your own home screen =============================== */
 // team/settings = {f:{<feature>:false…}, mp:{…match-day plan defaults}, ps:{groups:[…], approve}, rp:{style, tag}, rg:{miss}, updated, by}
