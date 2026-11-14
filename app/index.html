@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '50bc94c49f';</script>
+<script>window.ERGS_VER = '3e97967754';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -8928,7 +8928,7 @@ let TERM_CARDS = [];
 function renderTerms(){
     const grid = $('#tmGrid'); if (grid.dataset.built){ termsFilter(); return; }
   grid.dataset.built = 1;
-  TERM_CARDS = TERMS().concat(typeof TERMS2 === 'function' ? TERMS2() : []).map(term => {
+  TERM_CARDS = TERMS().concat(typeof TERMS2 === 'function' ? TERMS2() : []).concat(TERMS3()).map(term => {
     const el = document.createElement('article'); el.className = 'term';
     el.innerHTML = `<div class="term-pic"><canvas></canvas></div><span class="term-cap"></span><div class="term-b"><h3></h3><div class="term-aka"></div><p></p></div>`;
     el.querySelector('h3').textContent = term.t; el.querySelector('.term-aka').textContent = term.aka ? 'Also called: ' + term.aka : ''; el.querySelector('p').textContent = term.d;
@@ -9570,6 +9570,84 @@ const PRE_DRILLS4 = () => [
       {dur:0.8, cap:'Clean catch, brought down safely', ball:'A5'}]})
 ];
 
+/* =============================== EVEN MORE RUGBY TERMS: set piece, kicking, the referee's calls, defence roles =============================== */
+function TERMS3(){ return [
+  {t:'Scrum', aka:'Scrummage', d:'How play restarts after a knock-on or forward pass. Eight forwards from each team bind together and push. The scrum-half feeds the ball into the tunnel, the hooker strikes it back, and it comes out at the number 8\'s feet.',
+   p:buildDrill({title:'Scrum', A:{1:[-0.7,-1.1],2:[-0.7,0],3:[-0.7,1.1],4:[-1.8,-0.5],5:[-1.8,0.5],8:[-2.9,0],9:[-0.2,-2.6],10:[-7,7]}, B:{1:[0.7,1.1],2:[0.7,0],3:[0.7,-1.1],4:[1.8,0.5],5:[1.8,-0.5],8:[2.9,0],9:[0.6,-2.8]}, ball:'A9', draw0:[T_('SCRUM',0,3.6)],
+    steps:[{dur:0.9, cap:'9 feeds the ball into the tunnel', ball:[0,-0.6]}, {dur:0.9, cap:'The hooker strikes it back to the number 8\'s feet', ball:[-3.3,0.2], mv:{A9:[-2.6,-2.2]}}, {dur:0.7, cap:'9 picks it up at the base', ball:'A9', mv:{A9:[-3.6,0.8]}}, {dur:0.9, cap:'And passes to 10', ball:'A10', mv:{A10:[-6,7.4]}}]})},
+  {t:'Lineout', aka:'Line-out', d:'How play restarts when the ball goes into touch. The forwards of both teams line up a metre apart, and the hooker throws the ball straight down the middle for a jumper to catch.',
+   p:buildDrill({title:'Lineout', A:{2:[-0.6,-9],1:[-0.6,-3.5],4:[-0.6,-2],3:[-0.6,-0.5],9:[-3.4,-1]}, B:{1:[0.6,-3.5],4:[0.6,-2],3:[0.6,-0.5]}, ball:'A2', draw0:[L_(-6,-8.2,6,-8.2,'#F6F3EA'), T_('TOUCHLINE',4,-9.4,'#F6F3EA')],
+    steps:[{dur:1.0, cap:'The hooker throws it straight down the middle', ball:'A4', lift:['A4'], mv:{A1:[-0.6,-2.8],A3:[-0.6,-1.2]}}, {dur:0.8, cap:'The jumper catches and comes down', ball:'A4'}, {dur:0.8, cap:'Off the top to 9', ball:'A9'}]})},
+  {t:'Kick-off', aka:'Restart', d:'The kick that starts each half and restarts play after a score. It is a drop kick from halfway and must travel at least 10 metres. The kicking team chases to win it back.',
+   p:buildDrill({title:'Kick-off', A:{10:[-1,0],4:[-1,6],11:[-1,12]}, B:{4:[13,7],8:[16,2],15:[24,6]}, ball:'A10', draw0:[L_(0,-3,0,15,'#F6F3EA'), L_(10,-3,10,15,'#DCC08A'), T_('HALFWAY',0,-4.2,'#F6F3EA'), T_('10 M',10,-4.2)],
+    steps:[{dur:2.4, cap:'Drop kick. It must go 10 metres', kick:true, ball:'B4', mv:{A4:[11.6,6.6],A11:[10,11],A10:[4,1],B4:[13,6.8]}}, {dur:0.8, cap:'The chasers arrive as it is caught', mv:{A4:[12.4,6.8],A11:[12,9]}}]})},
+  {t:'Kick to touch', aka:'Finding touch, kick for the corner', d:'Kicking the ball off the pitch on purpose to gain ground. From a penalty your team gets the lineout throw where it went out. In open play the other team throws in.',
+   p:buildDrill({title:'Kick to touch', A:{10:[-8,2]}, B:{11:[10,-3],15:[16,4]}, ball:'A10', draw0:[L_(-10,-8,22,-8,'#F6F3EA'), T_('TOUCHLINE',-6,-9.2,'#F6F3EA'), T_('LINEOUT HERE',17,-6.4)],
+    steps:[{dur:0.7, cap:'Penalty. 10 points to the touchline', mv:{A10:[-7.4,1.4]}}, {dur:2.2, cap:'Kicked out as far up the pitch as he can', kick:true, ball:[17,-8.6], mv:{B11:[14,-5]}}, {dur:0.8, cap:'From a penalty, his own team throws in to the lineout'}]})},
+  {t:'50:22', aka:'Fifty twenty-two', d:'If you kick from inside your own half and the ball bounces before going into touch inside the opposition\'s 22, your team gets the lineout throw. It rewards accurate kicking and makes defences keep players back.',
+   p:buildDrill({title:'50:22', A:{10:[-5,3]}, B:{11:[12,-3],15:[20,6]}, ball:'A10', draw0:[L_(0,-8,0,10,'#F6F3EA'), L_(15,-8,15,10,'#DCC08A'), L_(-8,-8,26,-8,'#F6F3EA'), T_('HALFWAY',0,11.2,'#F6F3EA'), T_('22',15,11.2)],
+    steps:[{dur:0.6, cap:'10 is inside his own half', mv:{A10:[-4.4,2.6]}}, {dur:2.0, cap:'A long, low kick towards the corner', kick:true, ball:[18,-6.4], mv:{B11:[15,-5],B15:[21,2]}}, {dur:0.8, cap:'It bounces in the 22, then goes into touch', ball:[21,-8.6]}, {dur:0.8, cap:'50:22. The kicking team throws in'}]})},
+  {t:'Garryowen', aka:'Up and under, bomb', d:'A very high kick straight up the pitch that gives the chasers time to get underneath it and compete with the catcher. Named after the Limerick club that made it famous.',
+   p:buildDrill({title:'Garryowen', A:{10:[-8,0],12:[-9,5],14:[-9,10]}, B:{15:[14,3]}, ball:'A10', draw0:[T_('UP AND UNDER',4,-4)],
+    steps:[{dur:3.0, cap:'High kick. The chasers set off together', kick:true, ball:'B15', mv:{A10:[4,1],A12:[11.6,4],A14:[10,8],B15:[13,3.4]}}, {dur:0.8, cap:'They arrive as the ball comes down', mv:{A12:[12.4,3.6],A14:[12,5.6]}}]})},
+  {t:'Mark', aka:'Calling a mark, fair catch', d:'If you catch a kick cleanly inside your own 22 and shout "Mark!", the referee stops play and gives you a free kick. It takes the pressure off when chasers are bearing down on you.',
+   p:buildDrill({title:'Mark', A:{10:[-12,0],11:[-11,5]}, B:{15:[10,3]}, ball:'A10', draw0:[L_(6,-4,6,12,'#DCC08A'), T_('22',6,-5.2), T_('"MARK!"',12.5,6.4,'#5BC0FF')],
+    steps:[{dur:2.6, cap:'A high kick into the 22. The chaser follows', kick:true, ball:'B15', mv:{A11:[7.6,4],A10:[-6,0]}}, {dur:0.9, cap:'Clean catch and a shout of "Mark!"', mv:{A11:[8.6,3.6]}}, {dur:0.9, cap:'Free kick. The chaser must back off', mv:{A11:[3,4.5]}}]})},
+  {t:'22 drop-out', aka:'Twenty-two', d:'A drop kick taken from on or behind your own 22-metre line. It restarts play when the attacking team kicks the ball dead, for example a missed penalty kick or drop goal that goes over the dead-ball line.',
+   p:buildDrill({title:'22 drop-out', A:{10:[-1,2],6:[-1,8]}, B:{5:[12,7],15:[20,2]}, ball:'A10', draw0:[L_(0,-3,0,13,'#DCC08A'), T_('22',0,-4.2)],
+    steps:[{dur:0.6, cap:'10 is behind his own 22', mv:{A10:[-0.6,2.4]}}, {dur:2.2, cap:'Drop kick. The chaser goes after it', kick:true, ball:'B5', mv:{A6:[10.6,7.4],A10:[3,3]}}, {dur:0.7, cap:'Pressure on the catcher', mv:{A6:[11.4,7.2]}}]})},
+  {t:'Goal-line drop-out', aka:'Line drop-out', d:'A drop kick taken from your own goal line. It is given when an attacker is held up over the line, or when an attacking kick is grounded or made dead in your in-goal by a defender.',
+   p:buildDrill({title:'Goal-line drop-out', A:{10:[-0.8,2],7:[-0.8,8]}, B:{4:[16,7],15:[24,2]}, ball:'A10', draw0:[L_(0,-3,0,13,'#F6F3EA'), T_('GOAL LINE',0,-4.2,'#F6F3EA')],
+    steps:[{dur:0.6, cap:'The kick is taken from the goal line', mv:{A10:[-0.4,2.4]}}, {dur:2.4, cap:'Kick it long, or high enough to chase', kick:true, ball:'B4', mv:{A7:[14.4,7.4],A10:[4,3]}}, {dur:0.7, cap:'The chaser closes down the catcher', mv:{A7:[15.4,7.2]}}]})},
+  {t:'Advantage', aka:'Playing advantage', d:'When one team breaks a law, the referee can let play carry on if the other team has the ball and a chance to gain from it. If nothing comes of it, he goes back and gives the scrum or penalty.',
+   p:buildDrill({title:'Advantage', A:{10:[-7,2],12:[-8,7]}, B:{9:[-2,-2],10:[3,3],12:[3,8]}, ball:'B9', draw0:[T_('ADVANTAGE',-2,-5.4)],
+    steps:[{dur:0.9, cap:'The defending team knocks the ball on', ball:[-4.6,-1.4], mv:{B9:[-3,-1.8]}}, {dur:0.8, cap:'10 picks it up. The referee plays advantage', ball:'A10', mv:{A10:[-5,-1]}}, {dur:0.8, cap:'He passes to 12, who is in space', ball:'A12', mv:{A10:[-3.6,0],A12:[-4.4,6.6]}}, {dur:1.0, cap:'Ground gained: advantage over, play on', mv:{A12:[4,9.6],B12:[4,8.6]}}]})},
+  {t:'Tap and go', aka:'Quick tap, tap penalty', d:'Taking a penalty or free kick quickly by tapping the ball with your foot and running. It catches the defence before it has retreated 10 metres. Defenders who have not got back cannot tackle you.',
+   p:buildDrill({title:'Tap and go', A:{9:[-1,0],8:[-3,3]}, B:{6:[3,-1],7:[4,3],10:[10,2]}, ball:'A9', draw0:[L_(10,-4,10,8,'#DCC08A'), T_('10 M',10,-5.2)],
+    steps:[{dur:0.6, cap:'Penalty. The defence has to get back 10 metres', mv:{B6:[5,-1],B7:[6,3]}}, {dur:0.5, cap:'9 taps the ball with his foot', mv:{A9:[-0.4,0.2]}}, {dur:1.0, cap:'And goes before they are set', mv:{A9:[5,1],A8:[3.6,3],B6:[7,-1.4],B7:[8,3.4]}}, {dur:0.8, cap:'8 is in support for the offload', mv:{A9:[8.6,1.4],A8:[7.4,3.4]}}]})},
+  {t:'Tackle gate', aka:'Through the gate', d:'After a tackle, every arriving player must join from behind the tackled player, straight on, as if walking through a gate the width of the bodies on the ground. Coming in from the side is a penalty.',
+   p:buildDrill({title:'Tackle gate', A:{12:[0,0],7:[-5,0.4]}, B:{12:[0.9,0.2],6:[3,6]}, ball:'A12', draw0:[Z_(-3.4,-1.2,-0.4,1.4,'#5BC0FF'), T_('THE GATE',-2,-2.6,'#5BC0FF'), T_('IN AT THE SIDE',3.6,8,'#EF4B45')],
+    steps:[{dur:1.0, cap:'7 arrives from behind, through the gate', down:['A12', 'B12'], mv:{A7:[-1.2,0.2]}}, {dur:1.0, cap:'The defender comes in from the side: penalty', down:['A12', 'B12'], mv:{B6:[0.6,1.6]}}]})},
+  {t:'Crash ball', aka:'Crash, bosh', d:'A short pass to a big, direct runner who hits the defensive line at full pace. The aim is to get over the gainline, suck in defenders and win quick ball for the next phase.',
+   p:buildDrill({title:'Crash ball', A:{10:[-6,0],12:[-9,3.4],13:[-9,9]}, B:{10:[2,0],12:[2,4.4],13:[2,10]}, ball:'A10', draw0:[T_('CRASH',-1,-3.4)],
+    steps:[{dur:0.9, cap:'10 takes the ball to the line', mv:{A10:[-2.6,0.4],A12:[-5,3],B10:[1,0.2]}}, {dur:0.5, cap:'Short pass to 12 at full pace', ball:'A12', mv:{A12:[-3,2.6]}}, {dur:0.9, cap:'12 hits the line hard and gets over the gainline', mv:{A12:[2.2,2.4],B10:[1.6,1.6],B12:[2.4,3.2]}}]})},
+  {t:'Dummy pass', aka:'Dummy, selling the dummy', d:'Shaping to pass but keeping hold of the ball. If the defender follows the pass that never comes, a gap opens for you to run through.',
+   p:buildDrill({title:'Dummy pass', A:{10:[-7,0],12:[-8.4,5]}, B:{10:[2,0.6],12:[2,5.4]}, ball:'A10', draw0:[T_('DUMMY',-2,-3.4)],
+    steps:[{dur:0.9, cap:'10 runs at his defender and shapes to pass', mv:{A10:[-3,0.4],A12:[-4.4,5],B10:[1,1]}}, {dur:0.7, cap:'The defender follows the pass that never comes', mv:{B10:[0.4,3.4],A10:[-1.6,0],A12:[-3,5.2]}}, {dur:1.0, cap:'10 keeps the ball and goes through the gap', mv:{A10:[5,-0.8],A12:[2,5.4]}}]})},
+  {t:'Support line', aka:'Support runner, trailer', d:'The line a team-mate runs to back up the ball carrier: close, slightly behind and on his shoulder, so he can take an offload or be first to the ruck if the carrier is tackled.',
+   p:buildDrill({title:'Support line', A:{12:[-6,2],7:[-9,0]}, B:{12:[3,2.4],15:[11,3]}, ball:'A12', draw0:[T_('ON HIS SHOULDER',1,-3)],
+    steps:[{dur:1.0, cap:'12 breaks. 7 works to get on his inside shoulder', mv:{A12:[1,3.6],A7:[-2.4,1.2],B12:[2,3]}}, {dur:0.9, cap:'The full-back comes across to tackle', mv:{A12:[7,3.6],A7:[4.6,1.6],B15:[8.6,3.4]}}, {dur:0.6, cap:'Offload to the support runner', ball:'A7', mv:{A7:[6,1.8]}}, {dur:0.9, cap:'7 is away', mv:{A7:[13,1]}}]})},
+  {t:'Obstruction', aka:'Crossing, blocking', d:'A player without the ball cannot get in the way of a defender. If a team-mate runs between the ball carrier and a tackler and blocks him, it is a penalty to the other team.',
+   p:buildDrill({title:'Obstruction', A:{10:[-6,0],12:[-4.6,3]}, B:{10:[3,2]}, ball:'A10', draw0:[T_('OBSTRUCTION',1,-3.6,'#EF4B45')],
+    steps:[{dur:0.9, cap:'12 runs ahead of the ball carrier', mv:{A10:[-4,0.4],A12:[-0.6,2.2],B10:[1.4,2]}}, {dur:0.8, cap:'10 runs behind him. The tackler is blocked', mv:{A10:[-1.6,3.6],A12:[0.2,2.2],B10:[0.9,2.3]}}, {dur:0.8, cap:'Penalty to the defending team'}]})},
+  {t:'Turnover', aka:'Steal, turned over', d:'Winning the ball back from the team that had it: a steal at the ruck, a rip in the tackle, an interception or a lineout steal. Turnover ball is valuable because the other team is not set to defend.',
+   p:buildDrill({title:'Turnover', A:{12:[0,0],7:[-6,1]}, B:{12:[0.9,0.3],7:[3,-1],9:[4.6,2]}, ball:'A12', draw0:[T_('TURNOVER',1,-3.6)],
+    steps:[{dur:0.8, cap:'12 is tackled. His support is too far away', down:['A12', 'B12'], mv:{A7:[-3.6,0.6],B7:[1,0]}}, {dur:0.8, cap:'The defender gets over the ball on his feet', ball:'B7', down:['A12', 'B12'], mv:{B7:[0.6,0],A7:[-1.6,0.4]}}, {dur:0.8, cap:'And passes it away: turnover', ball:'B9', down:['A12', 'B12']}]})},
+  {t:'Held up', aka:'Held up over the line', d:'When a ball carrier gets over the try line but defenders get under the ball and stop him touching it down. No try. The defending team restarts with a goal-line drop-out.',
+   p:buildDrill({title:'Held up', A:{8:[-4,0]}, B:{6:[1.4,-0.8],7:[1.4,1]}, ball:'A8', draw0:[L_(0,-4,0,5,'#F6F3EA'), T_('TRY LINE',0,-5.2,'#F6F3EA'), T_('HELD UP',3,3.6,'#EF4B45')],
+    steps:[{dur:0.9, cap:'8 drives for the line', mv:{A8:[0.6,0.1],B6:[1,-0.5],B7:[1,0.7]}}, {dur:0.9, cap:'Two defenders get under the ball', mv:{A8:[1,0.1],B6:[1.5,-0.3],B7:[1.5,0.5]}}, {dur:0.8, cap:'He cannot ground it: no try, goal-line drop-out'}]})},
+  {t:'Try', aka:'Touching down, grounding', d:'Worth 5 points. You score by grounding the ball on or over the opposition\'s try line: hold it and touch it on the ground, or press down on a loose ball with your hand, arm or upper body.',
+   p:buildDrill({title:'Try', A:{14:[-8,2]}, B:{11:[-2,-3]}, ball:'A14', draw0:[L_(0,-5,0,7,'#F6F3EA'), T_('TRY LINE',0,-6.2,'#F6F3EA'), T_('5 POINTS',3.4,5.4)],
+    steps:[{dur:1.0, cap:'14 races for the corner', mv:{A14:[-2,3],B11:[-1.6,0.6]}}, {dur:0.8, cap:'Over the line before the tackler gets there', mv:{A14:[1.6,3.4],B11:[0,2.4]}}, {dur:0.8, cap:'Ball on the ground with downward pressure: try', down:['A14'], mv:{A14:[2.2,3.4]}}]})},
+  {t:'In touch', aka:'Into touch, out', d:'The ball is in touch when it, or the player carrying it, touches the touchline or the ground beyond it. The line itself is out. Play restarts with a lineout.',
+   p:buildDrill({title:'In touch', A:{11:[-6,-4]}, B:{14:[3,-2]}, ball:'A11', draw0:[L_(-9,-7,9,-7,'#F6F3EA'), T_('TOUCHLINE',-5,-8.2,'#F6F3EA'), T_('IN TOUCH',5,-8.2,'#EF4B45')],
+    steps:[{dur:0.9, cap:'11 runs down the wing', mv:{A11:[-1,-5],B14:[1.6,-3.6]}}, {dur:0.8, cap:'The tackler drives him towards the line', mv:{A11:[1.4,-6.6],B14:[1.9,-5.8]}}, {dur:0.8, cap:'A foot on the line: in touch, lineout to the defence', mv:{A11:[2,-7.1],B14:[2.3,-6.3]}}]})},
+  {t:'Post', aka:'Pillar and post, guard', d:'The second defender out from a ruck, standing next to the pillar. The pillar stops the pick and go, and the post takes the scrum-half or the first runner off him.',
+   p:buildDrill({title:'Post', A:{4:[-0.6,-0.3],6:[-0.6,0.5],9:[-1.8,1],8:[-4,3.4]}, B:{3:[0.6,-0.3],7:[0.6,0.5],1:[1.4,1.8],2:[1.4,3.4],10:[1.6,6.6]}, ball:[-1.2,0.2], draw0:[T_('PILLAR',5.6,1.2,'#5BC0FF'), T_('POST',5.2,3.6,'#DCC08A')],
+    steps:[{dur:0.9, cap:'The pillar is tight to the ruck. The post is beside him'}, {dur:0.8, cap:'9 passes to the runner close to the ruck', ball:'A8', mv:{A9:[-1.8,1.4],A8:[-2.6,3.2]}}, {dur:0.9, cap:'The post steps up and makes the tackle', mv:{A8:[0.2,3.2],B2:[0.8,3.3]}}]})},
+  {t:'Sweeper', aka:'Cover defender', d:'A defender, often the scrum-half, who runs behind his own defensive line following the ball. He is there to tackle anyone who breaks through and to cover chip and grubber kicks.',
+   p:buildDrill({title:'Sweeper', A:{10:[-6,0],12:[-7.4,5],13:[-8.8,10]}, B:{10:[2,0.4],12:[2,5.4],13:[2,10.4],9:[6,1]}, ball:'A10', draw0:[T_('SWEEPER',9.4,3,'#5BC0FF')],
+    steps:[{dur:0.8, cap:'The ball moves along the line. The sweeper follows it', ball:'A12', mv:{A10:[-4.6,0.2],A12:[-5.6,5.2],B9:[6,5]}}, {dur:0.8, cap:'And again', ball:'A13', mv:{A12:[-4.4,5.4],A13:[-6,10.2],B9:[6,9.4]}}, {dur:0.9, cap:'13 breaks the line', mv:{A13:[3.4,11.8],B13:[1.8,10.6]}}, {dur:0.8, cap:'The sweeper is there to make the tackle', mv:{A13:[5,11.6],B9:[5.8,11.2]}}]})},
+  {t:'Pendulum', aka:'Back three, backfield cover', d:'How the full-back and two wingers cover kicks. When the ball goes to one side, the winger on that side comes up into the line, the full-back swings across behind him, and the far winger drops back. They swing like a pendulum.',
+   p:buildDrill({title:'Pendulum', A:{10:[-8,-6]}, B:{11:[3,-12],14:[3,12],15:[14,0]}, ball:'A10', draw0:[T_('BACK THREE',16,-4,'#5BC0FF')],
+    steps:[{dur:1.0, cap:'The attack plays to the right', mv:{A10:[-8,6]}}, {dur:1.0, cap:'That winger comes up. The full-back swings across', mv:{B14:[0,12],B15:[13,7]}}, {dur:1.0, cap:'The far winger drops back to cover the kick', mv:{B11:[12,-7]}}]})},
+  {t:'Kick chase', aka:'Chase line', d:'After a kick, the chasers run up the pitch together in a flat line so the catcher has nowhere to go. One fast chaser in front of the others leaves gaps either side of him.',
+   p:buildDrill({title:'Kick chase', A:{10:[-8,4],11:[-9,-4],12:[-9,1],13:[-9,7],14:[-9,12]}, B:{15:[16,4]}, ball:'A10', draw0:[T_('STAY IN A LINE',2,-7)],
+    steps:[{dur:2.6, cap:'10 kicks long. The chasers go together', kick:true, ball:'B15', mv:{A11:[8,-3],A12:[8,1.6],A13:[8,6.6],A14:[8,11],A10:[-2,4]}}, {dur:0.9, cap:'A flat line gives the catcher no gap to run at', mv:{A11:[12,-1],A12:[12.6,2.4],A13:[12.6,5.8],A14:[12,9],B15:[15,4]}}]})},
+  {t:'Exit play', aka:'Exit, clearing your lines', d:'A planned way of getting the ball out of your own 22: usually one or two safe carries to set a good ruck, then a long kick to touch or downfield with a strong chase.',
+   p:buildDrill({title:'Exit play', A:{9:[-1.6,0.6],8:[-4,3],10:[-8,-4]}, B:{6:[2,3],15:[26,-4]}, ball:'A9', draw0:[L_(8,-8,8,6,'#DCC08A'), T_('YOUR 22',8,7.2), L_(-10,-8,26,-8,'#F6F3EA')],
+    steps:[{dur:0.7, cap:'One safe carry by the number 8', ball:'A8', mv:{A8:[-2.6,3]}}, {dur:0.8, cap:'He sets a solid ruck', down:['A8'], mv:{A8:[0.4,3],B6:[1.2,3],A9:[-1,3.4]}}, {dur:0.7, cap:'9 passes back to 10 in the pocket', ball:'A10', down:['A8'], mv:{A10:[-7,-3]}}, {dur:2.2, cap:'10 kicks long to touch: out of danger', kick:true, ball:[20,-8.6], down:['A8'], mv:{B15:[22,-6]}}]})}
+]; }
 /* =============================== MORE RUGBY TERMS =============================== */
 const TERMS2 = () => [
   {t:'Offside line', aka:'Hindmost foot', d:'At a ruck or maul, each team\'s offside line runs across the pitch through the hindmost foot of its last player in the ruck. Defenders must stay behind their line until the ball is out. Step in front of it and you are offside.',
@@ -14853,7 +14931,7 @@ const PIQ_MODES = [
 const piqWeek = (t = new Date()) => { const d = new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate())), day = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - day);
   const y = d.getUTCFullYear(), w = Math.ceil(((d - Date.UTC(y, 0, 1))/864e5 + 1)/7); return y + '-W' + String(w).padStart(2, '0'); };   // ISO week: the weekly board starts again every Monday
 let PIQ_TERMS = null;
-const piqTerms = () => { if (!PIQ_TERMS){ try { PIQ_TERMS = TERMS().concat(typeof TERMS2 === 'function' ? TERMS2() : []).filter(x => x && x.t && x.d); } catch(e){ PIQ_TERMS = []; } } return PIQ_TERMS; };
+const piqTerms = () => { if (!PIQ_TERMS){ try { PIQ_TERMS = TERMS().concat(typeof TERMS2 === 'function' ? TERMS2() : []).concat(TERMS3()).filter(x => x && x.t && x.d); } catch(e){ PIQ_TERMS = []; } } return PIQ_TERMS; };
 const piqShuf = a => { for (let i = a.length - 1; i > 0; i--){ const j = Math.floor(Math.random()*(i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const piqNoText = p => { const c = clone(p); (c.frames || []).forEach(f => { f.draw = (f.draw || []).filter(x => x.t !== 'text'); f.caption = ''; }); return c; };   // no labels giving the answer away
 const piqShort = d => { const m = String(d).match(/^.*?[.!?](\s|$)/); let s = (m ? m[0] : String(d)).trim(); if (s.length > 170) s = s.slice(0, 167).replace(/\s+\S*$/, '') + '…'; return s; };
@@ -21729,14 +21807,7 @@ const lawNotes = (c, p, seg) => notesFor(p, {live:true, i:seg.i, t:seg.t}).conca
     if (S.screen === 'terms' && was === 'laws' && typeof TM !== 'undefined'){ TM.from = LW.from; }
     tabsUp(); };
   tabsUp();
-  // and on the home menu, for players and coaches
-  const rm = renderMenu; renderMenu = function(){ rm.apply(this, arguments); if (!(Cloud.role === 'coach' || Cloud.role === 'player') || !allowed('laws')) return;
-    const ul = $('#menuList'); if (!ul || ul.querySelector('[data-k="laws"]')) return;
-    const li = document.createElement('li'); li.style.animationDelay = (0.9 + ul.children.length*0.09) + 's';
-    const b = document.createElement('button'); b.className = 'menu-item'; b.dataset.k = 'laws';
-    b.innerHTML = `<span><span class="t">Rugby laws</span><span class="d">The main laws, animated: what gets penalised and how to do it right</span></span><svg class="arr" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
-    b.onclick = () => go('laws'); li.appendChild(b);
-    const sc = ul.querySelector('li.mi-scores'); sc ? sc.before(li) : ul.appendChild(li); };
+  // not on the home menu: the laws live in the Playbook, as a tab beside Rugby terms
 })();
 (() => { const rm = renderMenu; renderMenu = function(){ rm.apply(this, arguments); cgHome(); }; if (typeof whenRole === 'function') whenRole(() => { if (S.screen === 'menu') cgHome(); }); })();
 })();
