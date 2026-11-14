@@ -7,8 +7,12 @@ INSTALL (once)
      - If Python isn't on the PC it tries to install it, then asks you to run Install.bat again.
   3. A "Rugby Photo Enhancer" shortcut appears on your Desktop and in the Start menu.
 
+THE WINDOW
+  The app opens in its own window (it uses Microsoft Edge behind the scenes, which is
+  already on Windows). Close the window to quit.
+
 CONNECT TO GOOGLE DRIVE (once, ~3 minutes - no Drive app needed)
-  The first time you open the app it shows "Set up direct Google Drive upload":
+  The first time you open the app it shows "Connect to Google Drive":
   1. Check the Rugby folder link, click "1. Copy script".
   2. Click "2. Open Apps Script" (sign in with the Google account that can see the Rugby
      folder). Delete the sample code, paste (Ctrl+V), save (Ctrl+S).
@@ -23,8 +27,11 @@ EACH MATCH
   1. Put the SD card in (photos are read from E:\DCIM\100CANON - change with Browse).
   2. Type the folder name, e.g. "Dungannon 14 11 26".
   3. By default it only takes photos taken today, and skips any already imported.
-  4. Click "Enhance & upload". A new folder is made in Rugby on Google Drive and the
-     full-size enhanced photos are uploaded into it. "Open the new folder" opens it in Drive.
+  4. Look through the grid (it shows the enhanced versions). Click any photo for a
+     before/after slider - arrow keys move between photos, X excludes one.
+     Untick any photos you don't want.
+  5. Click "Enhance & upload". A new folder is made in Rugby on Google Drive and the
+     full-size enhanced photos are uploaded into it. "Open in Google Drive" opens it.
 
 OPTIONS
   - "Also keep a copy on this PC" saves the enhanced photos in Pictures\Rugby Photos too.

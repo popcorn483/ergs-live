@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rugby Photo Enhancer</title>
+<style>
+  :root{
+    --bg:#121316; --panel:#1b1d22; --panel2:#23262c; --line:#2f333b; --line2:#3a3f49;
+    --text:#eceef2; --muted:#9aa1ad; --accent:#f2b544; --accent2:#ffd58a; --ok:#6fcf97; --bad:#ef6b6b; --blue:#7fb2ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 "Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+  button,input,select{font:inherit;color:inherit}
+  ::-webkit-scrollbar{width:10px;height:10px} ::-webkit-scrollbar-thumb{background:#2c3038;border-radius:6px} ::-webkit-scrollbar-track{background:transparent}
+  .app{display:grid;grid-template-columns:330px 1fr;height:100vh}
+  /* sidebar */
+  aside{background:var(--panel);border-right:1px solid var(--line);overflow:auto;padding:18px 18px 24px}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+  .logo{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),#e0892b);display:grid;place-items:center;color:#1b1404;font-weight:800}
+  .brand h1{font-size:17px;margin:0;line-height:1.2}
+  .brand small{color:var(--muted);font-size:12px}
+  .sec{margin:0 0 18px}
+  .sec h2{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--muted);margin:0 0 8px;font-weight:600}
+  .path{display:flex;gap:6px}
+  .path input{flex:1;min-width:0}
+  input[type=text],input[type=date],select{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;outline:none}
+  input[type=text]:focus,input[type=date]:focus,select:focus{border-color:var(--accent)}
+  input[type=date]{color-scheme:dark}
+  .chk{display:flex;align-items:center;gap:8px;margin:7px 0;cursor:pointer;user-select:none}
+  .chk input{accent-color:var(--accent);width:15px;height:15px}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}
+  .seg button{border:0;background:transparent;border-radius:7px;padding:6px 0;cursor:pointer;color:var(--muted)}
+  .seg button.on{background:#33302a;color:var(--accent2);box-shadow:inset 0 0 0 1px #5b4a25}
+  .row{display:flex;gap:8px;align-items:center}
+  .dest{border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer;transition:border-color .15s}
+  .dest.on{border-color:var(--accent);background:#1f1d18}
+  .dest .t{display:flex;align-items:center;gap:8px;font-weight:600}
+  .dest .t input{accent-color:var(--accent)}
+  .dest .d{color:var(--muted);font-size:12.5px;margin:4px 0 0 23px}
+  .dest .more{margin:8px 0 0 23px}
+  .pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 8px;border-radius:20px;background:var(--panel2);color:var(--muted)}
+  .pill.ok{color:var(--ok)} .pill.bad{color:var(--bad)}
+  .btn{background:var(--accent);color:#1b1404;border:0;border-radius:9px;padding:9px 16px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .btn:disabled{opacity:.4;cursor:default}
+  .btn.ghost{background:var(--panel2);color:var(--text);border:1px solid var(--line);font-weight:500}
+  .btn.ghost:hover:not(:disabled){border-color:var(--line2)}
+  .btn.sm{padding:6px 10px;font-size:13px;border-radius:8px}
+  .link{background:none;border:0;color:var(--accent2);cursor:pointer;padding:0;text-decoration:underline;text-underline-offset:2px}
+  .foot{color:var(--muted);font-size:12px;border-top:1px solid var(--line);padding-top:12px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+  /* main */
+  main{display:flex;flex-direction:column;min-width:0;height:100vh}
+  .top{padding:16px 22px 12px;border-bottom:1px solid var(--line);display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap}
+  .namebox{flex:1;min-width:260px}
+  .namebox label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+  .namebox input{width:100%;font-size:18px;padding:10px 12px;border-radius:10px}
+  .go{padding:13px 22px;font-size:15px;border-radius:11px}
+  .progress{padding:10px 22px 0}
+  .bar{height:6px;background:var(--panel2);border-radius:4px;overflow:hidden}
+  .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+  .stat{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:13px;margin-top:7px;min-height:20px}
+  .toolbar{display:flex;align-items:center;gap:10px;padding:10px 22px;flex-wrap:wrap}
+  .toolbar .sp{flex:1}
+  .count{color:var(--muted)}
+  .count b{color:var(--text)}
+  .grid{flex:1;overflow:auto;padding:4px 22px 24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;align-content:start}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;transition:border-color .15s,opacity .15s}
+  .tile:hover{border-color:var(--line2)}
+  .tile.off{opacity:.38}
+  .tile.isdone .sel{visibility:hidden}
+  .thumb{aspect-ratio:3/2;background:#0c0d0f;cursor:zoom-in;position:relative;overflow:hidden}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .25s}
+  .thumb img.ld{opacity:1}
+  .sel{position:absolute;top:8px;left:8px;width:24px;height:24px;border-radius:7px;background:rgba(0,0,0,.55);border:1.5px solid rgba(255,255,255,.6);display:grid;place-items:center;cursor:pointer;z-index:2;font-size:14px;color:#1b1404}
+  .tile:not(.off) .sel{background:var(--accent);border-color:var(--accent)}
+  .tile:not(.off) .sel::after{content:"✓";font-weight:800}
+  .badge{position:absolute;top:8px;right:8px;z-index:2;font-size:11.5px;padding:3px 8px;border-radius:20px;background:rgba(0,0,0,.65);backdrop-filter:blur(4px)}
+  .badge.ok{color:var(--ok)} .badge.bad{color:var(--bad)} .badge.work{color:var(--accent2)} .badge.up{color:var(--blue)}
+  .meta{padding:8px 10px 9px;display:flex;justify-content:space-between;gap:8px;font-size:12.5px}
+  .meta .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .meta .tm{color:var(--muted)}
+  .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:70px 20px}
+  .empty .big{font-size:18px;color:var(--text);margin-bottom:6px}
+  /* modal viewer */
+  .modal{position:fixed;inset:0;background:rgba(5,6,8,.94);display:none;flex-direction:column;z-index:40}
+  .modal.open{display:flex}
+  .mhead{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;gap:10px;flex-wrap:wrap}
+  .mhead .title{font-size:15px}
+  .mhead .tags{color:var(--muted);font-size:12.5px}
+  .stage{flex:1;display:grid;place-items:center;padding:0 16px 16px;min-height:0}
+  .cmp{position:relative;user-select:none;touch-action:none;cursor:ew-resize}
+  .cmp img{display:block;max-width:calc(100vw - 32px);max-height:calc(100vh - 92px);object-fit:contain}
+  .cmp .before{position:absolute;inset:0;width:100%;height:100%}
+  .cmp .handle{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.4);pointer-events:none}
+  .cmp .handle::after{content:"⟷";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;color:#111;border-radius:50%;width:32px;height:32px;display:grid;place-items:center;font-size:16px}
+  .lbl{position:absolute;top:10px;padding:3px 9px;border-radius:6px;background:rgba(0,0,0,.6);font-size:12px;pointer-events:none}
+  .lbl.l{left:10px}.lbl.r{right:10px}
+  .loading{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted)}
+  /* dialog */
+  .dlg{position:fixed;inset:0;background:rgba(5,6,8,.75);display:none;place-items:center;z-index:50}
+  .dlg.open{display:grid}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 24px;width:min(640px,94vw);max-height:92vh;overflow:auto}
+  .card h3{margin:0 0 4px;font-size:18px}
+  .card p{color:var(--muted);margin:0 0 14px}
+  .steps{counter-reset:s;margin:0 0 14px;padding:0;list-style:none}
+  .steps li{counter-increment:s;position:relative;padding:0 0 12px 34px}
+  .steps li::before{content:counter(s);position:absolute;left:0;top:-1px;width:23px;height:23px;border-radius:50%;background:var(--panel2);border:1px solid var(--line2);display:grid;place-items:center;font-size:12px;color:var(--accent2)}
+  .steps code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12.5px}
+  .card input[type=text]{width:100%}
+  .msg{min-height:20px;margin-top:10px;font-size:13px}
+  .msg.ok{color:var(--ok)} .msg.bad{color:var(--bad)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(10px);background:var(--panel2);border:1px solid var(--line2);padding:10px 16px;border-radius:10px;opacity:0;transition:.25s;pointer-events:none;z-index:60;max-width:90vw}
+  .toast.show{opacity:1;transform:translateX(-50%)}
+  .gone{display:none!important}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand"><div class="logo">R</div><div><h1>Rugby Photo Enhancer</h1><small id="ver"></small></div></div>
+
+    <div class="sec">
+      <h2>Camera card</h2>
+      <div class="path"><input type="text" id="source" spellcheck="false"><button class="btn ghost sm" data-browse="source" data-title="Choose the camera folder">Browse</button></div>
+      <label class="chk"><input type="checkbox" id="onlyDate"> Only photos taken on</label>
+      <div class="row" style="margin-left:23px"><input type="date" id="day"></div>
+      <label class="chk"><input type="checkbox" id="skip"> Skip photos already imported</label>
+    </div>
+
+    <div class="sec">
+      <h2>Look</h2>
+      <div class="seg" id="presets"></div>
+      <div class="row" style="margin-top:9px;justify-content:space-between">
+        <span class="count">JPEG quality</span>
+        <select id="quality"><option value="88">Good (88%)</option><option value="93">High (93%)</option><option value="97">Max (97%)</option></select>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>Upload to</h2>
+      <div class="dest" data-mode="direct">
+        <div class="t"><input type="radio" name="mode" value="direct"> Google Drive</div>
+        <div class="d" id="driveState"></div>
+        <div class="more">
+          <label class="chk"><input type="checkbox" id="keepLocal"> Also keep a copy on this PC</label>
+          <div class="path"><input type="text" id="localDir" spellcheck="false"><button class="btn ghost sm" data-browse="localDir" data-title="Where to keep local copies">Browse</button></div>
+        </div>
+      </div>
+      <div class="dest" data-mode="folder">
+        <div class="t"><input type="radio" name="mode" value="folder"> A folder on this PC</div>
+        <div class="d">e.g. a Google Drive for desktop folder</div>
+        <div class="more"><div class="path"><input type="text" id="dest" spellcheck="false"><button class="btn ghost sm" data-browse="dest" data-title="Choose the folder to save into">Browse</button></div></div>
+      </div>
+      <label class="chk"><input type="checkbox" id="keepOriginals"> Also upload untouched originals</label>
+    </div>
+
+    <div class="foot"><span id="updState"></span><button class="link" id="updBtn">Check for updates</button></div>
+  </aside>
+
+  <main>
+    <div class="top">
+      <div class="namebox">
+        <label for="folderName">New folder in Rugby</label>
+        <input type="text" id="folderName" placeholder="e.g. Dungannon 14 11 26" spellcheck="false">
+      </div>
+      <button class="btn go" id="go" disabled>Enhance &amp; upload</button>
+    </div>
+    <div class="progress"><div class="bar"><i id="bar"></i></div><div class="stat"><span id="status">Put the camera card in and pick a date.</span><span id="eta"></span></div></div>
+    <div class="toolbar">
+      <span class="count" id="count"></span>
+      <button class="btn ghost sm" id="selAll">Select all</button>
+      <button class="btn ghost sm" id="selNone">Select none</button>
+      <span class="sp"></span>
+      <button class="btn ghost sm" id="rescan">↻ Rescan card</button>
+      <div class="seg" style="width:190px;grid-template-columns:1fr 1fr" id="showSeg"><button data-k="after" class="on">Enhanced</button><button data-k="before">Original</button></div>
+      <button class="btn ghost sm gone" id="openBtn">Open folder</button>
+    </div>
+    <div class="grid" id="grid"><div class="empty"><div class="big">Looking for photos…</div></div></div>
+  </main>
+</div>
+
+<div class="modal" id="modal">
+  <div class="mhead">
+    <div><div class="title" id="mName"></div><div class="tags" id="mTags"></div></div>
+    <div class="row">
+      <button class="btn ghost sm" id="mPrev">‹ Prev</button>
+      <button class="btn ghost sm" id="mNext">Next ›</button>
+      <button class="btn ghost sm" id="mToggle">Exclude</button>
+      <button class="btn sm" id="mClose">Close</button>
+    </div>
+  </div>
+  <div class="stage">
+    <div class="cmp" id="cmp">
+      <img id="imgAfter" alt="Enhanced">
+      <img id="imgBefore" class="before" alt="Original">
+      <div class="handle" id="handle"></div>
+      <span class="lbl l">Original</span><span class="lbl r">Enhanced</span>
+      <div class="loading" id="mLoad">Loading…</div>
+    </div>
+  </div>
+</div>
+
+<div class="dlg" id="setup">
+  <div class="card">
+    <h3>Connect to Google Drive</h3>
+    <p>One-time setup, about 3 minutes. It creates a private uploader in your own Google account that can only add folders and photos inside your Rugby folder.</p>
+    <ol class="steps">
+      <li>Rugby folder link:<div style="margin-top:6px"><input type="text" id="folderLink" spellcheck="false"></div></li>
+      <li><button class="btn sm" id="copyScript">Copy script</button> then <button class="btn ghost sm" id="openScript">Open Apps Script</button><br>
+        <span class="count">In the new project: delete the sample, paste (Ctrl+V), save (Ctrl+S).</span></li>
+      <li><b>Deploy → New deployment</b> → ⚙ → <b>Web app</b>. Execute as <code>Me</code>, Who has access <code>Anyone</code> → Deploy.</li>
+      <li><b>Authorise access</b> → your account → <b>Advanced</b> → <b>Go to … (unsafe)</b> → Allow. <span class="count">(It's your own script, so this warning is expected.)</span></li>
+      <li>Paste the <b>Web app URL</b>:<div style="margin-top:6px"><input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/…/exec" spellcheck="false"></div></li>
+    </ol>
+    <div class="row" style="justify-content:flex-end"><button class="btn ghost" id="setupClose">Later</button><button class="btn" id="setupTest">Test &amp; save</button></div>
+    <div class="msg" id="setupMsg"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const T = "__TOKEN__";
+  const $ = id => document.getElementById(id);
+  const api = async (path, body) => {
+    const r = await fetch(path + (body ? "" : (path.includes("?") ? "&" : "?") + "t=" + T), body ? {method:"POST", headers:{"Content-Type":"application/json","X-Token":T}, body:JSON.stringify(body)} : {});
+    return r.json();
+  };
+  let S = null, photos = [], show = "after", jobTimer = null, running = false, lastStatus = {};
+  const fmtEta = s => s == null ? "" : s < 60 ? `about ${s}s left` : `about ${Math.floor(s/60)}m ${s%60}s left`;
+  let tt; const toast = t => { const e = $("toast"); e.textContent = t; e.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => e.classList.remove("show"), 3000); };
+
+  /* ---------- settings ---------- */
+  function settings(){
+    return {
+      source: $("source").value.trim(), onlyDate: $("onlyDate").checked, skip: $("skip").checked,
+      preset: document.querySelector("#presets .on").dataset.p, quality: +$("quality").value,
+      mode: document.querySelector("input[name=mode]:checked").value,
+      keepLocal: $("keepLocal").checked, localDir: $("localDir").value.trim(), dest: $("dest").value.trim(),
+      keepOriginals: $("keepOriginals").checked,
+    };
+  }
+  let saveT; const saveSettings = () => { clearTimeout(saveT); saveT = setTimeout(() => api("/api/settings", settings()), 400); };
+
+  function paintDest(){
+    const m = settings().mode;
+    document.querySelectorAll(".dest").forEach(d => d.classList.toggle("on", d.dataset.mode === m));
+    document.querySelectorAll(".dest .more").forEach(x => x.style.display = x.closest(".dest").dataset.mode === m ? "" : "none");
+    const ds = $("driveState");
+    ds.innerHTML = S.drive.ok ? `<span class="pill ok">✓ Connected${S.drive.root ? " to “" + esc(S.drive.root) + "”" : ""}</span> <button class="link" id="reSetup">change</button>`
+                              : `<span class="pill bad">Not set up</span> <button class="link" id="reSetup">Set up…</button>`;
+    $("reSetup").onclick = e => { e.stopPropagation(); openSetup(); };
+    updateGo();
+  }
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+  async function init(){
+    S = await api("/api/state");
+    const st = S.settings;
+    $("ver").textContent = "Version " + S.version;
+    $("source").value = st.source; $("onlyDate").checked = st.onlyDate; $("skip").checked = st.skip;
+    $("day").value = S.today; $("quality").value = String(st.quality);
+    $("keepLocal").checked = st.keepLocal; $("localDir").value = st.localDir; $("dest").value = st.dest;
+    $("keepOriginals").checked = st.keepOriginals;
+    document.querySelector(`input[name=mode][value=${st.mode === "folder" ? "folder" : "direct"}]`).checked = true;
+    $("presets").innerHTML = S.presets.map(p => `<button data-p="${p}" class="${p === st.preset ? "on" : ""}">${p}</button>`).join("");
+    const d = new Date(); $("folderName").value = [d.getDate(), d.getMonth()+1, d.getFullYear()%100].map(n => String(n).padStart(2,"0")).join(" ");
+    $("folderLink").value = S.drive.folderLink;
+    paintDest(); paintUpdate(S.update);
+    $("folderName").focus(); $("folderName").setSelectionRange(0, 0);
+    scan();
+    if (st.mode !== "folder" && !S.drive.ok) setTimeout(openSetup, 500);
+  }
+
+  /* ---------- sidebar events ---------- */
+  ["source","day"].forEach(id => $(id).addEventListener("change", () => { saveSettings(); scan(); }));
+  ["onlyDate","skip"].forEach(id => $(id).addEventListener("change", () => { saveSettings(); scan(); }));
+  ["quality","keepLocal","localDir","dest","keepOriginals"].forEach(id => $(id).addEventListener("change", saveSettings));
+  $("presets").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    document.querySelectorAll("#presets button").forEach(x => x.classList.toggle("on", x === b));
+    saveSettings(); refreshImages();
+  });
+  document.querySelectorAll(".dest").forEach(d => d.addEventListener("click", e => {
+    if (e.target.closest("input[type=text],button,label.chk")) return;
+    d.querySelector("input[type=radio]").checked = true; paintDest(); saveSettings();
+  }));
+  document.querySelectorAll("[data-browse]").forEach(b => b.addEventListener("click", async e => {
+    e.stopPropagation();
+    const inp = $(b.dataset.browse);
+    const r = await api("/api/browse", {initial: inp.value, title: b.dataset.title});
+    if (r.ok && r.path) { inp.value = r.path; inp.dispatchEvent(new Event("change")); }
+    else if (!r.ok) toast(r.error);
+  }));
+  $("folderName").addEventListener("input", updateGo);
+
+  /* ---------- photos ---------- */
+  async function scan(){
+    if (running) return;
+    $("grid").innerHTML = `<div class="empty"><div class="big">Reading the card…</div></div>`;
+    const s = settings();
+    const r = await api("/api/scan", {source: s.source, onlyDate: s.onlyDate, date: $("day").value, skip: s.skip});
+    lastStatus = {};
+    if (!r.ok) { photos = []; $("grid").innerHTML = `<div class="empty"><div class="big">${esc(r.error)}</div>Check the card is in, or click Browse to pick the folder.</div>`; setStatus(""); updateCount(); return; }
+    photos = r.photos.map(p => Object.assign(p, {include: true}));
+    if (!photos.length) {
+      const why = s.onlyDate ? "No photos taken on that date" + (s.skip ? " that haven't already been imported" : "") : "No new photos on the card";
+      $("grid").innerHTML = `<div class="empty"><div class="big">${why}</div>${r.total} photos on the card in total. Try another date, or untick the filters on the left.</div>`;
+    } else renderGrid();
+    setStatus(photos.length ? "Click any photo to compare before/after. Untick any you don't want." : "");
+    updateCount();
+  }
+  const imgURL = (p, kind, size) => `/img/${p.id}?t=${T}&kind=${kind}&preset=${currentPreset()}${size ? "&size=" + size : ""}`;
+  const currentPreset = () => document.querySelector("#presets .on").dataset.p;
+
+  function renderGrid(){
+    const g = $("grid"); g.innerHTML = "";
+    const io = new IntersectionObserver(ents => ents.forEach(en => {
+      if (!en.isIntersecting) return;
+      const img = en.target; io.unobserve(img); img.src = img.dataset.src;
+    }), {root: g, rootMargin: "400px"});
+    photos.forEach((p, i) => {
+      const t = document.createElement("div"); t.className = "tile" + (p.include ? "" : " off"); t.dataset.i = i;
+      t.innerHTML = `<div class="thumb"><img alt=""><div class="sel" title="Include / exclude"></div><span class="badge gone"></span></div>
+        <div class="meta"><span class="n"></span><span class="tm">${esc(p.time)}</span></div>`;
+      t.querySelector(".n").textContent = p.name;
+      const img = t.querySelector("img"); img.dataset.src = imgURL(p, show);
+      img.onload = () => img.classList.add("ld");
+      io.observe(img);
+      t.querySelector(".sel").onclick = e => { e.stopPropagation(); toggle(i); };
+      t.querySelector(".thumb").onclick = () => openViewer(i);
+      p.el = t; g.appendChild(t);
+      paintBadge(p);
+    });
+    window.__io = io;
+  }
+  function refreshImages(){
+    photos.forEach(p => { const img = p.el && p.el.querySelector("img"); if (!img) return; img.classList.remove("ld"); const u = imgURL(p, show); if (img.src) img.src = u; else img.dataset.src = u; });
+    if ($("modal").classList.contains("open")) openViewer(cur);
+  }
+  function toggle(i){
+    if (running) return;
+    const p = photos[i]; if (p.done) return; p.include = !p.include; p.el.classList.toggle("off", !p.include);
+    updateCount(); if (cur === i) $("mToggle").textContent = p.include ? "Exclude" : "Include";
+  }
+  $("selAll").onclick = () => { if (running) return; photos.forEach(p => { if (p.done) return; p.include = true; p.el.classList.remove("off"); }); updateCount(); };
+  $("selNone").onclick = () => { if (running) return; photos.forEach((p, i) => { p.include = false; p.el.classList.add("off"); }); updateCount(); };
+  $("showSeg").addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    show = b.dataset.k;
+    $("showSeg").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    refreshImages();
+  });
+  $("rescan").onclick = () => scan();
+  function updateCount(){
+    const n = photos.filter(p => p.include).length;
+    $("count").innerHTML = photos.length ? `<b>${n}</b> of ${photos.length} selected` : "";
+    updateGo();
+  }
+  function updateGo(){
+    const n = photos.filter(p => p.include).length, s = S && settings();
+    const target = s && s.mode === "direct" ? "upload" : "save";
+    $("go").textContent = running ? "Working…" : n ? `Enhance & ${target} ${n} photo${n === 1 ? "" : "s"}` : `Enhance & ${target}`;
+    $("go").disabled = running || !n || !$("folderName").value.trim();
+  }
+  const BADGE = {queued:["Queued","work"], working:["Enhancing…","work"], uploading:["Uploading…","up"], done:["✓ Done","ok"], error:["✗ Failed","bad"]};
+  function paintBadge(p){
+    const b = p.el && p.el.querySelector(".badge"); if (!b) return;
+    const st = lastStatus[p.id];
+    if (!st) { b.className = "badge gone"; return; }
+    p.el.classList.toggle("isdone", st === "done");
+    const [txt, cls] = BADGE[st] || [st, ""];
+    b.className = "badge " + cls; b.textContent = st === "done" && settings().mode === "direct" ? "✓ In Drive" : txt;
+    if (st === "error" && p.err) b.title = p.err;
+  }
+  function setStatus(t, eta){ $("status").textContent = t || ""; $("eta").textContent = eta || ""; }
+
+  /* ---------- run ---------- */
+  $("go").onclick = async () => {
+    const ids = photos.filter(p => p.include).map(p => p.id);
+    const r = await api("/api/run", {ids, name: $("folderName").value.trim(), settings: settings()});
+    if (!r.ok) { if (r.error === "setup") openSetup(); else toast(r.error); return; }
+    running = true; updateGo(); $("openBtn").classList.add("gone");
+    poll();
+  };
+  async function poll(){
+    const j = await api("/api/job");
+    lastStatus = j.status || {};
+    photos.forEach(p => { p.err = (j.errors || {})[p.id]; paintBadge(p); });
+    $("bar").style.width = ((j.running ? j.progress || 0 : (j.finished ? 1 : 0)) * 100) + "%";
+    if (j.running) {
+      const t = j.direct ? `Enhanced ${j.enh} of ${j.total} · Uploaded ${j.up} of ${j.total}` : `Enhanced ${j.enh} of ${j.total}`;
+      setStatus(j.enh === 0 && j.up === 0 ? j.message : t, fmtEta(j.eta));
+      jobTimer = setTimeout(poll, 700);
+    } else {
+      running = false;
+      // finished photos are unticked, so pressing the button again only retries failures
+      photos.forEach(p => { if (lastStatus[p.id] === "done") { p.include = false; p.done = true; } });
+      updateCount(); updateGo();
+      setStatus(j.message || "Done.", "");
+      if (j.open) { $("openBtn").classList.remove("gone"); $("openBtn").textContent = j.direct ? "Open in Google Drive" : "Open folder"; $("openBtn").onclick = () => api("/api/open", {target: j.open}); }
+      if (j.finished) toast(j.fail ? "Finished with some failures — click the button again to retry them" : "All done!");
+    }
+  }
+
+  /* ---------- viewer ---------- */
+  let cur = -1, split = 50;
+  function openViewer(i){
+    const p = photos[i]; if (!p) return;
+    cur = i;
+    $("mName").textContent = `${p.name} · ${p.time} · ${(p.size/1048576).toFixed(1)} MB`;
+    $("mTags").textContent = "";
+    $("mToggle").textContent = p.include ? "Exclude" : "Include";
+    $("mLoad").style.display = "";
+    let n = 0; const done = () => { if (++n === 2) { $("mLoad").style.display = "none"; api(`/api/info/${p.id}?preset=${currentPreset()}`).then(r => { if (cur === i) $("mTags").textContent = r.tags.length ? "Changes: " + r.tags.join(", ") : ""; }); } };
+    $("imgAfter").onload = done; $("imgBefore").onload = done;
+    $("imgAfter").src = imgURL(p, "after", "view"); $("imgBefore").src = imgURL(p, "before", "view");
+    $("modal").classList.add("open"); setSplit(split);
+    [i-1, i+1].forEach(k => { if (photos[k]) { new Image().src = imgURL(photos[k], "after", "view"); new Image().src = imgURL(photos[k], "before", "view"); } });
+  }
+  function setSplit(v){ split = Math.max(0, Math.min(100, v)); $("imgBefore").style.clipPath = `inset(0 ${100 - split}% 0 0)`; $("handle").style.left = split + "%"; }
+  const cmp = $("cmp"); let drag = false;
+  const mv = e => { const r = cmp.getBoundingClientRect(); setSplit((e.clientX - r.left) / r.width * 100); };
+  cmp.addEventListener("pointerdown", e => { drag = true; cmp.setPointerCapture(e.pointerId); mv(e); });
+  cmp.addEventListener("pointermove", e => { if (drag) mv(e); });
+  cmp.addEventListener("pointerup", () => drag = false);
+  const step = d => { const k = cur + d; if (photos[k]) openViewer(k); };
+  $("mPrev").onclick = () => step(-1); $("mNext").onclick = () => step(1);
+  $("mClose").onclick = () => $("modal").classList.remove("open");
+  $("mToggle").onclick = () => toggle(cur);
+  document.addEventListener("keydown", e => {
+    if ($("modal").classList.contains("open")) {
+      if (e.key === "Escape") $("mClose").click();
+      if (e.key === "ArrowRight") step(1);
+      if (e.key === "ArrowLeft") step(-1);
+      if (e.key === " " || e.key.toLowerCase() === "x") { e.preventDefault(); toggle(cur); }
+    } else if ($("setup").classList.contains("open") && e.key === "Escape") $("setupClose").click();
+  });
+
+  /* ---------- Drive setup ---------- */
+  function openSetup(){ $("setupMsg").textContent = ""; $("setup").classList.add("open"); }
+  $("setupClose").onclick = () => $("setup").classList.remove("open");
+  $("copyScript").onclick = async () => {
+    const r = await api("/api/setup/script", {link: $("folderLink").value.trim()});
+    if (!r.ok) { msg(r.error, "bad"); return; }
+    try { await navigator.clipboard.writeText(r.script); msg("Script copied — now open Apps Script and paste it.", "ok"); }
+    catch (e) { msg("Couldn't copy automatically.", "bad"); }
+  };
+  $("openScript").onclick = () => api("/api/open", {target: "https://script.google.com/home/projects/create"});
+  $("setupTest").onclick = async () => {
+    msg("Testing…", ""); $("setupTest").disabled = true;
+    const r = await api("/api/setup/test", {url: $("scriptUrl").value.trim()});
+    $("setupTest").disabled = false;
+    if (!r.ok) { msg("Didn't work: " + r.error, "bad"); return; }
+    msg(`✓ Connected to “${r.root}”. All set!`, "ok");
+    S.drive.ok = true; S.drive.root = r.root;
+    document.querySelector("input[name=mode][value=direct]").checked = true; paintDest(); saveSettings();
+    setTimeout(() => $("setup").classList.remove("open"), 1300);
+  };
+  const msg = (t, c) => { const m = $("setupMsg"); m.textContent = t; m.className = "msg " + (c || ""); };
+
+  /* ---------- updates + keep-alive ---------- */
+  function paintUpdate(u){
+    const el = $("updState"), b = $("updBtn");
+    b.textContent = "Check for updates"; b.onclick = () => { api("/api/update/check", {}); el.textContent = "Checking…"; };
+    if (!u) return;
+    if (u.state === "checking") el.textContent = "Checking for updates…";
+    else if (u.state === "current") el.textContent = "Up to date";
+    else if (u.state === "offline") el.textContent = "Couldn't check (offline?)";
+    else if (u.state === "downloading") el.textContent = `Downloading v${u.version}…`;
+    else if (u.state === "failed") el.textContent = "Update failed";
+    else if (u.state === "ready") {
+      el.innerHTML = `<span class="pill ok">v${esc(u.version)} ready</span>`;
+      b.textContent = "Restart to update";
+      b.onclick = async () => { if (running) { toast("Wait until the current job finishes"); return; } await api("/api/restart", {}); document.body.innerHTML = '<div class="empty" style="padding-top:30vh"><div class="big">Restarting…</div></div>'; setTimeout(() => window.close(), 1500); };
+    } else el.textContent = "";
+  }
+  setInterval(async () => { try { const r = await api("/api/ping", {}); paintUpdate(r.update); } catch (e) {} }, 4000);
+
+  init();
+})();
+</script>
+</body>
+</html>

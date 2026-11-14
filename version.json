@@ -1,10 +1,10 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "file": "rugby_photo_enhancer.py",
-  "sha256": "68088544f3ce70db0f8d25f2e25632e41fc520fd2ff60d674d7d8b8b1813173a",
+  "sha256": "4040aae2ea3830789019b509a525840e7334ec64ef8e7c1367765b832b5518c8",
   "requires": [
     "pillow",
     "numpy"
   ],
-  "notes": "Upload straight to Google Drive - no Drive app needed (one-time setup inside the app)."
+  "notes": "New look: photo grid, before/after viewer, pick which photos to upload."
 }
