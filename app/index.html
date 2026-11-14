@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = 'a8b323a680';</script>
+<script>window.ERGS_VER = '701af0ecf3';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -17154,7 +17154,7 @@ function twAdvFold(box, keep, key, title, sub){
 /* =============================== ANIMATED FRAMES + GIF: for Team of the Week, Fixtures, Results, Cup team and Matchday graphics =============================== */
 // Pick an animated frame under any graphic: it plays over the preview, and Download GIF makes a looping GIF (2.4 seconds) of the
 // graphic with the frame, ready for WhatsApp, Facebook or Instagram stories. The GIF is encoded here on the phone (no upload).
-const GA_FX = [['none', 'None'], ['shimmer', 'Gold shimmer'], ['glow', 'Glow'], ['sparkle', 'Sparkle'], ['sweep', 'Light sweep'], ['confetti', 'Confetti'], ['ball', 'Rugby ball'], ['dust', 'Gold dust'], ['neon', 'Neon']];
+const GA_FX = [['none', 'None'], ['shimmer', 'Gold shimmer'], ['glow', 'Glow'], ['sparkle', 'Sparkle'], ['sweep', 'Light sweep'], ['confetti', 'Confetti'], ['ball', 'Rugby ball'], ['dust', 'Gold dust'], ['neon', 'Neon'], ['marquee', 'Stadium lights'], ['spot', 'Spotlights'], ['flash', 'Camera flashes'], ['fireworks', 'Fireworks'], ['colours', 'School colours'], ['pulse', 'Pulse'], ['stars', 'Twinkling stars'], ['bokeh', 'Soft lights'], ['embers', 'Embers'], ['balls', 'Falling rugby balls'], ['snow', 'Snow'], ['rain', 'Rain']];
 const GA_LOOP = 2.4, GA_FRAMES = 30, GA_GOLD = '#DCC08A', GA_LIGHT = '#FFF4D6', GA_RED = '#D9262B';
 const GA = {fx:{}, raf:0, t0:performance.now()};
 try { GA.fx = JSON.parse(localStorage.getItem('ergs.gaFx') || '{}') || {}; } catch(e){}
@@ -17174,6 +17174,60 @@ function gaRect(g, W, H, ins){ g.beginPath(); g.rect(ins, ins, W - 2*ins, H - 2*
 function gaStar(g, x, y, r, a){ g.save(); g.translate(x, y); g.rotate(a); g.beginPath(); for (let i = 0; i < 8; i++){ const rr = i % 2 ? r*0.22 : r, an = i*Math.PI/4; g.lineTo(Math.cos(an)*rr, Math.sin(an)*rr); } g.closePath(); g.fill(); g.restore(); }
 const GA_DRAW = {
   phglint(g, W, H, t){ phGlint(g, W, H, t); },
+  // a ring of bulbs round the frame, lit in a chasing pattern
+  marquee(g, W, H, t){ const u = Math.min(W, H), ins = u*0.03, w = W - 2*ins, h = H - 2*ins, per = 2*(w + h), n = Math.round(per/(u*0.05)), r = u*0.009;
+    const at = d => { if (d < w) return [ins + d, ins]; d -= w; if (d < h) return [ins + w, ins + d]; d -= h; if (d < w) return [ins + w - d, ins + h]; d -= w; return [ins, ins + h - d]; };
+    g.save(); for (let i = 0; i < n; i++){ const [x, y] = at(i*per/n), on = ((i + Math.floor(t*6)) % 3) === 0; g.shadowColor = '#FFE7A8'; g.shadowBlur = on ? u*0.03 : 0; g.fillStyle = on ? '#FFF4D6' : 'rgba(220,192,138,.45)'; g.beginPath(); g.arc(x, y, on ? r*1.25 : r, 0, 2*Math.PI); g.fill(); } g.restore(); },
+  // two soft beams sweep across from the top
+  spot(g, W, H, t){ const u = Math.min(W, H); g.save(); g.globalCompositeOperation = 'lighter';
+    [[0.18, 1, 0], [0.82, -1, 0.5]].forEach(([x0, dir, ph]) => { const a = dir*0.5*Math.sin(2*Math.PI*(t + ph)), ox = W*x0, len = H*1.25, half = u*0.16, tx = ox + Math.sin(a)*len, ty = Math.cos(a)*len, nx = Math.cos(a)*half, ny = -Math.sin(a)*half;
+      const gr = g.createLinearGradient(ox, 0, tx, ty); gr.addColorStop(0, 'rgba(255,244,214,.34)'); gr.addColorStop(1, 'rgba(255,244,214,0)'); g.fillStyle = gr; g.beginPath(); g.moveTo(ox - u*0.012, 0); g.lineTo(ox + u*0.012, 0); g.lineTo(tx + nx, ty + ny); g.lineTo(tx - nx, ty - ny); g.closePath(); g.fill(); });
+    g.restore(); },
+  // camera flashes going off around the picture
+  flash(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(41), n = 14; g.save(); g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < n; i++){ const x = rnd()*W, y = rnd()*H, ph = rnd(), sz = u*(0.05 + rnd()*0.07), d = ((t - ph) % 1 + 1) % 1, k = d < 0.12 ? 1 - d/0.12 : 0; if (k <= 0) continue;
+      const gr = g.createRadialGradient(x, y, 0, x, y, sz*(1.2 + 1.2*(1 - k))); gr.addColorStop(0, `rgba(255,255,255,${0.95*k})`); gr.addColorStop(0.25, `rgba(255,250,235,${0.5*k})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(x - sz*3, y - sz*3, sz*6, sz*6);
+      g.fillStyle = `rgba(255,255,255,${k})`; gaStar(g, x, y, sz*0.7*k, 0); }
+    g.restore(); },
+  // bursts in the school colours
+  fireworks(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(57), cols = [GA_LIGHT, GA_RED, '#FFFFFF', GA_GOLD, '#7FA6FF']; g.save(); g.globalCompositeOperation = 'lighter'; g.lineCap = 'round';
+    for (let b = 0; b < 5; b++){ const x = W*(0.12 + rnd()*0.76), y = H*(0.1 + rnd()*0.5), ph = rnd(), col = cols[b % cols.length], R = u*(0.12 + rnd()*0.1), d = ((t - ph) % 1 + 1) % 1; if (d > 0.6) continue; const k = d/0.6, e = 1 - Math.pow(1 - k, 3), a = 1 - k;
+      for (let i = 0; i < 18; i++){ const an = i*Math.PI/9 + b, r1 = R*e, r0 = r1*0.72, dy = u*0.05*k*k; g.strokeStyle = col; g.globalAlpha = a; g.lineWidth = u*0.006*(1 - k*0.5); g.beginPath(); g.moveTo(x + Math.cos(an)*r0, y + Math.sin(an)*r0 + dy); g.lineTo(x + Math.cos(an)*r1, y + Math.sin(an)*r1 + dy); g.stroke(); } }
+    g.restore(); },
+  // a navy, red and gold ribbon runs along the top and bottom
+  colours(g, W, H, t){ const u = Math.min(W, H), bh = u*0.022, sw = u*0.16, cols = ['#1C2342', GA_RED, GA_GOLD], off = t*sw*3; g.save();
+    [[0, 1], [H - bh, -1]].forEach(([y, dir]) => { g.save(); g.beginPath(); g.rect(0, y, W, bh); g.clip(); for (let i = -4; i < W/sw + 4; i++){ const x = i*sw + dir*off % (sw*3); g.fillStyle = cols[((i % 3) + 3) % 3]; g.beginPath(); g.moveTo(x, y + bh); g.lineTo(x + sw, y + bh); g.lineTo(x + sw + bh, y); g.lineTo(x + bh, y); g.closePath(); g.fill(); } g.restore(); });
+    g.restore(); },
+  // a red and gold double border that breathes
+  pulse(g, W, H, t){ const u = Math.min(W, H), p = 0.5 - 0.5*Math.cos(2*Math.PI*t); g.save();
+    g.strokeStyle = GA_RED; g.globalAlpha = 0.55 + 0.45*p; g.lineWidth = u*(0.008 + 0.006*p); gaRect(g, W, H, u*0.02); g.stroke();
+    g.strokeStyle = GA_GOLD; g.globalAlpha = 1 - 0.45*p; g.lineWidth = u*0.005; g.shadowColor = '#FFE7A8'; g.shadowBlur = u*0.03*p; gaRect(g, W, H, u*(0.036 + 0.006*p)); g.stroke(); g.restore(); },
+  // small stars twinkle all over the picture
+  stars(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(73), n = 46; g.save(); g.shadowColor = '#FFE7A8';
+    for (let i = 0; i < n; i++){ const x = rnd()*W, y = rnd()*H, ph = rnd(), sz = u*(0.008 + rnd()*0.018), sp = 1 + Math.floor(rnd()*2), k = Math.max(0, Math.sin(2*Math.PI*(t*sp + ph))); if (k < 0.08) continue; g.globalAlpha = k; g.shadowBlur = sz*1.5; g.fillStyle = i % 4 ? '#FFFFFF' : GA_LIGHT; gaStar(g, x, y, sz*(0.5 + 0.5*k), ph*6); }
+    g.restore(); },
+  // soft out-of-focus lights drifting
+  bokeh(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(89), n = 16; g.save(); g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < n; i++){ const x0 = rnd()*W, y0 = rnd()*H, r = u*(0.035 + rnd()*0.06), ph = rnd(), ax = u*(0.02 + rnd()*0.04), ay = u*(0.02 + rnd()*0.04), gold = rnd() < 0.6, x = x0 + Math.sin(2*Math.PI*(t + ph))*ax, y = y0 + Math.cos(2*Math.PI*(t + ph))*ay, a = 0.10 + 0.10*(0.5 + 0.5*Math.sin(2*Math.PI*(t + ph*2)));
+      const gr = g.createRadialGradient(x, y, r*0.2, x, y, r); gr.addColorStop(0, gold ? `rgba(255,226,160,${a})` : `rgba(255,255,255,${a})`); gr.addColorStop(0.8, gold ? `rgba(255,226,160,${a*0.8})` : `rgba(255,255,255,${a*0.8})`); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 2*Math.PI); g.fill(); }
+    g.restore(); },
+  // glowing embers rise from the bottom
+  embers(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(97), n = 55; g.save(); g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < n; i++){ const x0 = rnd()*W, y0 = rnd(), sp = 1 + Math.floor(rnd()*2), sw = u*(0.01 + rnd()*0.04), ph = rnd(), r = u*(0.003 + rnd()*0.006), yy = 1 - ((y0 + t*sp) % 1), y = yy*(H + 20) - 10, x = x0 + Math.sin(2*Math.PI*(t*sp*2 + ph))*sw, a = Math.min(1, yy*2.2);
+      g.fillStyle = `rgba(${i % 3 ? '255,140,60' : '255,200,110'},${0.85*a})`; g.shadowColor = '#FF7A2A'; g.shadowBlur = r*6; g.beginPath(); g.arc(x, y, r, 0, 2*Math.PI); g.fill(); }
+    g.restore(); },
+  // little rugby balls tumble down
+  balls(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(113), n = 16; g.save();
+    for (let i = 0; i < n; i++){ const x0 = rnd()*W, y0 = rnd(), sway = rnd()*u*0.04, ph = rnd(), r = u*(0.016 + rnd()*0.012), spin = (rnd() < 0.5 ? -1 : 1), y = ((y0 + t) % 1)*(H + 6*r) - 3*r, x = x0 + Math.sin(2*Math.PI*(t + ph))*sway;
+      g.save(); g.translate(x, y); g.rotate(2*Math.PI*(t*spin + ph)); g.shadowColor = 'rgba(0,0,0,.4)'; g.shadowBlur = r*0.6; g.fillStyle = '#8B4A1E'; g.beginPath(); g.ellipse(0, 0, r*1.5, r, 0, 0, 2*Math.PI); g.fill(); g.shadowBlur = 0;
+      g.strokeStyle = '#F6EFDF'; g.lineWidth = r*0.14; g.beginPath(); g.moveTo(-r*0.6, 0); g.lineTo(r*0.6, 0); g.stroke(); for (let k = -1; k <= 1; k++){ g.beginPath(); g.moveTo(k*r*0.3, -r*0.25); g.lineTo(k*r*0.3, r*0.25); g.stroke(); } g.restore(); }
+    g.restore(); },
+  snow(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(127), n = 80; g.save(); g.fillStyle = '#fff';
+    for (let i = 0; i < n; i++){ const x0 = rnd()*W, y0 = rnd(), sp = 1 + Math.floor(rnd()*2), sway = rnd()*u*0.03, ph = rnd(), r = u*(0.003 + rnd()*0.006), y = ((y0 + t*sp) % 1)*(H + 20) - 10, x = x0 + Math.sin(2*Math.PI*(t + ph))*sway; g.globalAlpha = 0.55 + 0.4*rnd(); g.beginPath(); g.arc(x, y, r, 0, 2*Math.PI); g.fill(); }
+    g.restore(); },
+  rain(g, W, H, t){ const u = Math.min(W, H), rnd = gaRand(131), n = 90, dx = -u*0.012; g.save(); g.strokeStyle = 'rgba(210,225,255,.5)'; g.lineCap = 'round';
+    for (let i = 0; i < n; i++){ const x0 = rnd()*(W + H*0.35), y0 = rnd(), sp = 2 + Math.floor(rnd()*2), len = u*(0.03 + rnd()*0.04), y = ((y0 + t*sp) % 1)*(H + 2*len) - len, x = x0 - y*0.3; g.lineWidth = u*(0.0015 + rnd()*0.0015); g.beginPath(); g.moveTo(x, y); g.lineTo(x - len*0.3, y + len); g.stroke(); }
+    g.restore(); },
   shimmer(g, W, H, t){ const u = Math.min(W, H), ins = u*0.028, lw = u*0.014; g.save(); g.lineJoin = 'miter';
     g.strokeStyle = 'rgba(220,192,138,.85)'; g.lineWidth = lw; const per = gaRect(g, W, H, ins); g.stroke();
     // two bright streaks race round the frame
