@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '3e97967754';</script>
+<script>window.ERGS_VER = 'b6bec0dff3';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -5216,7 +5216,7 @@ function loop(now){
 
 /* =============================== TOAST & BOOT =============================== */
 let toastT = 0;
-function toast(msg){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(()=> t.hidden = true, 2600); }
+function toast(msg, ms){ const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(()=> t.hidden = true, ms > 0 ? ms : 2600); }
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (stage){ stage.labelKeys = {}; stage.repaintPitch(); for (const id in stage.players) stage.players[id].jKey = null; } });
 document.addEventListener('pointerup', () => { const a = document.activeElement; if (S.screen === 'editor' && a && a.tagName === 'BUTTON') a.blur(); });
 $('#menuCrest').src = SCHOOL_CREST_SRC;
@@ -18369,6 +18369,16 @@ async function srqDecide(r, ok){
   if (ok){ (d.scOk[em] = d.scOk[em] || {})[r.m.id] = Object.assign({at:now}, want); if (d.scNo[em]) delete d.scNo[em][r.m.id]; } else (d.scNo[em] = d.scNo[em] || {})[r.m.id] = now;
   d.updated = now; await Cloud.set('team/papprove', d);
 }
+// why a score request didn't save, in words (with the technical reason at the end so it can be reported)
+function srqWhy(e){ const m = String(e && e.message || ''), c = String(e && e.code || '');
+  if (m === 'room') return 'That’s more points than the team scored. Check the other scorers first.';
+  if (m === 'gone') return 'That match is no longer on ERGS Live, so the scores can’t be added.';
+  if (m === 'view-as') return 'You’re viewing as someone else, so nothing is saved. Press Exit first.';
+  const tech = (c || 'error') + (m && m !== c ? ': ' + m.slice(0, 110) : '');
+  if (c === 'not_granted') return 'This account isn’t allowed to change that result. (' + tech + ')';
+  if (c === 'unavailable') return 'No connection to the server. Try again in a moment. (' + tech + ')';
+  if (c === 'quota_exceeded') return 'The shared storage is full. (' + tech + ')';
+  return 'That didn’t save. (' + tech + ')'; }
 function srqOpen(){
   const L = srqPending();
   tagModal(`<h2>🏉 Score requests</h2><p class="as-sub">These results were added without the scorers. Add a player’s scores and they go on the result and count in their season. The final score doesn’t change.</p>
@@ -18379,7 +18389,7 @@ function srqOpen(){
     <div class="dlg-a"><button type="button" class="btn ghost" data-tclose>Close</button></div>`, dl => {
     dl.closest('.dialog') && dl.closest('.dialog').classList.add('pa-wide');
     const act = async (r, ok) => { dl.querySelectorAll('button').forEach(b => b.disabled = true);
-      try { await srqDecide(r, ok); toast(ok ? `Added: ${r.d.name}, ${srqLine(r.g.sc)}.` : `${r.d.name}’s scores weren’t added.`); } catch(e){ toast(e && e.message === 'room' ? 'That’s more points than the team scored. Check the other scorers first.' : 'That didn’t save. Try again.'); }
+      try { await srqDecide(r, ok); toast(ok ? `Added: ${r.d.name}, ${srqLine(r.g.sc)}.` : `${r.d.name}’s scores weren’t added.`); } catch(e){ const why = srqWhy(e); try { console.warn('score request', e); auLog('A score request failed to save', r.d.name || r.em, why.slice(0, 180)); } catch(_){} toast(why, 9000); }
       setTimeout(() => { srqHome(); srqOpen(); }, 400); };
     dl.querySelectorAll('[data-scy]').forEach(b => b.onclick = () => act(L[+b.dataset.scy], true));
     dl.querySelectorAll('[data-scn]').forEach(b => b.onclick = () => act(L[+b.dataset.scn], false));
