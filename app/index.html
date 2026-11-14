@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0F1530">
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="ERGS Rugby">
-<script>window.ERGS_VER = '04a71d29d0';</script>
+<script>window.ERGS_VER = '897a78623b';</script>
 <script src="config.js?v=d83e5a1c74"></script>
 <script>window.ERGS_HOST = 'github'; (() => { let r; const p = new Promise(x => r = x); window.__fbResolve = r; window.claude = {use: n => p.then(f => f.use(n))}; })();</script>
 <script type="module" src="fb-main.js?v=d83e5a1c74"></script>
@@ -9840,13 +9840,17 @@ function phFrameDraw(cv, bmp, frame, title, when, res, opt){
   let W, H; const g = cv.getContext('2d'), T = (title || '').toUpperCase();
   const DISP = "800 #px 'Big Shoulders Display', 'Arial Narrow', Impact, sans-serif", COND = "800 #px 'Barlow Condensed', 'Arial Narrow', sans-serif", BODY = "600 #px 'Barlow', system-ui, sans-serif";
   const fit = (t, size, font, maxW) => { let s2 = size; g.font = font.replace('#', s2); while (s2 > 8 && g.measureText(t).width > maxW){ s2 *= 0.94; g.font = font.replace('#', s2); } return s2; };
+  // a coloured WIN / LOSS / DRAW badge; (x, y) is its right edge and middle; returns its width
+  const pill = (t, xr, ym, h) => { g.font = COND.replace('#', h*0.68); g.letterSpacing = (h*0.06) + 'px'; const w = g.measureText(t).width + h*0.9; g.fillStyle = PH_OUT[t] || '#6B7280'; g.beginPath(); g.roundRect ? g.roundRect(xr - w, ym - h/2, w, h, h*0.22) : g.rect(xr - w, ym - h/2, w, h); g.fill();
+    g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, xr - w/2 + h*0.03, ym + h*0.04); g.letterSpacing = '0px'; g.textBaseline = 'alphabetic'; return w; };
   const spaced = (t, x, y, size, font, sp, align) => { g.font = font.replace('#', size); g.letterSpacing = sp + 'px'; g.textAlign = align || 'left'; g.fillText(t, x, y); g.letterSpacing = '0px'; };
   const blurBg = () => { const c = Math.max(W/iw, H/ih); g.save(); g.filter = 'blur(' + Math.round(W*0.03) + 'px) brightness(.45)'; g.drawImage(bmp, (W - iw*c)/2 - W*0.05, (H - ih*c)/2 - H*0.05, iw*c*1.1, ih*c*1.1); g.restore(); g.fillStyle = 'rgba(16,22,58,.35)'; g.fillRect(0, 0, W, H); };
   const band = (y, h) => { const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, '#151C48'); gr.addColorStop(1, '#0B1030'); g.fillStyle = gr; g.fillRect(0, y, W, h); g.fillStyle = PH_GOLD; g.fillRect(0, y, W, Math.max(2, h*0.045));
     const pad = h*0.26, right = W - pad; g.textBaseline = 'alphabetic';
     // the result on the right: a big score with FULL TIME above it
-    let rw = 0; if (res && res.score){ g.textAlign = 'right'; g.fillStyle = '#fff'; const ss = fit(res.score, h*0.46, DISP, W*0.3); rw = g.measureText(res.score).width; g.fillText(res.score, right, y + h*0.78);
-      if (res.tag){ g.fillStyle = PH_GOLD; spaced(res.tag, right, y + h*0.34, h*0.15, COND, h*0.02, 'right'); rw = Math.max(rw, g.measureText(res.tag).width); } rw += pad*1.2; }
+    let rw = 0; if (res && res.score){ g.textAlign = 'right'; g.fillStyle = '#fff'; fit(res.score, h*0.5, DISP, W*0.3); rw = g.measureText(res.score).width; g.fillText(res.score, right, y + h*0.82);
+      if (res.out){ const pw2 = pill(res.out, right, y + h*0.3, h*0.24); g.fillStyle = 'rgba(255,255,255,.6)'; g.textAlign = 'right'; g.font = COND.replace('#', h*0.13); g.fillText('FULL TIME', right - pw2 - h*0.08, y + h*0.34); rw = Math.max(rw, pw2 + h*0.08 + g.measureText('FULL TIME').width); }
+      else if (res.tag){ g.fillStyle = PH_GOLD; spaced(res.tag, right, y + h*0.34, h*0.15, COND, h*0.02, 'right'); rw = Math.max(rw, g.measureText(res.tag).width); } rw += pad*1.2; }
     const tw = right - rw - pad; g.textAlign = 'left'; g.fillStyle = '#fff'; fit(T, h*0.36, DISP, tw); g.fillText(T, pad, y + h*0.56);
     const sub = 'ERGS RUGBY' + (when ? '  ·  ' + when.toUpperCase() : ''); g.fillStyle = PH_GOLD; const sz = Math.min(h*0.15, fit(sub, h*0.15, COND, tw)); spaced(sub, pad, y + h*0.82, sz, COND, sz*0.08); };
   if (frame === 'none'){ W = pw; H = ph; cv.width = W; cv.height = H; g.drawImage(bmp, 0, 0, W, H); }
@@ -9855,9 +9859,10 @@ function phFrameDraw(cv, bmp, frame, title, when, res, opt){
     if (!(opt && opt.noBorder)){ g.strokeStyle = PH_GOLD; g.lineWidth = Math.max(3, m*0.008); g.strokeRect(ins, ins, W - ins*2, H - ins*2); }
     // a small plate in the corner: ERGS RUGBY, and the result if one is chosen
     const bh = m*(res && res.score ? 0.13 : 0.085), pad = m*0.022; g.textBaseline = 'alphabetic';
-    const l1 = 'ERGS RUGBY', l2 = res && res.score ? `${T}  ${res.score}` : ''; g.font = COND.replace('#', bh*(l2 ? 0.26 : 0.42)); const w1 = g.measureText(l1).width + bh*0.1; g.font = DISP.replace('#', bh*0.36); const w2 = l2 ? Math.min(g.measureText(l2).width, W*0.6) : 0;
+    const l1 = res && res.score ? `ERGS RUGBY · ${T}` : 'ERGS RUGBY', l2 = res && res.score ? res.score : ''; let s1 = bh*(l2 ? 0.24 : 0.42); g.font = COND.replace('#', s1); g.letterSpacing = (s1*0.12) + 'px'; let w1 = g.measureText(l1).width + bh*0.1; if (w1 > W*0.62){ s1 *= W*0.62/w1; w1 = W*0.62; } g.letterSpacing = '0px'; g.font = DISP.replace('#', bh*0.4); let w2 = l2 ? g.measureText(l2).width : 0; if (l2 && res.out) w2 += pill(res.out, 0, -999, bh*0.3) + bh*0.12;
     const bw = Math.max(w1, w2) + pad*2, bx = W - ins - bw - m*0.02, by = H - ins - bh - m*0.02; g.fillStyle = 'rgba(11,16,48,.88)'; g.beginPath(); g.roundRect ? g.roundRect(bx, by, bw, bh, bh*0.14) : g.rect(bx, by, bw, bh); g.fill();
-    g.fillStyle = PH_GOLD; if (l2){ spaced(l1, bx + pad, by + bh*0.38, bh*0.24, COND, bh*0.03); g.fillStyle = '#fff'; fit(l2, bh*0.36, DISP, W*0.6); g.textAlign = 'left'; g.fillText(l2, bx + pad, by + bh*0.8); }
+    g.fillStyle = PH_GOLD; if (l2){ spaced(l1, bx + pad, by + bh*0.38, s1, COND, s1*0.12); let x2 = bx + pad; if (res.out){ const pw2 = pill(res.out, 0, -999, bh*0.3); pill(res.out, x2 + pw2, by + bh*0.68, bh*0.3); x2 += pw2 + bh*0.12; }
+      g.fillStyle = '#fff'; g.font = DISP.replace('#', bh*0.4); g.textAlign = 'left'; g.fillText(l2, x2, by + bh*0.82); }
     else spaced(l1, bx + pad, by + bh*0.66, bh*0.42, COND, bh*0.05); }
   else if (frame === 'square'){ W = H = Math.min(2048, Math.max(pw, ph)); cv.width = W; cv.height = H; blurBg(); const b = Math.round(W*0.15), aw = W*0.94, ah = H - b - W*0.06, c = Math.min(aw/iw, ah/ih), dw = iw*c, dh = ih*c;
     g.save(); g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = W*0.02; g.drawImage(bmp, (W - dw)/2, W*0.03 + (ah - dh)/2, dw, dh); g.restore(); band(H - b, b); }
@@ -9881,8 +9886,9 @@ function phDayMatches(f){
 // the Meds are written out as Medallions on anything people see
 const teamLabel = t => /^\s*meds?\s*$/i.test(t || '') ? 'Medallions' : (t || '');
 function phResOf(m){ if (!m) return null; const us = usOf(m), sc = mdScore(m), f = us === 'H' ? sc[0] : sc[1], a = us === 'H' ? sc[1] : sc[0], played = m.status === 'FT' || f || a;
-  const tm = teamLabel(m.team) || 'ERGS';
-  return {title:`${tm} v ${rpOpp(m)}`, score:played ? `${f}–${a}` : '', tag:m.status === 'FT' ? 'FULL TIME' : played ? 'LATEST' : '', label:`${tm} v ${rpOpp(m)}${played ? ` · ${f}–${a}` : ''}`}; }
+  const tm = teamLabel(m.team) || 'ERGS', ft = m.status === 'FT', out = ft ? (f > a ? 'WIN' : f < a ? 'LOSS' : 'DRAW') : '';
+  return {title:`${tm} v ${rpOpp(m)}`, score:played ? `${f}–${a}` : '', out, tag:ft ? 'FULL TIME' : played ? 'LATEST' : '', label:`${tm} v ${rpOpp(m)}${played ? ` · ${ft ? ({WIN:'Won', LOSS:'Lost', DRAW:'Drew'})[out] + ' ' : 'Latest '}${f}–${a}` : ''}`}; }
+const PH_OUT = {WIN:'#1FA463', LOSS:'#D9362B', DRAW:'#6B7280'};
 // the gold edge with its shimmer, as a short looping MP4 (or a GIF where the browser can't make video)
 async function phShimmerVideo(base, onProg){
   return gaGif({size:() => `${base.width}x${base.height}`, draw:(ctx, ww, hh) => ctx.drawImage(base, 0, 0, ww, hh)}, 'shimmer', onProg, 900);
