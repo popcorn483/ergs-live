@@ -1,6 +1,6 @@
-name: Kick-off reminders
+name: Match alerts
 
-# Sends coaches a phone notification about 15 minutes before one of their matches kicks off (ERGS Live: Kick-off reminders).
+# Sends a phone notification about 15 minutes before kick-off to everyone who asked for one (ERGS Live: Match alerts).
 # Starts every half hour through the day and then keeps watch for the next half hour, checking the fixtures every few minutes.
 # Needs the secret VAPID_PRIVATE (Settings > Secrets and variables > Actions). Without it, it does nothing.
 on:

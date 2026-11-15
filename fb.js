@@ -46,8 +46,8 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     viewGone(mid, sid){ return deleteDoc(doc(db, 'viewers', mid, 's', sid)); },
     // a finished match's check-ins, all of them (phones that closed without checking out leave theirs behind)
     async viewSweep(mid){ const s = await getDocs(collection(db, 'viewers', mid, 's')); if (s.metadata && s.metadata.fromCache) throw new Error('offline'); let n = 0; for (const d of s.docs){ try { await deleteDoc(d.ref); n++; } catch(e){} } return n; },
-    // kick-off reminders: this phone's registration with its notification service, and the teams it wants reminding about
-    pushSave(id, sub, teams){ return setDoc(doc(db, 'pushsubs', id), {sub, teams, at:Date.now()}); },
+    // match alerts: this phone's registration with its notification service, and the teams it wants reminding about
+    pushSave(id, sub, teams, coach){ const d = {sub, teams, at:Date.now()}; if (coach) d.coach = true; return setDoc(doc(db, 'pushsubs', id), d); },
     pushDrop(id){ return deleteDoc(doc(db, 'pushsubs', id)); },
     get name(){ return (auth.currentUser && auth.currentUser.displayName) || ''; },
     async viewCount(mid, sinceMs){ const q = query(collection(db, 'viewers', mid, 's'), where('at', '>', Timestamp.fromMillis(Date.now() - sinceMs))); return (await getCountFromServer(q)).data().count; },

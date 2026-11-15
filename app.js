@@ -3576,43 +3576,88 @@ const scAgo = s => { const n = Math.max(0, Math.round((Date.now() - (s.at || 0))
     return new Promise(res => ask(`${o.n} is scoring this match`, `Their last update was ${scAgo(o)}. If you both score, everything goes in twice. Take over only if ${o.n.split(' ')[0]} has stopped; nothing has been changed yet.`, 'Take over scoring', () => { SC_TOOK[id] = o.k; res(sv(stamped, keepOpen)); })); }; }
 { const cp = coachPanel; coachPanel = function(m){ const h = cp.apply(this, arguments), s = m && m.scorer && SC_LIVE.includes(m.status) && !SANDBOX ? m.scorer : null; if (!s) return h; const mine = s.k === meKey();
     return `<p class="sc-who${mine ? '' : ' other'}">${mine ? 'You are scoring this match.' : `<b>${esc(s.n)}</b> is scoring this match (last update ${scAgo(s)}). Leave the scoring to them, or it goes in twice.`}</p>` + h; }; }
-{ const st = document.createElement('style'); st.textContent = '.sc-who{margin:0 0 10px;padding:9px 12px;border-radius:10px;font-size:14px;line-height:1.35;background:rgba(220,192,138,.10);border:1px solid rgba(220,192,138,.35);color:#F1F0EC}.sc-who.other{background:rgba(214,69,69,.14);border-color:rgba(214,69,69,.55)}.push-teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px 12px;margin:10px 0}.push-teams label{display:flex;gap:8px;align-items:center;font-size:15px}'; document.head.appendChild(st); }
+{ const st = document.createElement('style'); st.textContent = '.sc-who{margin:0 0 10px;padding:9px 12px;border-radius:10px;font-size:14px;line-height:1.35;background:rgba(220,192,138,.10);border:1px solid rgba(220,192,138,.35);color:#F1F0EC}.sc-who.other{background:rgba(214,69,69,.14);border-color:rgba(214,69,69,.55)}'; document.head.appendChild(st); }
 
-/* =============================== KICK-OFF REMINDERS ===============================
-   A coach's phone can be told, about 15 minutes before one of their teams kicks off, to open ERGS Live and press Kick off. The
-   phone registers with its browser's notification service and the registration is kept in the database (pushsubs); a job that
-   runs every few minutes on GitHub (.github/workflows/kickoff.yml) reads the fixtures and sends the notifications. */
+/* =============================== MATCH ALERTS (kick-off notifications) ===============================
+   Anyone's phone can be told, about 15 minutes before a match kicks off, that it is about to start; a coach's is also told to
+   open ERGS Live and press Kick off. The phone registers with its browser's notification service and the registration is kept
+   in the database (pushsubs); a job that runs through the day on GitHub (.github/workflows/kickoff.yml) reads the fixtures and
+   sends the notifications. Nobody is asked by the browser until they have pressed Turn on here. */
 const PUSH_KEY = 'BA9NLSI-WJiIH_vQ5UxTKmkbeZem57vXJKMfRFdzzpY0FQd7aumvKuCmg3lqPlyUdhJI23L2oUupCeGSZxEvz9U';
 const pushOK = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const pushIOS = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const pushId = async ep => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ep)))].slice(0, 16).map(x => x.toString(16).padStart(2, '0')).join('');
-const pushTeams = () => { try { const t = JSON.parse(localStorage.getItem('ergs.pushTeams') || 'null'); if (Array.isArray(t)) return t; } catch(e){} return Object.keys(TEAM_NAMES); };
+const pushTeams = () => { try { const t = JSON.parse(localStorage.getItem('ergs.pushTeams') || 'null'); if (Array.isArray(t)) return t; } catch(e){} return SUP && SUP.follow && SUP.follow.length ? SUP.follow.slice() : Object.keys(TEAM_NAMES); };
 const pushKeyBytes = () => Uint8Array.from(atob(PUSH_KEY.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+const pushLS = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); v === null ? localStorage.removeItem(k) : localStorage.setItem(k, String(v)); } catch(e){} return null; };
 async function pushSub(){ if (!pushOK()) return null; try { const reg = await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); } catch(e){ return null; } }
 async function pushOn(teams){
   const perm = await Notification.requestPermission(); if (perm !== 'granted'){ toast('Notifications are blocked for ERGS Live on this phone. Allow them in the browser’s site settings, then try again.'); return false; }
   const reg = await navigator.serviceWorker.ready, sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:pushKeyBytes()});
-  await FB.pushSave(await pushId(sub.endpoint), JSON.stringify(sub), teams);
-  try { localStorage.setItem('ergs.pushTeams', JSON.stringify(teams)); localStorage.setItem('ergs.pushAt', String(Date.now())); } catch(e){}
-  try { await reg.showNotification('Kick-off reminders are on', {body:'This is what a reminder looks like. You’ll get one about 15 minutes before your teams kick off.', icon:'icons/icon-192.png', tag:'ergs-test'}); } catch(e){}
+  await FB.pushSave(await pushId(sub.endpoint), JSON.stringify(sub), teams, !!COACH);
+  pushLS('ergs.pushTeams', JSON.stringify(teams)); pushLS('ergs.pushAt', Date.now()); pushLS('ergs.pushCoach', COACH ? '1' : '0');
+  try { await reg.showNotification('Match alerts are on', {body:'This is what one looks like. You’ll get one about 15 minutes before kick-off.', icon:'icons/icon-192.png', tag:'ergs-test'}); } catch(e){}
   return true;
 }
-async function pushOff(){ const sub = await pushSub(); if (sub){ try { await FB.pushDrop(await pushId(sub.endpoint)); } catch(e){} try { await sub.unsubscribe(); } catch(e){} } try { localStorage.removeItem('ergs.pushAt'); } catch(e){} }
+async function pushOff(){ const sub = await pushSub(); if (sub){ try { await FB.pushDrop(await pushId(sub.endpoint)); } catch(e){} try { await sub.unsubscribe(); } catch(e){} } pushLS('ergs.pushAt', null); }
+const PUSH_BELL = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M12 22a2.4 2.4 0 0 0 2.35-2h-4.7A2.4 2.4 0 0 0 12 22Zm7-6.2V11a7 7 0 0 0-5.2-6.77V3.5a1.8 1.8 0 0 0-3.6 0v.73A7 7 0 0 0 5 11v4.8l-1.7 1.7a.6.6 0 0 0 .42 1h16.56a.6.6 0 0 0 .42-1Z"/></svg>';
 async function pushDialog(){
-  if (!pushOK()){ openDialog('<h2>Kick-off reminders</h2><p>This browser can’t show notifications from ERGS Live.</p><p class="hint">On an iPhone or iPad: open ERGS Live in Safari, press Share, then <b>Add to Home Screen</b>. Open it from the new icon and come back here. On Android, use Chrome or the ERGS Live app.</p><div class="dlg-a"><span style="flex:1"></span><button type="button" class="btn primary" data-close>OK</button></div>'); return; }
-  const sub = await pushSub(), on = !!sub && Notification.permission === 'granted', mine = pushTeams();
-  openDialog(`<h2>Kick-off reminders</h2><p>${on ? 'Reminders are <b>on</b> for this phone.' : 'Get a notification on this phone about 15 minutes before a match kicks off, so you can open ERGS Live, press Kick off and keep the score.'}</p>
-    <div class="push-teams">${Object.entries(TEAM_NAMES).map(([k, t]) => `<label><input type="checkbox" value="${k}" ${mine.includes(k) ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</div>
-    <p class="hint">It comes from a job that runs every few minutes, so it can arrive a little early or late. Matches with no kick-off time set don’t get one. Each phone you score on needs turning on separately.</p>
-    <div class="dlg-a">${on ? '<button type="button" class="btn ghost" id="pushNo">Turn off</button>' : ''}<span style="flex:1"></span><button type="button" class="btn ghost" data-close>Cancel</button><button type="button" class="btn primary" id="pushGo">${on ? 'Save' : 'Turn on'}</button></div>`, d => {
-    d.querySelector('#pushGo').onclick = async () => { const teams = [...d.querySelectorAll('.push-teams input:checked')].map(i => i.value); if (!teams.length){ toast('Tick at least one team.'); return; }
-      try { if (await pushOn(teams)){ closeDialog(); toast(on ? 'Saved.' : 'Reminders are on for this phone.'); pushBtnSync(); } } catch(e){ console.error(e); toast(/permission/.test(String(e && e.code)) ? 'Reminders need the latest Firebase rules publishing.' : 'That didn’t work on this phone. Try again.'); } };
-    const no = d.querySelector('#pushNo'); if (no) no.onclick = async () => { await pushOff(); closeDialog(); toast('Reminders are off for this phone.'); pushBtnSync(); }; });
+  pushPopHide();
+  if (!pushOK()){ openDialog(`<div class="pa-head"><span class="pa-ic">${PUSH_BELL}</span><div><h2>Match alerts</h2><p>${pushIOS() ? 'One step first on an iPhone or iPad.' : 'This browser can’t show notifications from ERGS Live.'}</p></div></div>
+      ${pushIOS() ? '<ol class="pa-steps"><li>Open ERGS Live in <b>Safari</b>.</li><li>Press <b>Share</b>, then <b>Add to Home Screen</b>.</li><li>Open ERGS Live from the new icon and press the bell again.</li></ol>' : '<p class="hint">On Android, use Chrome or the ERGS Live app. On a computer, use Chrome, Edge or Firefox.</p>'}
+      <div class="dlg-a"><span style="flex:1"></span><button type="button" class="btn primary" data-close>OK</button></div>`); return; }
+  const sub = await pushSub(), on = !!sub && Notification.permission === 'granted', mine = new Set(pushTeams()), codes = Object.keys(TEAM_NAMES);
+  openDialog(`<div class="pa-head"><span class="pa-ic${on ? ' on' : ''}">${PUSH_BELL}</span><div><h2>Match alerts</h2><p>${on ? 'Alerts are <b>on</b> for this phone.' : COACH ? 'A notification on this phone about 15 minutes before kick-off, so you can open ERGS Live, press Kick off and keep the score.' : 'A notification on this phone about 15 minutes before kick-off, so you never miss a match.'}</p></div></div>
+    <div class="pa-lab"><b>Which teams?</b><button type="button" class="pa-all" id="pushAll">All teams</button></div>
+    <div class="pa-teams" role="group" aria-label="Teams">${codes.map(k => `<button type="button" class="pa-chip" data-pt="${k}" aria-pressed="${mine.has(k)}">${esc(TEAM_NAMES[k])}</button>`).join('')}</div>
+    <p class="hint">Free, and you can turn it off here at any time. It can arrive a few minutes early or late. Matches with no kick-off time set don’t get one.</p>
+    <div class="dlg-a">${on ? '<button type="button" class="btn ghost" id="pushNo">Turn off</button>' : ''}<span style="flex:1"></span><button type="button" class="btn ghost" data-close>${on ? 'Close' : 'Not now'}</button><button type="button" class="btn primary" id="pushGo">${on ? 'Save' : 'Turn on'}</button></div>`, d => {
+    const chips = [...d.querySelectorAll('[data-pt]')], picked = () => chips.filter(c => c.getAttribute('aria-pressed') === 'true').map(c => c.dataset.pt);
+    chips.forEach(c => c.onclick = () => c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') !== 'true'));
+    d.querySelector('#pushAll').onclick = () => { const all = picked().length === chips.length; chips.forEach(c => c.setAttribute('aria-pressed', !all)); };
+    d.querySelector('#pushGo').onclick = async e => { const teams = picked(); if (!teams.length){ toast('Pick at least one team.'); return; } e.target.disabled = true;
+      try { if (await pushOn(teams)){ closeDialog(); toast(on ? 'Saved.' : 'Match alerts are on for this phone.'); pushBtnSync(); } else e.target.disabled = false; }
+      catch(x){ console.error(x); e.target.disabled = false; toast(/permission/.test(String(x && (x.code || x.message))) ? 'Match alerts aren’t switched on yet. Try again later.' : 'That didn’t work on this phone. Try again.'); } };
+    const no = d.querySelector('#pushNo'); if (no) no.onclick = async () => { await pushOff(); closeDialog(); toast('Match alerts are off for this phone.'); pushBtnSync(); }; });
 }
-const pushBtn = document.createElement('button'); pushBtn.type = 'button'; pushBtn.className = 'share-btn'; pushBtn.hidden = true; pushBtn.textContent = '🔔 Kick-off reminders'; pushBtn.onclick = pushDialog;
-async function pushBtnSync(){ pushBtn.hidden = !COACH || SANDBOX; if (pushBtn.hidden) return; const sub = await pushSub(), on = !!sub && Notification.permission === 'granted'; pushBtn.textContent = on ? '🔔 Reminders on' : '🔔 Kick-off reminders';
-  // keep the registration fresh (the job drops ones not seen for four months)
-  if (on){ let at = 0; try { at = +localStorage.getItem('ergs.pushAt') || 0; } catch(e){} if (Date.now() - at > 14*864e5){ try { await FB.pushSave(await pushId(sub.endpoint), JSON.stringify(sub), pushTeams()); localStorage.setItem('ergs.pushAt', String(Date.now())); } catch(e){} } } }
-{ const f = document.querySelector('.share-row'); if (f) f.append(pushBtn); let was = null; setInterval(() => { const now = COACH && !SANDBOX; if (now !== was){ was = now; pushBtnSync(); } }, 1500); }
+const pushBtn = document.createElement('button'); pushBtn.type = 'button'; pushBtn.className = 'share-btn'; pushBtn.hidden = true; pushBtn.textContent = '🔔 Match alerts'; pushBtn.onclick = pushDialog;
+async function pushBtnSync(){ pushBtn.hidden = !!SANDBOX; if (pushBtn.hidden) return; const sub = await pushSub(), on = !!sub && Notification.permission === 'granted'; pushBtn.textContent = on ? '🔔 Alerts on' : '🔔 Match alerts';
+  // keep the registration fresh (the job drops ones not seen for four months), and tell it when this phone turns out to be a coach's
+  if (on){ const at = +pushLS('ergs.pushAt') || 0, was = pushLS('ergs.pushCoach') === '1'; if (Date.now() - at > 14*864e5 || (COACH && !was)){ try { await FB.pushSave(await pushId(sub.endpoint), JSON.stringify(sub), pushTeams(), !!COACH); pushLS('ergs.pushAt', Date.now()); pushLS('ergs.pushCoach', COACH ? '1' : '0'); } catch(e){} } } }
+{ const f = document.querySelector('.share-row'); if (f) f.append(pushBtn); let was = null; setInterval(() => { const now = (COACH ? 'c' : 'p') + (SANDBOX ? 's' : ''); if (now !== was){ was = now; pushBtnSync(); } }, 1500); }
+/* the offer: a card that slides up once, a little after the page opens. "Not now" puts it away for a month. */
+const pushPop = document.createElement('div'); pushPop.className = 'push-pop'; pushPop.setAttribute('role', 'dialog'); pushPop.setAttribute('aria-label', 'Match alerts'); pushPop.hidden = true;
+function pushPopHide(snooze){ pushPop.classList.remove('on'); setTimeout(() => { pushPop.hidden = true; }, 350); if (snooze) pushLS('ergs.pushAsk', Date.now()); }
+async function pushPopMaybe(){
+  if (SANDBOX || !pushPop.hidden || !$('#modal').hidden) return; const asked = +pushLS('ergs.pushAsk') || 0; if (Date.now() - asked < 30*864e5) return;
+  const ios = !pushOK() && pushIOS(); if (!pushOK() && !ios) return;
+  if (pushOK()){ if (Notification.permission !== 'default') return; if (await pushSub()) return; }
+  pushPop.innerHTML = `<button type="button" class="pp-x" aria-label="Not now">×</button><span class="pp-ic">${PUSH_BELL}</span>
+    <div class="pp-t"><b>Never miss kick-off</b><span>${ios ? 'Add ERGS Live to your Home Screen to get a notification before each match.' : COACH ? 'Get a notification 15 minutes before your matches, ready to press Kick off.' : 'Get a notification on this phone 15 minutes before ERGS matches start.'}</span></div>
+    <div class="pp-a"><button type="button" class="btn ghost" data-pp="no">Not now</button><button type="button" class="btn primary" data-pp="go">${ios ? 'Show me how' : 'Turn on'}</button></div>`;
+  pushPop.querySelector('.pp-x').onclick = pushPop.querySelector('[data-pp="no"]').onclick = () => pushPopHide(true);
+  pushPop.querySelector('[data-pp="go"]').onclick = () => { pushPopHide(true); pushDialog(); };
+  if (!pushPop.parentElement) document.body.appendChild(pushPop); pushPop.hidden = false; requestAnimationFrame(() => requestAnimationFrame(() => pushPop.classList.add('on')));
+}
+setTimeout(pushPopMaybe, 7000);
+{ const st = document.createElement('style'); st.textContent = `
+.push-pop{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translate(-50%,140%);z-index:80;width:min(520px,calc(100vw - 24px));display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:center;padding:16px 16px 14px;border-radius:16px;background:linear-gradient(160deg,var(--raise),var(--panel));border:1px solid var(--gold);box-shadow:0 18px 50px rgba(0,0,0,.55);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
+.push-pop.on{transform:translate(-50%,0)}
+.pp-ic,.pa-ic{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;background:rgba(220,192,138,.14);color:var(--gold);flex:none}
+.pa-ic.on{background:var(--gold);color:var(--gold-ink)}
+.push-pop.on .pp-ic svg{animation:ppRing 1.1s ease-in-out .4s 2;transform-origin:50% 10%}
+@keyframes ppRing{0%,100%{transform:rotate(0)}20%{transform:rotate(14deg)}40%{transform:rotate(-12deg)}60%{transform:rotate(8deg)}80%{transform:rotate(-5deg)}}
+.pp-t{min-width:0;padding-right:22px}.pp-t b{display:block;font-family:var(--f-display);font-size:22px;letter-spacing:.02em;text-transform:uppercase;color:var(--chalk);line-height:1.1}
+.pp-t span{display:block;margin-top:3px;font-size:14px;line-height:1.35;color:var(--mute)}
+.pp-a{grid-column:1 / -1;display:flex;justify-content:flex-end;gap:8px;margin-top:10px}.pp-a .btn{min-height:40px}
+.pp-x{position:absolute;top:6px;right:8px;width:32px;height:32px;border:0;background:none;color:var(--mute);font-size:22px;line-height:1;cursor:pointer}
+.pa-head{display:flex;gap:14px;align-items:center;margin-bottom:14px}.pa-head h2{margin:0}.pa-head p{margin:4px 0 0;color:var(--mute);font-size:14px;line-height:1.4}
+.pa-lab{display:flex;align-items:center;justify-content:space-between;margin:0 0 8px;font-size:14px}.pa-all{border:0;background:none;color:var(--gold);font:inherit;font-weight:600;cursor:pointer;padding:4px 0}
+.pa-teams{display:flex;flex-wrap:wrap;gap:8px}
+.pa-chip{min-height:38px;padding:6px 14px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--mute);font-family:var(--f-cond);font-weight:700;font-size:15px;letter-spacing:.04em;cursor:pointer}
+.pa-chip[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+.pa-steps{margin:0 0 6px;padding-left:22px;line-height:1.7}
+@media (prefers-reduced-motion:reduce){.push-pop{transition:none}.push-pop.on .pp-ic svg{animation:none}}`; document.head.appendChild(st); }
 
 /* ---------- "watching now" check-ins left behind by phones that closed without saying so: a coach's device clears a finished match's ---------- */
 async function vwSweep(){ if (!COACH || SANDBOX || !window.FB || !FB.viewSweep) return; let done = {}; try { done = JSON.parse(localStorage.getItem('ergs.vwSwept') || '{}'); } catch(e){}

@@ -11,13 +11,15 @@ Live scores, fixtures and results for Enniskillen Royal Grammar School rugby. Su
 - `tools/*.mjs`, `.github/workflows/`: the scheduled jobs that fetch competition fixtures and news (`comps.json`, `news.json`)
 - `tools/test/`: checks that run both apps against a stand-in for the database (see its README). Not loaded by the apps
 
-## Kick-off reminders (coaches' phones)
+## Match alerts (notifications before kick-off)
 
-A coach turns these on in ERGS Live (the bell at the bottom of the page, once signed in). About 15 minutes before one of their
-teams kicks off, their phone shows a notification to open ERGS Live and press Kick off. The notifications are sent by a job that
-runs on GitHub through the day (`.github/workflows/kickoff.yml`, `tools/kickoff.mjs`). It needs one repository secret,
-`VAPID_PRIVATE` (Settings > Secrets and variables > Actions); without it the job does nothing. On an iPhone, ERGS Live has to be
-added to the Home Screen first. Phones' registrations are kept in the database under `pushsubs` (see `firestore.rules`).
+Anyone can turn these on in ERGS Live: a card offers it a few seconds after the page opens, and the bell at the bottom of the
+page is always there. About 15 minutes before a chosen team kicks off, the phone shows a notification; a signed-in coach's also
+says to open ERGS Live and press Kick off. No app needs installing on Android or a computer. On an iPhone or iPad, Apple only
+allows it once ERGS Live has been added to the Home Screen. The notifications are sent by a job that runs on GitHub through
+the day (`.github/workflows/kickoff.yml`, `tools/kickoff.mjs`). It needs one repository secret, `VAPID_PRIVATE`
+(Settings > Secrets and variables > Actions); without it the job does nothing. Phones' registrations are kept in the database
+under `pushsubs` (see `firestore.rules`).
 
 The Android build signs with a private key when the secrets `ANDROID_KEYSTORE_B64` and `ANDROID_KEY_PASS` are set, and with the
 key in `android/` otherwise. Changing the key means everyone reinstalls the Android app once.

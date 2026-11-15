@@ -54,7 +54,7 @@ function canWrite(path, cur, next){ const parts = path.split('/'), col = parts[0
   if ((W.__deny || []).includes(col)) return false;
   if (COACH_W.includes(col)) return U.coach;
   if (create && U.coach && ['headshots', 'avail', 'piq', 'reads', 'pstats', 'likes'].includes(col)) return true;   // a coach moving a record to a new email
-  if (col === 'pushsubs') return U.coach && (del || (id.length < 80 && only(next, ['sub', 'teams', 'at']) && isStr(next.sub) && next.sub.length < 2500 && Array.isArray(next.teams) && next.teams.length <= 20));
+  if (col === 'pushsubs') return del || (id.length < 80 && only(next, ['sub', 'teams', 'at', 'coach']) && isStr(next.sub) && next.sub.length < 2500 && Array.isArray(next.teams) && next.teams.length <= 20 && typeof next.at === 'number' && (!('coach' in next) || (next.coach === true && U.coach)) && (!cur || cur.sub === next.sub));
   switch (col){
     case 'live': return !del && U.coach && isStr(next.json) && next.json.length < 900000;
     case 'viewers': return del || (parts[1].length < 80 && parts[3].length < 40 && only(next, ['at', 'exp']));

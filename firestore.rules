@@ -136,13 +136,16 @@ service cloud.firestore {
       allow create: if isCoach() && request.resource.data.keys().hasOnly(['at', 'by', 'act', 'who', 'det']) && request.resource.data.by == me() && request.resource.data.at is number
         && request.resource.data.act is string && request.resource.data.act.size() < 100 && request.resource.data.who is string && request.resource.data.who.size() < 150 && request.resource.data.det is string && request.resource.data.det.size() < 400;
     }
-    // kick-off reminders: a coach's phone asks to be notified before their teams' matches. The scheduled job that sends them
-    // (.github/workflows/kickoff.yml) has no login, so these are readable; they are no use without the job's private key.
+    // match alerts: a phone asks to be notified before kick-off (anyone, signed in or not; a coach's is marked so it is also told
+    // to start the match). The scheduled job that sends them (.github/workflows/kickoff.yml) has no login, so these are readable;
+    // they are no use without the job's private key. A registration can't be pointed at a different phone once made.
     match /pushsubs/{id} {
       allow read: if true;
-      allow create, update: if isCoach() && id.size() < 80 && request.resource.data.keys().hasOnly(['sub', 'teams', 'at'])
-        && request.resource.data.sub is string && request.resource.data.sub.size() < 2500 && request.resource.data.teams is list && request.resource.data.teams.size() <= 20;
-      allow delete: if isCoach();
+      allow create, update: if id.size() < 80 && request.resource.data.keys().hasOnly(['sub', 'teams', 'at', 'coach'])
+        && request.resource.data.sub is string && request.resource.data.sub.size() < 2500 && request.resource.data.teams is list && request.resource.data.teams.size() <= 20
+        && request.resource.data.at is number && (!('coach' in request.resource.data) || (request.resource.data.coach == true && isCoach()))
+        && (resource == null || resource.data.sub == request.resource.data.sub);
+      allow delete: if true;
     }
     match /sponsors/{doc} { allow read, write: if isCoach(); }
     match /sheets/{doc} { allow read, write: if isCoach(); }
