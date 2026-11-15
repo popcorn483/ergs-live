@@ -3627,12 +3627,26 @@ const pushKeyBytes = () => Uint8Array.from(atob(PUSH_KEY.replace(/-/g, '+').repl
 const pushLS = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); v === null ? localStorage.removeItem(k) : localStorage.setItem(k, String(v)); } catch(e){} return null; };
 async function pushSub(){ if (!pushOK()) return null; try { const reg = await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); } catch(e){ return null; } }
 async function pushOn(teams){
-  const perm = await Notification.requestPermission(); if (perm !== 'granted'){ toast('Notifications are blocked for ERGS Live on this phone. Allow them in the browser’s site settings, then try again.'); return false; }
+  const perm = await Notification.requestPermission(); if (perm !== 'granted'){ pushBlocked(teams); return false; }
   const reg = await navigator.serviceWorker.ready, sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:pushKeyBytes()});
   await FB.pushSave(await pushId(sub.endpoint), JSON.stringify(sub), teams, !!COACH);
   pushLS('ergs.pushTeams', JSON.stringify(teams)); pushLS('ergs.pushAt', Date.now()); pushLS('ergs.pushCoach', COACH ? '1' : '0');
   try { await reg.showNotification('Match alerts are on', {body:'This is what one looks like. You’ll get one about 15 minutes before kick-off.', icon:'icons/icon-192.png', tag:'ergs-test'}); } catch(e){}
   return true;
+}
+// The phone said no (or had already been told no). A website can't overrule that: only the phone's own "Allow" can, so say exactly where it is.
+const PUSH_IN_APP = (() => { try { if (document.referrer.startsWith('android-app://')) sessionStorage.setItem('ergs.twa', '1'); return sessionStorage.getItem('ergs.twa') === '1'; } catch(e){ return false; } })();
+function pushBlocked(teams){
+  const and = /Android/i.test(navigator.userAgent), ios = pushIOS(), alone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  const steps = and && PUSH_IN_APP ? ['Press and hold the <b>ERGS Live</b> icon on your home screen and tap <b>App info</b> (the ⓘ).', 'Tap <b>Notifications</b> and switch on <b>Allow notifications</b>.', 'Come back here and press <b>Try again</b>.']
+    : and ? ['Tap the <b>icon at the left of the address bar</b> (or <b>⋮</b> › <b>ⓘ</b>), then <b>Permissions</b>.', 'Tap <b>Notifications</b> and choose <b>Allow</b>. If Chrome itself is silenced, your phone will offer to switch that on too.', 'Press <b>Try again</b>.']
+    : ios ? ['Open the iPhone’s <b>Settings</b>, then <b>Notifications</b>.', 'Tap <b>ERGS Live</b> and switch on <b>Allow Notifications</b>.', 'Come back and press <b>Try again</b>.']
+    : ['Click the <b>icon at the left of the address bar</b>.', 'Set <b>Notifications</b> to <b>Allow</b>.', 'Press <b>Try again</b>.'];
+  openDialog(`<div class="pa-head"><span class="pa-ic">${PUSH_BELL}</span><div><h2>One switch to flip</h2><p>This ${and || ios ? 'phone' : 'browser'} has notifications from ERGS Live turned off, so it didn’t ask. Only the ${and || ios ? 'phone' : 'browser'} itself can turn them on.</p></div></div>
+    <ol class="pa-steps">${steps.map(x => `<li>${x}</li>`).join('')}</ol>
+    ${and && PUSH_IN_APP ? `<p class="hint">No Notifications switch there, or it won’t stay on? This copy of the Android app is an older one that can’t ask. Install the latest from <b>Install &amp; share</b> in the menu, or turn alerts on in Chrome instead.</p>` : and && alone ? '<p class="hint">Installed from Chrome? The same switch is under your phone’s Settings › Apps › ERGS Live › Notifications.</p>' : ''}
+    <div class="dlg-a"><span style="flex:1"></span><button type="button" class="btn ghost" data-close>Not now</button><button type="button" class="btn primary" id="pushAgain">Try again</button></div>`, d => {
+    d.querySelector('#pushAgain').onclick = async e => { e.target.disabled = true; try { if (await pushOn(teams)){ closeDialog(); toast('Match alerts are on for this phone.'); pushBtnSync(); } } catch(x){ e.target.disabled = false; toast('That didn’t work on this phone. Try again.'); } }; });
 }
 async function pushOff(){ const sub = await pushSub(); if (sub){ try { await FB.pushDrop(await pushId(sub.endpoint)); } catch(e){} try { await sub.unsubscribe(); } catch(e){} } pushLS('ergs.pushAt', null); }
 const PUSH_BELL = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M12 22a2.4 2.4 0 0 0 2.35-2h-4.7A2.4 2.4 0 0 0 12 22Zm7-6.2V11a7 7 0 0 0-5.2-6.77V3.5a1.8 1.8 0 0 0-3.6 0v.73A7 7 0 0 0 5 11v4.8l-1.7 1.7a.6.6 0 0 0 .42 1h16.56a.6.6 0 0 0 .42-1Z"/></svg>';

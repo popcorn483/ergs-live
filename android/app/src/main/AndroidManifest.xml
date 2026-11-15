@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- match alerts: lets the app ask "Allow ERGS Live to send notifications?" (Android 13 and later) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -33,5 +35,19 @@
                 <data android:scheme="https" android:host="popcorn483.github.io" android:pathPrefix="/ergs-live" />
             </intent-filter>
         </activity>
+
+        <!-- Match alerts. Inside this app the browser hands the notification permission to the app itself; without these two
+             entries it has nobody to ask, and "Turn on" is refused without a question ever being shown. -->
+        <activity android:name="com.google.androidbrowserhelper.trusted.NotificationPermissionRequestActivity" />
+        <service
+            android:name="com.google.androidbrowserhelper.trusted.DelegationService"
+            android:enabled="true"
+            android:exported="true">
+            <meta-data android:name="android.support.customtabs.trusted.SMALL_ICON" android:resource="@drawable/ic_notification_icon" />
+            <intent-filter>
+                <action android:name="android.support.customtabs.trusted.TRUSTED_WEB_ACTIVITY_SERVICE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>
