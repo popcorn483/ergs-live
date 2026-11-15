@@ -34,12 +34,18 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     : /invalid-email/.test(c) ? 'Enter your full email address.' : /quota|too-many/.test(c) ? 'Today’s sign-in emails have run out: the app’s free Firebase plan can only send 5 a day for everyone. If this is a Gmail or other Google account, use Sign in with Google instead. Otherwise try again tomorrow.' : /unauthorized-continue-uri|unauthorized-domain/.test(c) ? 'This site isn’t on Firebase’s authorised domains list yet. A coach needs to add it in Firebase › Authentication › Settings.' : 'The link couldn’t be sent. Check your connection and try again.'; };
   
   const parse = snap => { if (!snap.exists()) return null; const d = snap.data(); try { return JSON.parse(d.json); } catch(e){ return null; } };
+  // A listener that never passes on a guess. With no connection, Firestore answers from what the device holds, which for a page
+  // just opened is nothing: "the scoreboard doesn't exist". So nothing is passed on until the server itself has answered; after
+  // that every real change is, and news that is only about the connection is not.
+  const listen = (r, next, error) => { let synced = false, last; return onSnapshot(r, {includeMetadataChanges:true}, s => {
+    if (!synced){ if (s.metadata && s.metadata.fromCache) return; synced = true; }
+    const k = s.exists() ? JSON.stringify(s.data()) : null; if (k === last) return; last = k; next(s); }, error); };
   window.FB = {
     // live viewers: each open page keeps viewers/<match>/s/<session> = {at, exp} fresh while a match is live; a count query says how many are recent
     viewBeat(mid, sid){ return setDoc(doc(db, 'viewers', mid, 's', sid), {at:serverTimestamp(), exp:Timestamp.fromMillis(Date.now() + 864e5)}); },
     viewGone(mid, sid){ return deleteDoc(doc(db, 'viewers', mid, 's', sid)); },
     async viewCount(mid, sinceMs){ const q = query(collection(db, 'viewers', mid, 's'), where('at', '>', Timestamp.fromMillis(Date.now() - sinceMs))); return (await getCountFromServer(q)).data().count; },
-    onState(cb, err){ return onSnapshot(ref, s => cb(parse(s), s.exists()), err); },
+    onState(cb, err){ return listen(ref, s => cb(parse(s), s.exists()), err); },
     save(fn){ return runTransaction(db, async tx => { const s = await tx.get(ref); const next = fn(parse(s)); tx.set(ref, {json:JSON.stringify(next), updated:next.updated || Date.now()}); }); },
     onAuth(cb){ let first = true; return onAuthStateChanged(auth, async u => { if (first){ first = false; await linkDone; if (u === null && auth.currentUser) return; } cb(u); }); },
     sendLink, linkMsg, get linkErr(){ return LINK_ERR; },
@@ -58,15 +64,15 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
       if (s.exists()) await setDoc(ref, {follow:list}, {merge:true}); else await setDoc(ref, {name:(u.displayName || id.split('@')[0]).slice(0, 100), photo:(u.photoURL || '').slice(0, 500), at:Date.now(), kind:'supporter', follow:list}); },
     async isPlayer(email){ if ((await getDoc(doc(db, 'players', email))).exists()) return true; return !!c2kTwin(email) && (await getDoc(doc(db, 'players', c2kTwin(email)))).exists(); },
     // private VEO links (team/veo, readable by coaches and players only)
-    onVeo(cb){ return onSnapshot(doc(db, 'team', 'veo'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(v.byMatch || {}, v.photos || {}); }, () => cb({}, {})); },
+    onVeo(cb){ return listen(doc(db, 'team', 'veo'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(v.byMatch || {}, v.photos || {}); }, () => cb({}, {})); },
     setVeo(id, url){ return this.setMedia('byMatch', id, url); },
     setPhotos(id, url){ return this.setMedia('photos', id, url); },
     setMedia(kind, id, url){ const r = doc(db, 'team', 'veo'); return runTransaction(db, async tx => { const s = await tx.get(r); let v = {byMatch:{}}; if (s.exists()){ try { v = JSON.parse(s.data().j) || v; } catch(e){} } v[kind] = v[kind] || {}; if (url) v[kind][id] = url; else delete v[kind][id]; v.updated = Date.now(); tx.set(r, {j:JSON.stringify(v), u:Date.now()}); }); },
     // Team of the Week nominations (team/noms): coaches nominate up to 4 players after each match; the main app collates them
-    onNoms(cb){ return onSnapshot(doc(db, 'team', 'noms'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(Array.isArray(v.list) ? v.list : []); }, () => cb([])); },
+    onNoms(cb){ return listen(doc(db, 'team', 'noms'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(Array.isArray(v.list) ? v.list : []); }, () => cb([])); },
     setNoms(mid, list){ const r = doc(db, 'team', 'noms'); return runTransaction(db, async tx => { const s = await tx.get(r); let v = {list:[]}; if (s.exists()){ try { v = JSON.parse(s.data().j) || v; } catch(e){} } v.list = (Array.isArray(v.list) ? v.list : []).filter(x => x.mid !== mid).concat(list); v.updated = Date.now(); tx.set(r, {j:JSON.stringify(v), u:Date.now()}); }); },
     // opposition notes: private coach notes against each school (stored with Team of the Week, which only coaches can read)
-    onOppNotes(cb){ return onSnapshot(doc(db, 'totw', 'oppnotes'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(v.bySchool || {}); }, () => cb({})); },
+    onOppNotes(cb){ return listen(doc(db, 'totw', 'oppnotes'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(v.bySchool || {}); }, () => cb({})); },
     setOppNote(key, note){ const r = doc(db, 'totw', 'oppnotes'); return runTransaction(db, async tx => { const s = await tx.get(r); let v = {bySchool:{}}; if (s.exists()){ try { v = JSON.parse(s.data().j) || v; } catch(e){} } v.bySchool = v.bySchool || {}; if (note && note.text) v.bySchool[key] = note; else delete v.bySchool[key]; v.updated = Date.now(); tx.set(r, {j:JSON.stringify(v), u:Date.now()}); }); },
     // headshots shown in the score animations: small public copies, made when a coach records a score
     async face(key){ try { const s = await getDoc(doc(db, 'faces', key)); return s.exists() ? (s.data().d || '') : ''; } catch(e){ return ''; } },

@@ -1460,7 +1460,7 @@ function row(m){
   const right = m.off && m.status === 'pre' ? `<span class="pill off">${m.off === 'cancelled' ? 'Cancelled' : 'Postponed'}</span>` : isLive(m) ? `<span class="pill live" data-clock="${esc(m.id)}">${esc(clockText(m))}</span>` : r ? `${resPill(r)} <b>${r.f}–${r.g}</b>` : '';
   const ha = m.status === 'FT' ? '' : us === 'H' ? ' home' : us === 'A' ? ' away' : '';
   return `<button type="button" class="row${ha}${m.off && m.status === 'pre' ? ' is-off' : ''}" data-open="${esc(m.id)}"><span class="cd"><b>${kot(m) ? d.getDate() : '–'}</b><span>${kot(m) ? esc(d.toLocaleDateString('en-GB', {weekday:'short'})) : ''}</span></span>${crest(opp)}
-    <span class="ri"><b>${esc((m.team ? m.team + ' ' : '') + (us === 'A' ? '@ ' : 'v ') + opp)}</b><span>${esc([m.off && m.status === 'pre' ? (m.off === 'cancelled' ? 'CANCELLED' : 'POSTPONED') + (m.offWhy ? ': ' + m.offWhy : '') : movedRecent(m) ? 'NEW DATE (was ' + wasText(m) + ')' : '', m.koTbc ? 'Kick-off to be confirmed' : kot(m) ? d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '', us === 'H' ? 'Home' : us === 'A' ? 'Away' : '', m.comp, m.venue].filter(Boolean).join(' · '))}</span></span>
+    <span class="ri"><b>${esc((teamShow(m.team) ? teamShow(m.team) + ' ' : '') + (us === 'A' ? '@ ' : 'v ') + opp)}</b><span>${esc([m.off && m.status === 'pre' ? (m.off === 'cancelled' ? 'CANCELLED' : 'POSTPONED') + (m.offWhy ? ': ' + m.offWhy : '') : movedRecent(m) ? 'NEW DATE (was ' + wasText(m) + ')' : '', m.koTbc ? 'Kick-off to be confirmed' : kot(m) ? d.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'}) : '', us === 'H' ? 'Home' : us === 'A' ? 'Away' : '', m.comp, m.venue].filter(Boolean).join(' · '))}</span></span>
     <span class="rr">${m.status === 'pre' && !m.off && kot(m) && kot(m) - Date.now() < 15.5*864e5 && kot(m) > Date.now() - 3600e3 ? `<span class="wx-chip" data-wx="${esc(m.id)}" hidden></span>` : ''}${COACH && m.status === 'pre' && oppNote(opp) ? '<span class="note-tag" title="You have notes on this school">Notes</span>' : ''}${right}</span></button>`;
 }
 function viewMatches(){
@@ -1545,13 +1545,15 @@ function teamOptions(cur){
   const c = teamCode(cur), sel = TEAM_CODES.includes(c) ? c : cur ? 'custom' : '1XV';
   return TEAM_CODES.map(t => `<option value="${t}" ${sel === t ? 'selected' : ''}>${t} · ${TEAM_NAMES[t]}</option>`).join('') + (sel === 'custom' ? `<option value="${esc(cur)}" selected>${esc(cur)}</option>` : '');
 }
-const TEAM_NAMES = {'1XV':'1st XV','2XV':'2nd XV','3XV':'3rd XV','U16':'Under 16','Meds':'Medallion','U14':'Under 14','U13':'Under 13','U12':'Under 12','SG':'Senior girls','JG':'Junior girls'};
+// the Meds are written out as Medallions wherever a match's team is shown in words (the short code stays on the small team chips)
+const teamShow = t => /^\s*meds?\s*$/i.test(t || '') ? 'Medallions' : (t || '');
+const TEAM_NAMES = {'1XV':'1st XV','2XV':'2nd XV','3XV':'3rd XV','U16':'Under 16','Meds':'Medallions','U14':'Under 14','U13':'Under 13','U12':'Under 12','SG':'Senior girls','JG':'Junior girls'};
 /* which of our teams a match was, from whatever was typed in "Our team" */
 function teamCode(t){
   const x = String(t || '').toLowerCase().replace(/[’'.]/g, '').replace(/\s+/g, ' ').trim(); if (!x) return '';
   const girls = /\b(girl|girls|women|ladies|sg|jg)\b/.test(x);
   if (girls) return /\b(junior|jg|u1[2-5]|under 1[2-5]|minis?)\b/.test(x) ? 'JG' : 'SG';
-  if (/\b(med|meds|medallion)\b/.test(x)) return 'Meds';
+  if (/\b(meds?|medallions?)\b/.test(x)) return 'Meds';
   const u = x.match(/\b(?:u|under ?)(1[2-9])s?\b/); if (u) return ['12','13','14','16'].includes(u[1]) ? 'U' + u[1] : u[1] === '15' ? 'Meds' : 'U16';
   if (/\b(1st|first|1)\s*(xv|15s?)\b|\b1xv\b|\bseniors?\b/.test(x)) return '1XV';
   if (/\b(2nd|second|2)\s*(xv|15s?)\b|\b2xv\b/.test(x)) return '2XV';
@@ -1686,12 +1688,12 @@ function shareMatchPick(){
   if (!list.length){ toast('No live, recent or upcoming matches to share.'); return; }
   if (list.length === 1){ shareMatch(list[0]); return; }
   const when2 = m => isLive(m) ? 'Live now' : m.status === 'FT' ? 'Full time' : new Date(kot(m)).toLocaleString('en-GB', {weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
-  openDialog(`<h2>Share a match</h2><p>Supporters land straight on the match. No sign-in needed.</p><div class="shp-list">${list.map(m => `<button type="button" class="shp${isLive(m) ? ' live' : ''}" data-shp="${esc(m.id)}">${crest(usOf(m) === 'A' ? m.home : m.away)}<span><b>${esc((m.team || 'ERGS') + (usOf(m) === 'A' ? ' @ ' + m.home : ' v ' + (usOf(m) ? m.away : m.home + ' v ' + m.away)))}</b><small>${isLive(m) ? '<i class="shp-dot"></i>' : ''}${esc(when2(m))}</small></span><svg class="shp-go" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></button>`).join('')}</div><div class="dlg-a"><span style="flex:1"></span><button class="btn ghost" type="button" data-close>Close</button></div>`,
+  openDialog(`<h2>Share a match</h2><p>Supporters land straight on the match. No sign-in needed.</p><div class="shp-list">${list.map(m => `<button type="button" class="shp${isLive(m) ? ' live' : ''}" data-shp="${esc(m.id)}">${crest(usOf(m) === 'A' ? m.home : m.away)}<span><b>${esc((teamShow(m.team) || 'ERGS') + (usOf(m) === 'A' ? ' @ ' + m.home : ' v ' + (usOf(m) ? m.away : m.home + ' v ' + m.away)))}</b><small>${isLive(m) ? '<i class="shp-dot"></i>' : ''}${esc(when2(m))}</small></span><svg class="shp-go" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></button>`).join('')}</div><div class="dlg-a"><span style="flex:1"></span><button class="btn ghost" type="button" data-close>Close</button></div>`,
     d => d.querySelectorAll('[data-shp]').forEach(b => b.onclick = () => { const m = DATA.matches.find(x => x.id === b.dataset.shp); closeDialog(); if (m) setTimeout(() => shareMatch(m), 60); }));
 }
 function shareMatch(m){
   const S = window.ERGSShare; S.style();
-  const url = LIVE_URL + '#m.' + m.id, text = matchShareText(m), opp = usOf(m) === 'A' ? m.home : m.away, label = `${m.team ? m.team + ' ' : 'ERGS '}v ${opp || 'opposition'}`;
+  const url = LIVE_URL + '#m.' + m.id, text = matchShareText(m), opp = usOf(m) === 'A' ? m.home : m.away, label = `${teamShow(m.team) ? teamShow(m.team) + ' ' : 'ERGS '}v ${opp || 'opposition'}`;
   const [h, a] = score(m), nm = n => cupOurs(n) ? 'ERGS' : cupShort(n);
   const status = isLive(m) ? `<span class="msh-live"><i></i>${m.status === 'HT' ? 'Half-time' : 'Live ' + minuteNow(m) + '′'}</span>` : m.status === 'FT' ? 'Full time'
     : kot(m) ? esc(new Date(kot(m)).toLocaleString('en-GB', {weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})) : 'Date to be confirmed';
@@ -1699,7 +1701,7 @@ function shareMatch(m){
   const ov = document.createElement('div'); ov.className = 'es-ov msh-ov'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', 'Share ' + label);
   ov.innerHTML = `<div class="msh"><span class="msh-grab" aria-hidden="true"></span><button type="button" class="msh-x" aria-label="Close">✕</button>
     <div class="msh-m"><div class="msh-t">${crest(m.home)}<b>${esc(nm(m.home))}</b></div><div class="msh-s">${m.status === 'pre' ? '<span class="msh-v">v</span>' : `${h}<span>–</span>${a}`}</div><div class="msh-t">${crest(m.away)}<b>${esc(nm(m.away))}</b></div></div>
-    <p class="msh-sub">${m.team ? esc(m.team) + ' · ' : ''}${status}</p>
+    <p class="msh-sub">${teamShow(m.team) ? esc(teamShow(m.team)) + ' · ' : ''}${status}</p>
     <button type="button" class="msh-go" data-a="go">${navigator.share ? 'Share' : 'Copy link'}</button>
     <button type="button" class="msh-link" data-a="copy" title="Copy the link"><span>${esc(short)}</span>${navigator.share ? '<b>Copy</b>' : ''}</button>
     <div class="msh-apps">${apps.map(([k, t, href, svg]) => `<a class="msh-app" href="${esc(href)}" target="_blank" rel="noopener"><span class="es-${k}">${svg}</span><small>${t}</small></a>`).join('')}<button type="button" class="msh-app" data-a="qr" aria-expanded="false"><span class="msh-qri"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg></span><small>QR code</small></button></div>
@@ -1717,7 +1719,7 @@ function shareMatch(m){
 async function shareSummary(m){
   toast('Making the summary…'); let c; try { c = await summaryCanvas(m); } catch(e){ toast('That didn’t work on this device.'); return; }
   const blob = await new Promise(r => c.toBlob(r, 'image/png')), us = usOf(m), opp = us === 'A' ? m.home : m.away, [h, a] = score(m);
-  const name = `ERGS-${(m.team || 'match').replace(/\W+/g, '')}-v-${String(opp || '').replace(/\W+/g, '')}.png`, file = new File([blob], name, {type:'image/png'}), text = `ERGS ${m.team || ''} ${h}–${a} ${opp ? (us === 'A' ? 'at ' : 'v ') + opp : ''}`.replace(/\s+/g, ' ').trim();
+  const name = `ERGS-${(m.team || 'match').replace(/\W+/g, '')}-v-${String(opp || '').replace(/\W+/g, '')}.png`, file = new File([blob], name, {type:'image/png'}), text = `ERGS ${teamShow(m.team) || ''} ${h}–${a} ${opp ? (us === 'A' ? 'at ' : 'v ') + opp : ''}`.replace(/\s+/g, ' ').trim();
   openDialog(`<h2>Match summary</h2><img class="sum-img" alt="Match summary picture" src="${URL.createObjectURL(blob)}"><div class="dlg-a"><button type="button" class="btn" id="sumSave">Save picture</button><span style="flex:1"></span><button type="button" class="btn ghost" data-close>Close</button><button type="button" class="btn primary" id="sumShare">Share to WhatsApp…</button></div>`);
   const save = () => { const u = URL.createObjectURL(blob), l = document.createElement('a'); l.href = u; l.download = name; document.body.appendChild(l); l.click(); setTimeout(() => { URL.revokeObjectURL(u); l.remove(); }, 3000); };
   $('#sumSave').onclick = save;
@@ -1788,7 +1790,7 @@ function viewMatch(m){
 }
 /* supporters: anyone signed in who isn't a coach or player follows every squad, or the squads they pick (saved on their sign-in record) */
 let SUP = null, LASTS;   // SUP: {follow:[team codes]} for a signed-in supporter; an empty list means every squad
-const FOLLOW_LBL = {'1XV':'1st XV', '2XV':'2nd XV', '3XV':'3rd XV', U16:'U16', Meds:'Medallion', U14:'U14', U13:'U13', U12:'U12', SG:'Senior Girls', JG:'Junior Girls'};
+const FOLLOW_LBL = {'1XV':'1st XV', '2XV':'2nd XV', '3XV':'3rd XV', U16:'U16', Meds:'Medallions', U14:'U14', U13:'U13', U12:'U12', SG:'Senior Girls', JG:'Junior Girls'};
 const followTxt = l => !l || !l.length ? 'all squads' : l.map(c => FOLLOW_LBL[c] || c).join(', ');
 const followOK = m => { if (SANDBOX || !SUP || !SUP.follow || !SUP.follow.length) return true; const c = teamCode(m.team);
   return !c || SUP.follow.includes(c) || m.id === V.open || location.hash === '#m.' + m.id; };   // a shared match link always opens
@@ -1813,7 +1815,10 @@ function followDialog(first){
   });
 }
 async function supLoad(){
-  const em = EMAIL; if (FB.noteSupporter) await FB.noteSupporter();
+  const em = EMAIL;
+  // their "last seen" as a supporter is noted once a day on each device, not on every visit
+  { const k = 'ergs.supSeen.' + em; let last = 0; try { last = +localStorage.getItem(k) || 0; } catch(e){}
+    if (FB.noteSupporter && Date.now() - last > 20*3600e3){ await FB.noteSupporter(); try { localStorage.setItem(k, String(Date.now())); } catch(e){} } }
   const r = FB.myRequest ? await FB.myRequest() : null; if (em !== EMAIL) return;
   SUP = {follow:r && Array.isArray(r.follow) ? r.follow.filter(c => TEAM_CODES.includes(c)) : []}; reapply();
   if (!(r && Array.isArray(r.follow))){ let asked = true; try { asked = localStorage.getItem('ergs.followAsked.' + em) === '1'; localStorage.setItem('ergs.followAsked.' + em, '1'); } catch(e){}
@@ -1826,18 +1831,17 @@ function playerBar(){
 function coachBar(){
   playerBar(); supBar();
   sbBar();
-  const bar = $('#coachBar'); bar.hidden = !COACH || SANDBOX || !DATA.demo; if (bar.hidden) return;
-  bar.innerHTML = DATA.demo
-    ? `<span><b>Coach view.</b> The matches below are examples. Clear them to start real scoring; supporters will see your matches straight away.</span><button type="button" class="btn primary" data-act="cleardemo">Clear the examples</button>`
-    : `<span class="cb-msg"><span class="cb-dot"></span><b>Coach view</b> · changes go live for everyone</span><div class="ctrl"><button type="button" class="btn primary" data-act="new">New match</button></div>`;
-  if (READY && !HAS_DOC) bar.innerHTML = `<span><b>Coach view.</b> The scoreboard is empty. Bring across the matches from the Claude page to start.</span><button type="button" class="btn primary" data-act="seed">Set up the scoreboard</button><button type="button" class="btn ghost" data-act="signout">Sign out</button>`;
+  $('#coachBar').hidden = true;   // (the old coach strip: its buttons are in the page now)
 }
 
 /* ---------- live viewers: "👁 12 watching" on a live match ---------- */
-// While a match is live and this page is on screen, it checks in every minute (viewers/<match>/s/<this tab>), for the match open
-// or, on the board, every live match shown. Anyone checked in within the last 2½ minutes counts. Leaving or hiding the page checks out.
+// While a match is live and this page is on screen, it checks in every five minutes (viewers/<match>/s/<this tab>), for the match
+// open or, on the board, every live match shown. Anyone checked in within the last 6½ minutes counts. Leaving or hiding the page
+// checks out straight away, so the count still drops when people go.
+// (It was every minute. Each check-in is a database write and a read for every live match on screen; on a Saturday with four
+// matches live and a crowd watching, that alone could use up the day's free allowance of 20,000 writes.)
 const VW = {n:{}, sid:'', on:new Set(), t:0};
-const VW_BEAT = 60e3, VW_WINDOW = 150e3;
+const VW_BEAT = 300e3, VW_WINDOW = 390e3;
 const vwText = n => n ? `<span aria-hidden="true">👁</span> ${n} watching` : '';
 function vwSid(){ if (VW.sid) return VW.sid; try { VW.sid = sessionStorage.getItem('ergs.vwSid') || ''; } catch(e){}
   if (!VW.sid){ VW.sid = Date.now().toString(36) + Math.random().toString(36).slice(2, 10); try { sessionStorage.setItem('ergs.vwSid', VW.sid); } catch(e){} } return VW.sid; }
@@ -1911,7 +1915,7 @@ setInterval(() => {
 
 /* ---------- saving: a transaction on the shared scoreboard; every phone gets it within a second ---------- */
 let NOMS = [], nomsUnsub = null, OPPN = {}, notesUnsub = null;
-let saving = false, READY = false, HAS_DOC = false, EMAIL = '', ADMIN = false, PLAYER = false, VEO = {}, PHOTOS = {}, veoUnsub = null;
+let saving = false, READY = false, EMAIL = '', ADMIN = false, PLAYER = false, VEO = {}, PHOTOS = {}, veoUnsub = null;
 /* VEO links are kept in a private record only coaches and players can read; older ones may still sit on the match */
 const veoOf = m => (COACH || PLAYER) ? (VEO[m.id] || m.veo || '') : '';
 const PHOTO_NONE = 'none';   // a coach said "these photos aren't from this match": stops the automatic link
@@ -1968,8 +1972,11 @@ async function save(fn, keepOpen){
   if (keepOpen !== undefined){ V.open = keepOpen; V.openAt = Date.now(); }
   saving = true; const t = setTimeout(() => { if (saving) $('#saving').hidden = false; }, 400);
   try { await FB.save(cur => { const next = clone(cur || {matches:[], schools:{}}); fn(next); next.updated = Date.now(); return next; }); }
-  catch(e){ const c = e && (e.code || '');
-    if (/permission/.test(c)){ toast(ADMIN ? `The database refused the save. In Firebase → Firestore → Rules, check the admin email reads ${CFG.admin} and press Publish.` : 'The database refused the save: your account isn’t on the coaches list. Ask the admin to add you.'); }
+  catch(e){ const c = e && (e.code || ''); let big = 0; try { big = new Blob([JSON.stringify({matches:RAW.matches, schools:RAW.schools})]).size; } catch(x){}
+    // the day's free allowance is used up (it starts again about 8 in the morning), or the scoreboard has reached the size the database allows
+    if (/resource-exhausted|quota/.test(c)) toast('The database has used up today’s free allowance, so nothing can be saved until it resets, about 8 in the morning.');
+    else if (big > 860000 && /permission|invalid-argument/.test(c)) toast('The scoreboard is full: it holds as many matches as the database allows. Delete matches from earlier seasons, then try again.');
+    else if (/permission/.test(c)){ toast(ADMIN ? `The database refused the save. In Firebase → Firestore → Rules, check the admin email reads ${CFG.admin} and press Publish.` : 'The database refused the save: your account isn’t on the coaches list. Ask the admin to add you.'); }
     else if (/unavailable|network/.test(c)) toast('No signal. That change didn’t save; try again.');
     else toast('That didn’t save. Try again.'); console.error(e); }
   finally { clearTimeout(t); saving = false; $('#saving').hidden = true; render(); }
@@ -2025,7 +2032,7 @@ function vidBulk(){
   const dt = m => new Date(kot(m)).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'});
   openDialog(`<h2>Match videos</h2><p>Paste a link in a match’s box, or paste several links in the big box and each one finds its match (VEO links include the date). Only signed-in coaches and players see videos.</p>
     <div class="field"><label class="label" for="vidMany">Paste one or more links</label><textarea class="input" id="vidMany" rows="2" placeholder="https://app.veo.co/matches/20261107-…"></textarea><small class="hint" id="vidManyH"></small></div>
-    <div class="vid-list">${list.map(m => { const [h, a] = score(m), r = resultOf(m); return `<div class="vid-it${veoOf(m) ? ' has' : ''}" data-vm="${esc(m.id)}"><div class="vid-m"><b>${esc((m.team ? m.team + ' ' : '') + (usOf(m) === 'A' ? '@ ' : 'v ') + (usOf(m) === 'A' ? m.home : m.away))}</b><small>${esc(dt(m))}${r ? ` · ${r.r} ${r.f}–${r.g}` : ''}</small></div><div class="vid-row"><input class="input" inputmode="url" autocomplete="off" value="${esc(veoOf(m))}" placeholder="No video yet" aria-label="Video link for ${esc(m.team || '')} v ${esc(usOf(m) === 'A' ? m.home : m.away)}"><span class="vid-st"></span></div></div>`; }).join('')}</div>
+    <div class="vid-list">${list.map(m => { const [h, a] = score(m), r = resultOf(m); return `<div class="vid-it${veoOf(m) ? ' has' : ''}" data-vm="${esc(m.id)}"><div class="vid-m"><b>${esc((teamShow(m.team) ? teamShow(m.team) + ' ' : '') + (usOf(m) === 'A' ? '@ ' : 'v ') + (usOf(m) === 'A' ? m.home : m.away))}</b><small>${esc(dt(m))}${r ? ` · ${r.r} ${r.f}–${r.g}` : ''}</small></div><div class="vid-row"><input class="input" inputmode="url" autocomplete="off" value="${esc(veoOf(m))}" placeholder="No video yet" aria-label="Video link for ${esc(teamShow(m.team) || '')} v ${esc(usOf(m) === 'A' ? m.home : m.away)}"><span class="vid-st"></span></div></div>`; }).join('')}</div>
     <div class="dlg-a"><span class="hint" id="vidN" style="flex:1"></span><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" id="vidAll">Save videos</button></div>`, d => {
     const rows = [...d.querySelectorAll('.vid-it')], orig = new Map(rows.map(r => [r.dataset.vm, r.querySelector('input').value]));
     const sync = () => { let n = 0; rows.forEach(r => { const v = r.querySelector('input').value.trim(), u = v ? vidClean(v) : '', st = r.querySelector('.vid-st'), ch = v !== orig.get(r.dataset.vm);
@@ -2058,7 +2065,7 @@ function wireSegs(d){ d.querySelectorAll('[data-seg]').forEach(s => s.querySelec
 /* scoring */
 /* team sheets from the main app, so the scorer always has the right names */
 let TEAMS_CACHE = null, teamsAt = 0;
-async function loadTeams(force){ if (!window.FB || !FB.listTeams || !COACH) return null; if (TEAMS_CACHE && !force && Date.now() - teamsAt < 60000) return TEAMS_CACHE;
+async function loadTeams(force){ if (!window.FB || !FB.listTeams || !COACH) return null; if (TEAMS_CACHE && !force && Date.now() - teamsAt < 10*60e3) return TEAMS_CACHE;   // every team sheet is read each time, so not more than every ten minutes unless asked
   try { TEAMS_CACHE = await FB.listTeams(); teamsAt = Date.now(); } catch(e){} return TEAMS_CACHE; }
 const sheetPlayers = x => (x.players || []).map((p, i) => ({n:+p.n || i + 1, name:((p.f || '') + ' ' + (p.l || '')).trim()})).filter(p => p.name).sort((a, b) => a.n - b.n);
 const sheetLabel = x => (x.title || [x.team, x.opp ? 'v ' + x.opp : ''].filter(Boolean).join(' ') || 'Team sheet') + (x.date ? ' · ' + new Date(x.date + 'T12:00').toLocaleDateString('en-GB', {day:'numeric', month:'short'}) : '');
@@ -2219,7 +2226,7 @@ const now0 = () => Date.now();
 function scoreDialog(m){
   const us = usOf(m), nH = us === 'H' ? 'ERGS' : m.home, nA = us === 'A' ? 'ERGS' : m.away;
   const [h0, a0] = score(m), played = m.status === 'FT', ft = Array.isArray(m.finalTries) ? m.finalTries : ['', ''], evPts = (m.events || []).some(e => ptsOf(e));
-  openDialog(`<h2>${played ? 'Change the final score' : 'Mark as played'}</h2><p>${esc((m.team ? m.team + ' · ' : '') + m.home + ' v ' + m.away)}${kot(m) ? ' · ' + esc(new Date(kot(m)).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'})) : ''}</p>
+  openDialog(`<h2>${played ? 'Change the final score' : 'Mark as played'}</h2><p>${esc((teamShow(m.team) ? teamShow(m.team) + ' · ' : '') + m.home + ' v ' + m.away)}${kot(m) ? ' · ' + esc(new Date(kot(m)).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'})) : ''}</p>
     <div class="row2"><div class="field"><label class="label" for="ssH">${esc(nH)}</label><input class="input ss-in" id="ssH" type="number" inputmode="numeric" min="0" max="250" value="${played || evPts ? h0 : ''}"></div>
       <div class="field"><label class="label" for="ssA">${esc(nA)}</label><input class="input ss-in" id="ssA" type="number" inputmode="numeric" min="0" max="250" value="${played || evPts ? a0 : ''}"></div></div>
     <details class="ss-more"><summary>Tries (optional, for cup bonus points)</summary><div class="row2"><div class="field"><label class="label" for="ssHt">${esc(nH)} tries</label><input class="input" id="ssHt" type="number" min="0" max="40" value="${esc(ft[0])}"></div><div class="field"><label class="label" for="ssAt">${esc(nA)} tries</label><input class="input" id="ssAt" type="number" min="0" max="40" value="${esc(ft[1])}"></div></div></details>
@@ -2237,11 +2244,9 @@ function scoreDialog(m){
 function act(a, m){
   const now = Date.now(), el = () => elapsed(m), upd = fn => save(d => fn(d.matches.find(y => y.id === m.id)), m.id);
   switch (a){
-    case 'cleardemo': return ask('Start real scoring?', 'This removes all the example matches for everyone. You can then add your fixtures.', 'Clear the examples', () => save(d => { d.demo = false; d.matches = []; d.schools = {}; }, null));
     case 'new': return matchForm(null);
     case 'signout': return FB.signOut().then(() => { COACH = false; ADMIN = false; PLAYER = false; VEO = {}; PHOTOS = {}; render(); toast('Signed out.'); });
     case 'coaches': return coachesDialog();
-    case 'seed': return fetch('seed.json', {cache:'no-store'}).then(r => r.ok ? r.json() : {matches:[], schools:{}}).catch(() => ({matches:[], schools:{}})).then(seed => save(d => { d.matches = seed.matches || []; d.schools = seed.schools || {}; d.demo = false; }, null));
     case 'past': return matchForm(null, true);
     case 'pastbulk': return pastBulk();
     case 'import': return importDialog();
@@ -2430,7 +2435,7 @@ function pastBulk(){
     let fix = [];
     const fixUI = () => { const box = d.querySelector('#pbFix'), add = fix.filter(f => !exists({date:f.date, opp:canonSchool(f.opp)}));
       box.hidden = !fix.length; box.innerHTML = fix.length ? `<label class="check"><input type="checkbox" id="pbFixOn" checked> Also add <b>${add.length}</b> upcoming fixture${add.length === 1 ? '' : 's'} from the grid (kick-off time to be confirmed)${fix.length > add.length ? ` · ${fix.length - add.length} already on ERGS Live` : ''}</label>
-        <details><summary>Show them</summary><ul>${add.map(f => `<li>${esc(new Date(f.date + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}))} · ${esc(f.team)} ${f.ha === 'A' ? '@' : 'v'} ${esc(f.opp)}${f.comp ? ' · ' + esc(f.comp) : ''}</li>`).join('')}</ul></details>` : '';
+        <details><summary>Show them</summary><ul>${add.map(f => `<li>${esc(new Date(f.date + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}))} · ${esc(teamShow(f.team))} ${f.ha === 'A' ? '@' : 'v'} ${esc(f.opp)}${f.comp ? ' · ' + esc(f.comp) : ''}</li>`).join('')}</ul></details>` : '';
       const on = d.querySelector('#pbFixOn'); if (on) on.onchange = count; count(); };
     d.querySelector('#pbRead').onclick = () => { const raw = d.querySelector('#pbText').value, grid = parseSeasonGrid(raw);
       if (grid){ rows = rows.filter(x => x.opp || x.us !== '' || x.them !== '').concat(grid.results); if (!rows.length) rows.push(blank()); fix = grid.fixtures; draw(); fixUI();
@@ -2468,7 +2473,7 @@ function importDialog(){
     <div class="dlg-a"><button type="button" class="btn ghost" data-close>Cancel</button><button type="button" class="btn primary" id="impAdd" disabled>Add fixtures</button></div>`, d => {
     let rows = [];
     const msg = t => d.querySelector('#impMsg').textContent = t;
-    const show = list => { rows = list.map(r => Object.assign({on:!exists(r)}, r)); d.querySelector('#impPrev').innerHTML = rows.length ? `<div class="tbl"><table><thead><tr><th></th><th>Date</th><th>KO</th><th>Team</th><th>Opponent</th><th>H/A</th></tr></thead><tbody>${rows.map((r, i) => `<tr><td><input type="checkbox" data-i="${i}" ${r.on ? 'checked' : ''} aria-label="Include"></td><td>${esc(new Date(r.date + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}))}</td><td>${esc(r.time || 'TBC')}</td><td>${esc(r.team || '–')}</td><td>${esc(r.opp)}${exists(r) ? ' <small>(already added)</small>' : ''}</td><td>${esc(r.ha || '–')}</td></tr>`).join('')}</tbody></table></div>` : '';
+    const show = list => { rows = list.map(r => Object.assign({on:!exists(r)}, r)); d.querySelector('#impPrev').innerHTML = rows.length ? `<div class="tbl"><table><thead><tr><th></th><th>Date</th><th>KO</th><th>Team</th><th>Opponent</th><th>H/A</th></tr></thead><tbody>${rows.map((r, i) => `<tr><td><input type="checkbox" data-i="${i}" ${r.on ? 'checked' : ''} aria-label="Include"></td><td>${esc(new Date(r.date + 'T12:00').toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'}))}</td><td>${esc(r.time || 'TBC')}</td><td>${esc(teamShow(r.team) || '–')}</td><td>${esc(r.opp)}${exists(r) ? ' <small>(already added)</small>' : ''}</td><td>${esc(r.ha || '–')}</td></tr>`).join('')}</tbody></table></div>` : '';
       d.querySelectorAll('[data-i]').forEach(c => c.onchange = () => { rows[+c.dataset.i].on = c.checked; count(); }); count(); };
     const count = () => { const n = rows.filter(r => r.on).length; const b = d.querySelector('#impAdd'); b.disabled = !n; b.textContent = `Add ${n} ${n === 1 ? 'fixture' : 'fixtures'}`; };
     d.querySelector('#impRead').onclick = async () => { const t = d.querySelector('#impText').value.trim(); if (!t){ msg('Paste the list first.'); return; }
@@ -2689,7 +2694,7 @@ const shareRow = document.createElement('div'); shareRow.className = 'share-row'
 function offDialog(m){
   const REASONS = ['Waterlogged pitch', 'Frozen pitch', 'Bad weather', 'Opposition unable to field a team', 'School event'];
   const day = (m.ko || '').slice(0, 10), tm = m.koTbc ? '' : (m.ko || '').slice(11, 16);
-  openDialog(`<h2>Postpone, cancel or move</h2><p>${esc((m.team ? m.team + ' ' : '') + m.home + ' v ' + m.away)}. Everyone following ERGS Live sees a notice straight away.</p>
+  openDialog(`<h2>Postpone, cancel or move</h2><p>${esc((teamShow(m.team) ? teamShow(m.team) + ' ' : '') + m.home + ' v ' + m.away)}. Everyone following ERGS Live sees a notice straight away.</p>
     <div class="field"><span class="label">This match is</span>${seg('off', [['postponed','Postponed'],['cancelled','Cancelled'],['moved','On a new date / time']], m.off || 'postponed')}</div>
     <div id="offWhen" class="field" hidden><div class="row"><div class="field" style="flex:1;min-width:140px"><label class="label" for="offDate">New date</label><input class="input" id="offDate" type="date" value="${esc(day)}"></div>
       <div class="field" style="flex:1;min-width:110px"><label class="label" for="offTime">Kick-off</label><input class="input" id="offTime" type="time" value="${esc(tm)}"></div></div>
@@ -2757,14 +2762,16 @@ signLink.onclick = () => { let saved = ''; try { saved = localStorage.getItem('e
 function boot(){
   const FB = window.FB;
   if (!FB){ $('#view').innerHTML = '<div class="empty">The scoreboard isn’t connected yet. (Setup: add the Firebase details to config.js.)</div>'; return; }
-  FB.onState((s, exists) => { HAS_DOC = exists; applyState(s); }, err => { console.error(err); $('#view').innerHTML = '<div class="empty">Couldn’t reach the scoreboard. Check your signal; it reconnects by itself.</div>'; });
+  // nothing from the scoreboard after 12 seconds: say so (the page fills in by itself when the connection comes back)
+  setTimeout(() => { if (!READY && !SANDBOX) $('#view').innerHTML = '<div class="empty">Couldn’t reach the scoreboard. Check your signal; it reconnects by itself.</div>'; }, 12000);
+  FB.onState(s => applyState(s), err => { console.error(err); $('#view').innerHTML = '<div class="empty">Couldn’t reach the scoreboard. Check your signal; it reconnects by itself.</div>'; });
   if (FB.linkErr) setTimeout(() => toast(FB.linkErr), 800);
   FB.onAuth(async user => {
     if (FB.linkErr && !user) toast(FB.linkErr);
     EMAIL = user && user.email ? user.email.toLowerCase() : ''; ADMIN = !!EMAIL && EMAIL === String(CFG.admin || '').toLowerCase();
-    let ok = ADMIN; if (EMAIL && !ok){ try { ok = await FB.isCoach(EMAIL); } catch(e){ ok = false; } }
+    let ok = ADMIN, chk = null; if (EMAIL && !ok){ try { ok = await FB.isCoach(EMAIL); } catch(e){ ok = false; chk = e; } }
     let pl = false; if (ok === 'noscore'){ ok = false; pl = true; }
-    if (EMAIL && !ok && !pl){ try { pl = await FB.isPlayer(EMAIL); } catch(e){ pl = false; } }
+    if (EMAIL && !ok && !pl){ try { pl = await FB.isPlayer(EMAIL); } catch(e){ pl = false; chk = chk || e; } }
     // a coach or player who has just signed in here goes on to the team app (they can come back for scoring)
     // and a coach or player opening ERGS Live fresh (the installed app, a bookmark) starts in the team app too.
     // They stay here when they came from the team app (Scores link), opened a match link, or already chose to stay this session.
@@ -2776,7 +2783,10 @@ function boot(){
     if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {}; PHOTOS = {};
     if (COACH || PLAYER) veoUnsub = FB.onVeo((v, ph) => { VEO = v || {}; PHOTOS = ph || {}; if (READY) render(); photoScan(); });
     const hadSup = !!SUP; SUP = null; if (hadSup) reapply();
-    if (EMAIL && !ok && !pl){ toast(`Signed in as a supporter (${EMAIL}).`); supLoad().catch(() => {}); }
+    // signed in, but the check on their account didn't get an answer (no signal, or the database's daily allowance is used up):
+    // say that, and don't note them down as a supporter
+    if (EMAIL && !ok && !pl && chk) toast(/resource-exhausted|quota/.test(String(chk.code || '')) ? 'Signed in, but the database has used up today’s free allowance, so your account can’t be checked until it resets, about 8 in the morning.' : 'Signed in, but your account couldn’t be checked just now. Check your signal, then reload the page.');
+    else if (EMAIL && !ok && !pl){ toast(`Signed in as a supporter (${EMAIL}).`); supLoad().catch(() => {}); }
     else if (pl) toast('Signed in as a player. Match videos and photos are unlocked.');
     if (nomsUnsub){ nomsUnsub(); nomsUnsub = null; } NOMS = []; if (notesUnsub){ notesUnsub(); notesUnsub = null; } OPPN = {};
     if (COACH && FB.onOppNotes) notesUnsub = FB.onOppNotes(v => { OPPN = v || {}; if (READY && !$('#oppNoteIn:focus')) render(); });
@@ -2817,7 +2827,7 @@ const NOM_MAX = 4;
 let NOM_TEAMS = null, NOM_DONE = [];
 const NOM_SQ = t => { const x = String(t || '').toLowerCase(); if (!x) return '';
   if (/\b(girl|girls|ladies|women|sg|jg)\b/.test(x)) return /\b(junior|jg|u1[2-5]|minis?)\b/.test(x) ? 'JG' : 'SG';
-  if (/\b(med|meds|medallion|u15)\b/.test(x)) return 'MEDS';
+  if (/\b(meds?|medallions?|u15)\b/.test(x)) return 'MEDS';
   const u = x.match(/\bu(?:nder)?\s?(1[2-4])\b/); if (u) return 'U' + u[1];
   if (/\b(1st|2nd|3rd|1|2|3)\s*xv\b|\b[123]xv\b|\bu16\b|\bsenior/.test(x)) return 'SENIOR'; return ''; };
 async function nomScope(){ NOM_TEAMS = null; if (!COACH || SANDBOX || !window.FB || !EMAIL) return;
@@ -2831,29 +2841,29 @@ function nomBox(m){
   const l = nomsOf(m), mine = canNom(m), done = NOM_DONE.some(x => x.mid === m.id);
   if (!mine && !l.length) return '';   // another squad's match: their coaches nominate
   return `<div class="box coach nom-box"><h3>Team of the Week</h3><p class="hint" style="margin:0">${l.length ? `Nominated from this match${nomBy(l) ? ' by ' + esc(nomBy(l)) : ''}:` : done ? 'Marked as done: no nominations needed for this match.' : `Nominate up to ${NOM_MAX} players from this match. One set per match: once a coach has nominated, the others don’t need to.`}</p>
-    ${l.length ? `<div class="nom-chips">${l.map(x => `<span class="nom-chip">${x.n ? `<i>${esc(x.n)}</i>` : ''}<b>${esc(x.name)}</b><small>${esc(x.team || '')}</small></span>`).join('')}</div>` : ''}
+    ${l.length ? `<div class="nom-chips">${l.map(x => `<span class="nom-chip">${x.n ? `<i>${esc(x.n)}</i>` : ''}<b>${esc(x.name)}</b><small>${esc(teamShow(x.team) || '')}</small></span>`).join('')}</div>` : ''}
     ${mine ? `<div class="ctrl"><button type="button" class="btn ${l.length || done ? '' : 'primary'}" data-act="noms">${l.length ? 'Change nominations' : 'Nominate players'}</button></div>` : ''}</div>`;
 }
 async function nomsDialog(m){
   if (!window.FB || !FB.setNoms){ toast('Nominations need the latest version. Refresh the page.'); return; }
-  if (!canNom(m)){ toast(`Only the ${m.team || 'squad'}’s coaches nominate from this match.`); return; }
+  if (!canNom(m)){ toast(`Only the ${teamShow(m.team) || 'squad'}’s coaches nominate from this match.`); return; }
   let players = Array.isArray(m.players) && m.players.length ? m.players.slice() : [];
   if (!players.length){ await loadTeams(); const x = TEAMS_CACHE && ((m.sheetId && TEAMS_CACHE.sheets.find(y => y.id === m.sheetId)) || sheetFor(m)); if (x) players = sheetPlayers(x); }
   const us = usOf(m), scorers = [...new Set(sorted(m).filter(e => e.s === us && e.p && e.k !== 'note').map(e => e.p))];
   scorers.forEach(n => { if (!players.some(p => p.name === n)) players.push({n:'', name:n}); });
   const cur = nomsOf(m), opp = us === 'A' ? m.home : m.away;
   const byNum = v => { const k = (String(v).trim().match(/^#?(\d{1,2})$/) || [])[1]; return k ? players.find(p => +p.n === +k) : null; };
-  openDialog(`<h2>Team of the Week nominations</h2><p>${esc(m.team ? m.team + ' ' : '')}v ${esc(opp)}. Pick up to ${NOM_MAX} players${players.length ? ' (name or shirt number)' : ''}.</p>
+  openDialog(`<h2>Team of the Week nominations</h2><p>${esc(teamShow(m.team) ? teamShow(m.team) + ' ' : '')}v ${esc(opp)}. Pick up to ${NOM_MAX} players${players.length ? ' (name or shirt number)' : ''}.</p>
     <div class="nom-rows">${[0,1,2,3].map(i => `<div class="field"><label class="label" for="nom${i}">Player ${i + 1}</label><input class="input" id="nom${i}" maxlength="40" list="nomNames" autocomplete="off" value="${esc(cur[i] ? cur[i].name : '')}"><span class="hint" id="nomH${i}" aria-live="polite"></span></div>`).join('')}</div>
     <datalist id="nomNames">${players.map(p => `<option value="${esc(p.name)}"${p.n ? ` label="#${esc(p.n)}"` : ''}>`).join('')}</datalist>
-    <div class="field" style="max-width:220px"><label class="label" for="nomTeam">Team shown on the graphic</label><input class="input" id="nomTeam" maxlength="12" list="nomTeams" value="${esc((cur[0] && cur[0].team) || m.team || '')}"><datalist id="nomTeams">${TEAMS.map(t => `<option value="${esc(t)}">`).join('')}</datalist></div>
+    <div class="field" style="max-width:220px"><label class="label" for="nomTeam">Team shown on the graphic</label><input class="input" id="nomTeam" maxlength="12" list="nomTeams" value="${esc((cur[0] && cur[0].team) || teamShow(m.team) || '')}"><datalist id="nomTeams">${TEAMS.map(t => `<option value="${esc(t)}">`).join('')}</datalist></div>
     <p class="hint inj-line">🩹 Any injuries? <a href="${INJURY_FORM}" target="_blank" rel="noopener">Fill in the quick injury form ↗</a></p><div class="dlg-a"><button type="button" class="btn ghost" data-close>${cur.length ? 'Cancel' : 'Later'}</button><button type="button" class="btn primary" id="nomGo">Save nominations</button></div>`, d => {
     for (let i = 0; i < NOM_MAX; i++){ const inp = d.querySelector('#nom' + i), h = d.querySelector('#nomH' + i);
       inp.oninput = () => { const p = byNum(inp.value); h.textContent = p ? `#${p.n} ${p.name}` : ''; }; }
     d.querySelector('#nomGo').onclick = async () => {
       const team = d.querySelector('#nomTeam').value.trim(), seen = new Set(), list = [];
       for (let i = 0; i < NOM_MAX; i++){ const v = d.querySelector('#nom' + i).value.trim(); if (!v) continue; const hit = byNum(v) || players.find(p => p.name.toLowerCase() === v.toLowerCase()); const name = (hit ? hit.name : v).slice(0, 40);
-        if (players.length && !hit){ toast(`${v} isn’t in this match’s ${m.team || 'squad'} list. Pick a name from the list.`); d.querySelector('#nom' + i).focus(); return; }
+        if (players.length && !hit){ toast(`${v} isn’t in this match’s ${teamShow(m.team) || 'squad'} list. Pick a name from the list.`); d.querySelector('#nom' + i).focus(); return; }
         if (seen.has(name.toLowerCase())) continue; seen.add(name.toLowerCase());
         const old = cur.find(x => x.name === name);
         list.push({id:old ? old.id : uid(), mid:m.id, name, n:hit && hit.n ? +hit.n : '', team, opp, date:(m.ko || '').slice(0, 10), by:EMAIL, at:old ? old.at : Date.now()}); }
@@ -2944,7 +2954,7 @@ function sbBar(){
 document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#sbGo1, #sbGo2')) sbEnter(); });
 // coaches' risky tools are switched off in the demo
 const actReal = act;
-act = function(a, m){ if (SANDBOX && ['coaches', 'signout', 'seed', 'cleardemo', 'import'].includes(a)){ toast('That isn’t available in the demo. Leave the demo first.'); return; } return actReal(a, m); };
+act = function(a, m){ if (SANDBOX && ['coaches', 'signout', 'import'].includes(a)){ toast('That isn’t available in the demo. Leave the demo first.'); return; } return actReal(a, m); };
 
 /* ---------- school crests: every school in the database, with merge and delete ---------- */
 const sameSchool = (a, b) => !!a && !!b && canonSchool(a) === canonSchool(b);

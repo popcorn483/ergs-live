@@ -10,11 +10,15 @@ service cloud.firestore {
     function twinB() { return me().replace('@c2kni[.]net$', '@c2ken.net'); }
     // a player's second sign-in email: players/<second> = {aliasOf: <main email>}, set by a coach; it acts as the main one
     function aliasFor(email) { return exists(/databases/$(database)/documents/players/$(me())) && get(/databases/$(database)/documents/players/$(me())).data.get('aliasOf', '') == email; }
-    function mine(email) { return signedIn() && (me() == email || twinA() == email || twinB() == email || aliasFor(email)); }
+    // "own": the address itself, which costs nothing to check. "mine" also allows a player's second sign-in email, which needs a look-up.
+    // Every exists()/get() in these rules is charged as a document read on each request, so the checks that cost nothing come first
+    // and the commonest case (a player) is tried before the rarer one (a coach). What is allowed is unchanged.
+    function own(email) { return signedIn() && (me() == email || twinA() == email || twinB() == email); }
+    function mine(email) { return own(email) || (signedIn() && aliasFor(email)); }
     function onList(col) { return exists(/databases/$(database)/documents/$(col)/$(me())) || exists(/databases/$(database)/documents/$(col)/$(twinA())) || exists(/databases/$(database)/documents/$(col)/$(twinB())); }
     function isCoach() { return isAdmin() || (signedIn() && onList('coaches')); }
     function isPlayer() { return signedIn() && onList('players'); }
-    function isSquad() { return isCoach() || isPlayer(); }
+    function isSquad() { return isAdmin() || isPlayer() || isCoach(); }
 
     // ERGS Live scoreboard: anyone can watch, only coaches can score
     match /live/{doc} {
@@ -29,14 +33,14 @@ service cloud.firestore {
     }
     // who can sign in
     match /coaches/{email} {
-      allow read: if isCoach() || mine(email);
+      allow read: if own(email) || isCoach() || mine(email);
       allow write: if isCoach();
     }
     // someone who signed in but isn't on a list yet leaves a request; coaches see it and add them as a player or coach
     match /requests/{email} {
       function reqOK() { return request.resource.data.keys().hasOnly(['name', 'photo', 'at', 'squad', 'pos', 'sent', 'resend', 'kind', 'follow', 'child', 'coachOf']) && (!('follow' in request.resource.data) || (request.resource.data.follow is list && request.resource.data.follow.size() <= 12)) && (!('kind' in request.resource.data) || request.resource.data.kind in ['', 'supporter', 'guardian', 'coach']) && (!('coachOf' in request.resource.data) || (request.resource.data.coachOf is list && request.resource.data.coachOf.size() <= 8)) && (!('child' in request.resource.data) || (request.resource.data.child is string && request.resource.data.child.size() < 80)) && (!('squad' in request.resource.data) || (request.resource.data.squad is string && request.resource.data.squad.size() < 20)) && (!('pos' in request.resource.data) || (request.resource.data.pos is string && request.resource.data.pos.size() < 4)) && request.resource.data.name is string && request.resource.data.name.size() < 120; }
-      allow read: if isCoach() || mine(email);
-      allow delete: if isCoach() || mine(email);   // a supporter can remove themselves
+      allow read: if own(email) || isCoach() || mine(email);
+      allow delete: if own(email) || isCoach() || mine(email);   // a supporter can remove themselves
       allow create, update: if isCoach();   // a coach can reset the one-hour wait, mark someone as a supporter, or put someone on the list from Access
       allow create: if mine(email) && reqOK();
       // sending again: once an hour, or straight away after a coach resets it; other updates (photo, last seen) don't touch 'sent'
@@ -44,7 +48,7 @@ service cloud.firestore {
     }
     // a player sends their own headshot (once a season, unless a coach opens it again); coaches approve it
     match /headshots/{email} {
-      allow read: if isCoach() || mine(email);
+      allow read: if own(email) || isCoach() || mine(email);
       allow update, delete: if isCoach();
       allow create, update: if isPlayer() && mine(email)
         && request.resource.data.status == 'pending' && request.resource.data.photo is string && request.resource.data.photo.size() < 950000
@@ -57,12 +61,12 @@ service cloud.firestore {
     }
     // a player says whether they can play each match; coaches see it when picking the team
     match /avail/{email} {
-      allow read: if isCoach() || mine(email);
+      allow read: if own(email) || isCoach() || mine(email);
       allow write: if isPlayer() && mine(email) && request.resource.data.keys().hasOnly(['m', 'name', 'team', 'rid', 'at']) && request.resource.data.m.size() < 60;
       allow delete: if isCoach();
     }
     match /players/{email} {
-      allow read: if isCoach() || mine(email);
+      allow read: if own(email) || isCoach() || mine(email);
       allow write: if isCoach();
     }
     // main app: plays, squads and pictures for coaches and players; everything else coaches only
@@ -98,13 +102,13 @@ service cloud.firestore {
     }
     // read receipts: one doc per player (p: the player's own reads, g: their parent/guardian's); coaches see them all
     match /reads/{email} {
-      allow read: if isCoach() || mine(email);
+      allow read: if own(email) || isCoach() || mine(email);
       allow create, update: if isSquad() && mine(email) && request.resource.data.keys().hasOnly(['p', 'g', 'name', 'at']) && request.resource.data.get('p', {}).size() < 400 && request.resource.data.get('g', {}).size() < 400;
       allow delete: if isCoach();
     }
     // a player's own match record: games they played, their position and stats they counted from the VEO; coaches read them all
     match /pstats/{email} {
-      allow read: if isCoach() || mine(email);
+      allow read: if own(email) || isCoach() || mine(email);
       allow create, update: if isSquad() && mine(email) && request.resource.data.keys().hasOnly(['g', 'name', 'team', 'at']) && request.resource.data.g is map && request.resource.data.g.size() <= 150 && request.resource.data.name is string && request.resource.data.name.size() < 80;
       allow delete: if isCoach();
     }
@@ -112,13 +116,13 @@ service cloud.firestore {
     match /likes/{email} {
       allow read: if isSquad();
       allow create, update: if isSquad() && mine(email) && request.resource.data.keys().hasOnly(['p', 'name', 'at']) && request.resource.data.p is map && request.resource.data.p.size() <= 500 && request.resource.data.at is number;
-      allow delete: if isCoach() || mine(email);
+      allow delete: if own(email) || isCoach() || mine(email);
     }
     // photo tags: a player tags themselves in match photos (p: photo id -> where they are); the squad sees them; coaches can take a tag off
     match /phtags/{email} {
       allow read: if isSquad();
       allow create, update: if (isCoach() || (isPlayer() && mine(email))) && request.resource.data.keys().hasOnly(['p', 'name', 'at']) && request.resource.data.p is map && request.resource.data.p.size() <= 400 && request.resource.data.at is number;
-      allow delete: if isCoach() || mine(email);
+      allow delete: if own(email) || isCoach() || mine(email);
     }
     // activity log: every coach's approvals and access changes are written as they happen; only the admin account reads or clears it
     match /audit/{id} {
