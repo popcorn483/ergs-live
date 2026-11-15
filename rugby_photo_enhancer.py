@@ -24,7 +24,7 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 APP_NAME = "Rugby Photo Enhancer"
-APP_VERSION = "1.7.0"
+APP_VERSION = "2.0.0"
 # Updates are published here (branch "photo-enhancer" of github.com/popcorn483/ergs-live)
 UPDATE_BASE = "https://raw.githubusercontent.com/popcorn483/ergs-live/photo-enhancer/"
 DEFAULT_SOURCE = r"E:\DCIM\100CANON"
@@ -33,20 +33,22 @@ DRIVE_SUBPATH = os.path.join("School Photos", "2026-27", "Rugby")
 PHOTO_EXT = (".jpg", ".jpeg", ".png")
 
 PRESETS = {
-    "Gentle":   dict(strength=0.55, colour=0.45, exposure=0.45, contrast=0.20, vibrance=0.20, sharpen=0.25, shadows=0.45, highlights=0.35, bright=0.0, warmth=0.0, auto=1.0),
-    "Balanced": dict(strength=0.80, colour=0.60, exposure=0.65, contrast=0.35, vibrance=0.35, sharpen=0.40, shadows=0.65, highlights=0.50, bright=0.0, warmth=0.0, auto=1.0),
-    "Punchy":   dict(strength=1.00, colour=0.75, exposure=0.80, contrast=0.55, vibrance=0.60, sharpen=0.55, shadows=0.80, highlights=0.60, bright=0.0, warmth=0.0, auto=1.0),
+    "Gentle":   dict(strength=0.55, colour=0.45, exposure=0.45, contrast=0.20, vibrance=0.20, sharpen=0.25, shadows=0.45, highlights=0.35, bright=0.0, warmth=0.0, denoise=0.6, auto=1.0),
+    "Balanced": dict(strength=0.80, colour=0.60, exposure=0.65, contrast=0.35, vibrance=0.35, sharpen=0.40, shadows=0.65, highlights=0.50, bright=0.0, warmth=0.0, denoise=0.6, auto=1.0),
+    "Punchy":   dict(strength=1.00, colour=0.75, exposure=0.80, contrast=0.55, vibrance=0.60, sharpen=0.55, shadows=0.80, highlights=0.60, bright=0.0, warmth=0.0, denoise=0.6, auto=1.0),
 }
 # order used when a look is sent as a list of numbers; bright/warmth run -1..1, the rest 0..1
-LOOK_KEYS = ["strength", "colour", "exposure", "contrast", "vibrance", "sharpen", "shadows", "highlights", "bright", "warmth", "auto"]
+LOOK_KEYS = ["strength", "colour", "exposure", "contrast", "vibrance", "sharpen", "shadows", "highlights", "bright", "warmth", "denoise", "auto"]
 
 
 def look_from_list(vals, fallback="Balanced"):
     """Turn a list of 8 numbers (from the window) into a validated settings dict."""
     try:
         vals = [float(v) for v in vals]
-        if len(vals) == len(LOOK_KEYS) - 1:
-            vals.append(0.0)                    # older 10-value looks were always exact
+        if len(vals) == 10:
+            vals += [0.5, 0.0]                  # older looks: no noise setting, always exact
+        elif len(vals) == 11:
+            vals = vals[:10] + [0.5, vals[10]]
         if len(vals) != len(LOOK_KEYS):
             raise ValueError
     except (TypeError, ValueError):
@@ -317,6 +319,302 @@ def enhance_array(arr, s):
     return out, tags
 
 
+# --------------------------------------------------------------------------
+# Professional engine (OpenCV): linear-light white balance & exposure, skin-aware metering,
+# edge-aware local tone mapping, highlight roll-off, perceptual colour, noise reduction,
+# edge-masked sharpening. Falls back to the simple engine if OpenCV isn't installed.
+# --------------------------------------------------------------------------
+try:
+    import cv2
+    cv2.setNumThreads(2)
+except Exception:          # pragma: no cover
+    cv2 = None
+
+_LIN = ((np.arange(256) / 255.0 + 0.055) / 1.055) ** 2.4
+_LIN[:11] = np.arange(11) / 255.0 / 12.92
+LIN_LUT = _LIN.astype(np.float32)
+
+
+def _to_srgb(x):
+    x = np.clip(x, 0, 1)
+    return np.where(x <= 0.0031308, x * 12.92, 1.055 * np.power(x, 1 / 2.4) - 0.055)
+
+
+def estimate_noise(arr):
+    """Noise level (8-bit units) from up to three full-resolution crops (Immerkaer's method)."""
+    h, w = arr.shape[:2]
+    g = arr if arr.ndim == 2 else (0.299 * arr[..., 0] + 0.587 * arr[..., 1] + 0.114 * arr[..., 2])
+    k = np.array([[1, -2, 1], [-2, 4, -2], [1, -2, 1]], np.float32)
+    vals = []
+    for cy, cx in ((0.5, 0.5), (0.3, 0.3), (0.7, 0.7)):
+        y0, x0 = int(h * cy) - 200, int(w * cx) - 200
+        c = np.asarray(g[max(0, y0):max(0, y0) + 400, max(0, x0):max(0, x0) + 400], np.float32)
+        if c.shape[0] < 50 or c.shape[1] < 50:
+            continue
+        r = np.abs(cv2.filter2D(c, -1, k)) if cv2 is not None else np.abs(
+            4 * c[1:-1, 1:-1] - 2 * (c[:-2, 1:-1] + c[2:, 1:-1] + c[1:-1, :-2] + c[1:-1, 2:]) + c[:-2, :-2] + c[:-2, 2:] + c[2:, :-2] + c[2:, 2:])
+        est = float(1.4826 * np.median(r) / 6)   # robust: edges are a minority, the median ignores them
+        if cv2 is not None:
+            # coarse/blotchy noise (JPEG, enlarged crops) hides from a fine-scale check - look at half size too
+            c2 = cv2.resize(c, (c.shape[1] // 2, c.shape[0] // 2), interpolation=cv2.INTER_AREA)
+            est = max(est, float(1.4826 * np.median(np.abs(cv2.filter2D(c2, -1, k))) / 6))
+        vals.append(est)
+    return float(np.median(vals)) if vals else 0.0
+
+
+def _guided_coeffs(I, r, eps):
+    m = lambda x: cv2.boxFilter(x, -1, (2 * r + 1, 2 * r + 1))
+    mI = m(I)
+    vI = m(I * I) - mI * mI
+    a = vI / (vI + eps)
+    b = mI - a * mI
+    return m(a), m(b)
+
+
+def _skin_mask(rgb8):
+    ycc = cv2.cvtColor(rgb8, cv2.COLOR_RGB2YCrCb)
+    y, cr, cb = ycc[..., 0], ycc[..., 1], ycc[..., 2]
+    return (cr >= 138) & (cr <= 178) & (cb >= 80) & (cb <= 130) & (y > 25)
+
+
+def pro_analyse(arr, noise=None):
+    """Everything the pro engine needs to know about a photo, measured on a 1000px copy."""
+    h, w = arr.shape[:2]
+    sc = min(1.0, 1000 / max(h, w))
+    sm = cv2.resize(arr, (max(1, int(w * sc)), max(1, int(h * sc))), interpolation=cv2.INTER_AREA) if sc < 1 else arr.copy()
+    lin = LIN_LUT[sm]
+    Y = 0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]
+    f = sm.astype(np.float32)
+    mx, mn = f.max(2), f.min(2)
+    sat = (mx - mn) / np.maximum(mx, 1)
+    disp = f.mean(2) / 255
+    hs, ws = Y.shape
+    yy, xx = np.mgrid[0:hs, 0:ws]
+    centre = np.exp(-(((xx / ws - 0.5) ** 2) + ((yy / hs - 0.47) ** 2)) / (2 * 0.24 ** 2)).astype(np.float32)
+    skin = _skin_mask(sm)
+    skin = cv2.morphologyEx(skin.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)
+    dark = float((disp < 0.27).mean())
+    bright = float((disp > 0.84).mean())
+    backlit = float(np.clip((dark - 0.04) / 0.12, 0, 1) * np.clip(bright / 0.15, 0, 1))
+    # subject: skin first (faces, arms, legs), else centre-weighted - sky excluded when backlit
+    wgt = 0.35 + centre
+    if backlit > 0.15:
+        wgt = wgt * (disp < 0.8)
+    skin_frac = float((skin & (centre > 0.25)).mean())
+    if skin_frac > 0.002:
+        wgt = 0.15 * wgt + 6.0 * skin * (0.3 + centre)
+    key = float(np.exp((np.log(Y + 1e-4) * wgt).sum() / max(wgt.sum(), 1e-6)))
+    # neutral pixels -> white balance in linear light (least colourful 20% of midtones)
+    mid = (disp > 0.15) & (disp < 0.85)
+    gains, cast, trust, warm = [1.0, 1.0, 1.0], 0.0, 0.0, False
+    if mid.mean() > 0.02:
+        p20 = float(np.percentile(sat[mid], 20))
+        neutral = mid & (sat <= min(0.45, max(0.12, p20)))
+        if neutral.mean() > 0.01:
+            ch = [float(lin[..., c][neutral].mean()) for c in range(3)]
+            avg = sum(ch) / 3
+            gains = [avg / max(c, 1e-5) for c in ch]
+            cd = [float(f[..., c][neutral].mean()) for c in range(3)]          # as seen on screen
+            cast = (max(cd) - min(cd)) / max(sum(cd) / 3, 1)
+            warm = cd[0] > cd[2] and cd[0] >= cd[1]
+            # a cast tints every near-neutral area the same way; a colourful scene tints them differently
+            px = f[neutral]
+            chroma = px - px.mean(1, keepdims=True)
+            chroma /= np.maximum(px.mean(1, keepdims=True), 1)
+            consistency = float(np.linalg.norm(chroma.mean(0)) / max(np.linalg.norm(chroma, axis=1).mean(), 1e-6))
+            trust = float(np.clip((consistency - 0.35) / 0.45, 0.15, 1))
+    # colourfulness as it would be without the cast
+    bal = np.clip(lin * np.array(gains, np.float32), 0, 1)
+    bmx, bmn = bal.max(2), bal.min(2)
+    bsat = (bmx - bmn) / np.maximum(bmx, 1e-4)
+    lit = disp > 0.1
+    meansat = float(bsat[lit].mean()) if lit.any() else 0.0
+    p5, p95 = np.percentile(disp, [5, 95])
+    G = cv2.cvtColor(sm, cv2.COLOR_RGB2GRAY).astype(np.float32)
+    sharp = float(np.percentile(np.abs(cv2.Laplacian(G, cv2.CV_32F)), 99))
+    if noise is None:
+        noise = estimate_noise(arr)
+    return {"key": key, "backlit": backlit, "dark": dark, "bright": bright, "skin": skin_frac,
+            "gains": gains, "cast": cast, "trust": trust, "warm": warm, "sat": meansat, "spread": float(p95 - p5),
+            "sharp": sharp, "noise": noise, "black": float(np.percentile(Y, 0.1)), "white": float(np.percentile(Y, 99.9))}
+
+
+def pro_auto(a, s):
+    """Scale each correction to what this photo needs. The look sets the maximum."""
+    t, notes = dict(s), []
+    need_c = float(np.clip((0.88 - a["spread"]) / 0.38, 0, 1.25)) * (1 - 0.7 * a["backlit"])
+    t["contrast"] = min(1.0, s["contrast"] * need_c)
+    # natural scenes are allowed a little warmth/coolness - only the excess is corrected
+    need_w = float(np.clip((a["cast"] - 0.05) / 0.08, 0, 1.2)) * a["trust"]
+    if a.get("warm"):
+        need_w *= 0.55          # keep some warmth: golden-hour / indoor light is usually wanted
+    t["colour"] = min(1.0, need_w * (0.55 + 0.75 * s["colour"]))
+    need_v = float(np.clip((0.45 - a["sat"]) / 0.28, 0, 1.25))
+    t["vibrance"] = min(1.0, s["vibrance"] * need_v)
+    # brightening magnifies noise, so judge it as it will look after the exposure change
+    ev0 = float(np.clip(np.log2(0.19 / max(a["key"], 1e-4)), -1.0, 1.8))
+    amp = 2 ** (max(0.0, abs(ev0) - 0.3) * (1 if ev0 > 0 else 0) * s["exposure"] * 0.8)
+    need_n = float(np.clip((a["noise"] * amp - 1.4) / 3.5, 0, 1))
+    t["denoise"] = min(1.0, s.get("denoise", 0.6) * need_n * 1.4)
+    need_s = float(np.clip((95 - a["sharp"]) / 55, 0.3, 1.4)) * (1 - 0.5 * need_n)
+    t["sharpen"] = min(1.0, s["sharpen"] * need_s)
+    t["auto"] = 0.0
+    if a["skin"] > 0.002:
+        notes.append("exposure set for faces/skin")
+    if a["backlit"] > 0.2:
+        notes.append("backlit - subject lifted, sky held")
+    if need_c < 0.35:
+        notes.append("contrast already good")
+    elif need_c > 0.9:
+        notes.append("flat photo - extra contrast")
+    if need_w < 0.15:
+        notes.append("colours already neutral")
+    elif need_w > 0.5:
+        notes.append("warm cast softened" if a.get("warm") else "colour cast removed")
+    if need_v < 0.35:
+        notes.append("already colourful")
+    elif need_v > 0.9:
+        notes.append("dull colours - extra vibrance")
+    if need_n > 0.25:
+        notes.append("noisy (high ISO) - noise reduced")
+    if need_s > 1.0:
+        notes.append("slightly soft - extra sharpening")
+    elif need_s <= 0.35:
+        notes.append("already sharp")
+    return t, notes
+
+
+def _tone(rgb8, A, B, P):
+    """Linear-light exposure/WB, local tone mapping, highlight roll-off, contrast and vibrance.
+    Returns display-space float32 (0..1) before the final levels."""
+    lin = LIN_LUT[rgb8] * P["mul"]
+    lin = np.maximum(lin - P["black"], 0) / (1 - P["black"])
+    L = 0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]
+    logL = np.log2(np.maximum(L, 1e-5))
+    base = A.astype(np.float32) * logL + B.astype(np.float32)
+    mid = P["mid"]
+    d = base - mid
+    nb = np.where(d < 0, mid + d * (1 - 0.5 * P["sh"]), mid + d * (1 - 0.45 * P["hl"]))
+    newlog = nb + (logL - base) * (1 + P["clarity"])
+    lin = lin * np.exp2(np.clip(newlog - logL, -3, 3))[..., None]
+    t = 0.75
+    lin = np.where(lin > t, t + (1 - t) * (1 - np.exp(-(lin - t) / (1 - t))), lin)
+    x = _to_srgb(lin).astype(np.float32)
+    k = P["k"]
+    if k > 0.01:
+        x = x + (x * x * (3 - 2 * x) - x) * k
+    vib = P["vib"]
+    if vib > 0.01:
+        mx, mn = x.max(2), x.min(2)
+        sat = (mx - mn) / np.maximum(mx, 1e-4)
+        avg = x.mean(2, keepdims=True)
+        r, g, b = x[..., 0], x[..., 1], x[..., 2]
+        skin = (r > g) & (g > b) & (sat > 0.08) & (sat < 0.6)
+        pitch = (g > r) & (g > b) & (sat > 0.35)
+        amt = vib * (1 - sat) ** 2 * np.where(skin, 0.45, 1.0) * np.where(pitch, 0.5, 1.0)
+        x = avg + (x - avg) * (1 + amt)[..., None]
+    return x
+
+
+def pro_enhance(arr, s, noise=None):
+    """Full professional pipeline on an RGB uint8 image. Returns (uint8 image, tags)."""
+    h, w = arr.shape[:2]
+    a = pro_analyse(arr, noise)
+    notes = []
+    if s.get("auto"):
+        s, notes = pro_auto(a, s)
+    S = s["strength"]
+    tags = list(notes)
+    flat = float(np.clip((0.75 - a["spread"]) / 0.35, 0, 1))
+    # ---- white balance (linear gains, luminance-neutral) + manual warmth
+    gw = min(1.0, s["colour"])
+    gains = np.array([1 + (g - 1) * gw for g in a["gains"]], np.float32)
+    gains = np.clip(gains, 0.6, 1.7)
+    wm = s.get("warmth", 0.0)
+    gains *= np.array([1 + 0.12 * wm, 1 + 0.02 * wm, 1 - 0.12 * wm], np.float32)
+    gains /= (0.2126 * gains[0] + 0.7152 * gains[1] + 0.0722 * gains[2])
+    # ---- exposure (EV) from the subject's brightness (skin first), with a dead zone for good photos
+    ev = float(np.clip(np.log2(0.19 / max(a["key"], 1e-4)), -1.0, 1.8))
+    ev = np.sign(ev) * max(0.0, abs(ev) - 0.3)
+    ev = ev * s["exposure"] * (0.5 + 0.5 * S) * (1 + 0.5 * a["backlit"]) + 1.0 * s.get("bright", 0.0)
+    if ev > 0.15:
+        tags.append(f"brightened {ev:+.1f} EV")
+    elif ev < -0.15:
+        tags.append(f"darkened {ev:+.1f} EV")
+    gain = 2.0 ** ev
+    black = min(a["black"] * gain, 0.015 + 0.08 * flat) * S
+    sh = s.get("shadows", 0.0) * (0.25 + 0.75 * max(min(1.0, (a["dark"] - 0.04) / 0.22), a["backlit"])) * (1 + 0.35 * a["backlit"])
+    hl = s.get("highlights", 0.0) * (0.2 + 0.8 * min(1.0, max(0.0, (a["bright"] - 0.03) / 0.25)))
+    P = {"mul": gains * gain, "black": float(black), "mid": float(np.log2(0.18)), "sh": min(sh, 1.2), "hl": min(hl, 1.0),
+         "clarity": s["contrast"] * 0.35 * (1 - 0.6 * min(1.0, a["noise"] / 5)), "k": s["contrast"] * 0.5,
+         "vib": s["vibrance"] * 0.9}
+    # ---- edge-aware base layer (fast guided filter on a small copy)
+    f = max(1, int(round(max(h, w) / 800)))
+    small = cv2.resize(arr, (max(1, w // f), max(1, h // f)), interpolation=cv2.INTER_AREA) if f > 1 else arr
+    ls = LIN_LUT[small] * P["mul"]
+    ls = np.maximum(ls - P["black"], 0) / (1 - P["black"])
+    Ys = np.log2(np.maximum(0.2126 * ls[..., 0] + 0.7152 * ls[..., 1] + 0.0722 * ls[..., 2], 1e-5)).astype(np.float32)
+    ca, cb = _guided_coeffs(Ys, max(2, int(max(Ys.shape) / 50)), 0.35)
+    # ---- pass 1 on the small copy: where do the blacks and whites end up? -> final auto-levels
+    xs = _tone(small, ca, cb, P)
+    Ls = 0.299 * xs[..., 0] + 0.587 * xs[..., 1] + 0.114 * xs[..., 2]
+    lo, hi = np.percentile(Ls, [0.3, 99.7])
+    # black point: strong for hazy/flat photos, but never re-darken shadows that were just lifted
+    lo = float(np.clip(lo, 0, 0.12)) * S * (0.15 + 0.85 * flat) * (1 - 0.9 * a["backlit"])
+    hi = float(np.clip(hi, 0.8, 1.0))
+    hi = 1 - (1 - hi) * S * (0.5 + 0.5 * flat) * (1 - 0.8 * a["backlit"])
+    if lo > 0.01 or hi < 0.985:
+        tags.append("levels")
+    A = cv2.resize(ca, (w, h), interpolation=cv2.INTER_LINEAR).astype(np.float16) if f > 1 else ca
+    B = cv2.resize(cb, (w, h), interpolation=cv2.INTER_LINEAR).astype(np.float16) if f > 1 else cb
+    out = np.empty_like(arr)
+    for y0 in range(0, h, 256):
+        y1 = min(h, y0 + 256)
+        x = _tone(arr[y0:y1], A[y0:y1], B[y0:y1], P)
+        x = (x - lo) / max(hi - lo, 0.3)
+        out[y0:y1] = np.clip(x * 255 + 0.5, 0, 255).astype(np.uint8)
+    del A, B
+    k, vib = P["k"], P["vib"]
+    clarity = P["clarity"]
+    sh, hl = P["sh"], P["hl"]
+    if sh > 0.15:
+        tags.append("shadows lifted")
+    if hl > 0.15:
+        tags.append("highlights recovered")
+    # ---- noise reduction (chroma always gentle, luminance only when noisy) + edge-masked sharpening
+    ycc = cv2.cvtColor(out, cv2.COLOR_RGB2YCrCb)
+    dn = s.get("denoise", 0.0)
+    scale = max(h, w) / 3000
+    dn_chroma = max(dn, 0.3 if ev > 0.5 else 0.0)        # brightening shows colour speckle - always smooth it
+    if dn_chroma > 0.02:
+        sig = (0.8 + 2.5 * dn_chroma) * max(0.6, scale)
+        for c in (1, 2):
+            ycc[..., c] = cv2.GaussianBlur(ycc[..., c], (0, 0), sig)
+        if dn > 0.25:
+            ycc[..., 0] = cv2.fastNlMeansDenoising(ycc[..., 0], None, h=float(2 + 6 * dn), templateWindowSize=5, searchWindowSize=13)
+            tags.append("noise reduced")
+    sp = s["sharpen"]
+    if sp > 0.01:
+        Yf = ycc[..., 0].astype(np.float32)
+        rad = float(np.clip(0.7 * scale, 0.5, 2.2))
+        blur = cv2.GaussianBlur(Yf, (0, 0), rad)
+        detail = Yf - blur
+        edge = cv2.GaussianBlur(np.abs(cv2.Sobel(blur, cv2.CV_32F, 1, 0)) + np.abs(cv2.Sobel(blur, cv2.CV_32F, 0, 1)), (0, 0), 1.5)
+        mask = np.clip((edge - 4) / 20, 0, 1)                 # sharpen edges, not noise or flat sky
+        ycc[..., 0] = np.clip(Yf + detail * mask * (sp * 1.6), 0, 255).astype(np.uint8)
+        tags.append("sharpened")
+    out = cv2.cvtColor(ycc, cv2.COLOR_YCrCb2RGB)
+    if gw > 0.1 and a["cast"] > 0.05:
+        tags.append("white balance")
+    if k > 0.05 or clarity > 0.05:
+        tags.append("contrast & clarity")
+    if vib > 0.1:
+        tags.append("vibrance")
+    if abs(wm) > 0.05:
+        tags.append("warmer" if wm > 0 else "cooler")
+    return out, tags
+
+
 def process_one(src, dst, settings, quality=93):
     """Enhance one photo file and save it. Runs in a worker process."""
     with Image.open(src) as im:
@@ -327,14 +625,18 @@ def process_one(src, dst, settings, quality=93):
         exif[0x0112] = 1                          # orientation now 'normal'
         rgb = im.convert("RGB")
     arr = np.asarray(rgb)
-    if settings.get("auto"):
+    if cv2 is not None:
+        out, tags = pro_enhance(arr, settings)
+        img = Image.fromarray(out, "RGB")
+    elif settings.get("auto"):
         settings, notes, _ = auto_settings(arr, settings)
         out, tags = enhance_array(arr, settings)
         tags = notes + tags
+        img = Image.fromarray(out, "RGB")
     else:
         out, tags = enhance_array(arr, settings)
-    img = Image.fromarray(out, "RGB")
-    if settings["sharpen"] > 0.01:
+        img = Image.fromarray(out, "RGB")
+    if cv2 is None and settings["sharpen"] > 0.01:
         radius = max(1.0, max(img.size) / 2500)
         img = img.filter(ImageFilter.UnsharpMask(radius=radius, percent=int(settings["sharpen"] * 110), threshold=2))
         tags.append("sharpened")
@@ -710,6 +1012,25 @@ def photo_taken(path):
     return dt.date(), dt.strftime("%H:%M")
 
 
+_NOISE = {}
+
+
+def file_noise(path):
+    """Noise level of the full-resolution file (previews are too small to see it). Cached."""
+    try:
+        key = (path, os.path.getmtime(path))
+    except OSError:
+        return None
+    if key not in _NOISE:
+        try:
+            with Image.open(path) as im:
+                im = ImageOps.exif_transpose(im).convert("RGB")
+                _NOISE[key] = estimate_noise(np.asarray(im))
+        except Exception:
+            _NOISE[key] = None
+    return _NOISE[key]
+
+
 def make_preview(path, max_side, settings=None, quality=85):
     """Small JPEG of a photo (optionally enhanced). Returns (bytes, tags)."""
     import io
@@ -724,14 +1045,18 @@ def make_preview(path, max_side, settings=None, quality=85):
     tags = []
     if settings:
         arr = np.asarray(im)
-        if settings.get("auto"):
+        if cv2 is not None:
+            out, tags = pro_enhance(arr, settings, noise=file_noise(path) if max_side > 600 else None)
+            im = Image.fromarray(out, "RGB")
+        elif settings.get("auto"):
             settings, notes, _ = auto_settings(arr, settings)
             out, tags = enhance_array(arr, settings)
             tags = notes + tags
+            im = Image.fromarray(out, "RGB")
         else:
             out, tags = enhance_array(arr, settings)
-        im = Image.fromarray(out, "RGB")
-        if settings["sharpen"] > 0.01:
+            im = Image.fromarray(out, "RGB")
+        if cv2 is None and settings["sharpen"] > 0.01:
             im = im.filter(ImageFilter.UnsharpMask(radius=1.0, percent=int(settings["sharpen"] * 90), threshold=2))
             tags.append("sharpened")
     buf = io.BytesIO()
@@ -932,8 +1257,11 @@ class App:
             im = ImageOps.exif_transpose(im).convert("RGB")
             im.thumbnail((1600, 1600), Image.LANCZOS)
             arr = np.asarray(im)
-        t, notes, _ = auto_settings(arr, base)
-        res = {"ok": True, "vals": [round(float(t[x]), 3) for x in LOOK_KEYS[:-1]], "notes": notes}
+        if cv2 is not None:
+            t, notes = pro_auto(pro_analyse(arr, noise=file_noise(src)), base)
+        else:
+            t, notes, _ = auto_settings(arr, base)
+        res = {"ok": True, "vals": [round(float(t.get(x, 0.0)), 3) for x in LOOK_KEYS[:-1]], "notes": notes}
         self.views.put(k, res)
         return res
 
@@ -978,7 +1306,7 @@ class App:
         staging = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "RugbyPhotoEnhancer", "staging", "drive")
         os.makedirs(staging, exist_ok=True)
         sub_ids, sub_lock = {}, threading.Lock()
-        n_workers = max(1, min(4, (os.cpu_count() or 2) - 1))
+        n_workers = max(1, min(2 if cv2 is not None else 4, (os.cpu_count() or 2) - 1))   # pro engine uses ~1 GB per photo
         job["message"] = "Downloading…"
         with ProcessPoolExecutor(max_workers=n_workers) as ex:
             def one(pid):
@@ -1162,7 +1490,7 @@ class App:
                     job["status"][pid], job["errors"][pid] = "error", f"Upload failed: {e}"
                 self._log(f"✗ {os.path.basename(path)}: upload failed — {e}")
 
-        n_workers = max(1, min(4, (os.cpu_count() or 2) - 1))
+        n_workers = max(1, min(2 if cv2 is not None else 4, (os.cpu_count() or 2) - 1))   # pro engine uses ~1 GB per photo
         job["message"] = "Enhancing…"
         with ThreadPoolExecutor(max_workers=3) as uploads, ProcessPoolExecutor(max_workers=n_workers) as ex:
             futs = {}
@@ -1829,7 +2157,7 @@ UI_HTML = r"""<!DOCTYPE html>
     ["strength","Overall strength",0,100], ["colour","Colour correction",0,100], ["exposure","Exposure fix",0,100],
     ["contrast","Contrast",0,100], ["vibrance","Vibrance",0,100], ["sharpen","Sharpen",0,100],
     ["shadows","Shadows (lift dark areas)",0,100], ["highlights","Highlights (recover sky)",0,100],
-    ["bright","Brightness",-100,100,true], ["warmth","Warmth",-100,100,true],
+    ["bright","Brightness",-100,100,true], ["warmth","Warmth",-100,100,true], ["denoise","Noise reduction",0,100],
   ];
   const globalPreset = () => document.querySelector("#presets .on").dataset.p;
   const lookVals = p => (p.look && p.look.vals) || S.presets[(p.look && p.look.preset) || globalPreset()];
@@ -2109,7 +2437,7 @@ UI_HTML = r"""<!DOCTYPE html>
       `<div class="sl${extra ? " extra" : ""}"><label>${label} <b id="v_${k}"></b></label><input type="range" min="${mn}" max="${mx}" id="s_${k}"></div>`).join("");
     SL.forEach(([k]) => $("s_" + k).addEventListener("input", () => {
       const p = photos[cur]; if (!p) return;
-      p.look = {vals: SL.map(([kk]) => +$("s_" + kk).value / 100)};
+      p.look = {vals: SL.map(([kk]) => +$("s_" + kk).value / 100).concat([0])};
       paintPanel(p);
       clearTimeout(sliderT); sliderT = setTimeout(() => { loadAfter(p); refreshTile(p); }, 220);
     }));

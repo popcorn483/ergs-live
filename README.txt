@@ -33,6 +33,21 @@ EACH MATCH
   5. Click "Enhance & upload". A new folder is made in Rugby on Google Drive and the
      full-size enhanced photos are uploaded into it. "Open in Google Drive" opens it.
 
+THE ENHANCEMENT ENGINE (v2)
+  Works like a professional raw editor's "Auto", in this order:
+   1. White balance in linear light, judged from neutral areas (white kit, lines,
+      cloud) - only when they share a tint, so real scenes and golden-hour warmth survive.
+   2. Exposure metered on skin (faces, arms, legs) or the centre, never the bright sky.
+   3. Edge-aware local tone mapping: shadows lifted and highlights held without halos
+      around players against the sky.
+   4. Soft highlight roll-off instead of hard white clipping.
+   5. Auto levels from a quick test render, contrast and clarity only if the photo needs it.
+   6. Vibrance that protects skin tones and doesn't turn the pitch neon.
+   7. Noise reduction measured from the full-size file (high ISO / evening matches).
+   8. Sharpening only on real edges - never on noise or flat sky.
+  It needs OpenCV (installed automatically). If OpenCV can't be installed, the app
+  still works using the simpler engine.
+
 PHOTO-BY-PHOTO TUNING
   Every photo is analysed before it's enhanced, and only gets the corrections it needs:
   contrast only for flat photos, colour correction only when there's a real cast (judged

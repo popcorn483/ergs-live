@@ -314,7 +314,7 @@
     ["strength","Overall strength",0,100], ["colour","Colour correction",0,100], ["exposure","Exposure fix",0,100],
     ["contrast","Contrast",0,100], ["vibrance","Vibrance",0,100], ["sharpen","Sharpen",0,100],
     ["shadows","Shadows (lift dark areas)",0,100], ["highlights","Highlights (recover sky)",0,100],
-    ["bright","Brightness",-100,100,true], ["warmth","Warmth",-100,100,true],
+    ["bright","Brightness",-100,100,true], ["warmth","Warmth",-100,100,true], ["denoise","Noise reduction",0,100],
   ];
   const globalPreset = () => document.querySelector("#presets .on").dataset.p;
   const lookVals = p => (p.look && p.look.vals) || S.presets[(p.look && p.look.preset) || globalPreset()];
@@ -594,7 +594,7 @@
       `<div class="sl${extra ? " extra" : ""}"><label>${label} <b id="v_${k}"></b></label><input type="range" min="${mn}" max="${mx}" id="s_${k}"></div>`).join("");
     SL.forEach(([k]) => $("s_" + k).addEventListener("input", () => {
       const p = photos[cur]; if (!p) return;
-      p.look = {vals: SL.map(([kk]) => +$("s_" + kk).value / 100)};
+      p.look = {vals: SL.map(([kk]) => +$("s_" + kk).value / 100).concat([0])};
       paintPanel(p);
       clearTimeout(sliderT); sliderT = setTimeout(() => { loadAfter(p); refreshTile(p); }, 220);
     }));

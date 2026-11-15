@@ -23,8 +23,8 @@ if not defined PY (
 )
 
 echo  Using: %PY%
-echo  Installing image libraries (Pillow, NumPy)...
-%PY% -m pip install --user --upgrade --quiet pillow numpy
+echo  Installing image libraries (Pillow, NumPy, OpenCV)... this can take a minute
+%PY% -m pip install --user --upgrade --quiet pillow numpy opencv-python-headless
 if errorlevel 1 ( echo  Could not install the libraries - check your internet connection. & pause & exit /b 1 )
 
 rem ---- copy the app ----
