@@ -3559,4 +3559,68 @@ function cupPaste(){
   });
 }
 
+/* =============================== WHO IS SCORING ===============================
+   Two coaches scoring the same match put every score in twice. Each save to a match in play notes who made it (a name and a
+   scrambled id, never the email). Coaches see who is scoring; anyone else who goes to score is told, and has to choose to take over. */
+const SC_LIVE = ['1H', 'HT', '2H'], SC_TOOK = {};
+const meKey = () => { let h = 5381; for (const c of EMAIL) h = ((h << 5) + h + c.charCodeAt(0)) >>> 0; return h.toString(36); };
+const meName = () => String((window.FB && FB.name) || EMAIL.split('@')[0] || 'A coach').slice(0, 40);
+const scOther = m => m && m.scorer && m.scorer.k && m.scorer.k !== meKey() && Date.now() - (m.scorer.at || 0) < 20*60e3 ? m.scorer : null;
+const scAgo = s => { const n = Math.max(0, Math.round((Date.now() - (s.at || 0))/60000)); return n ? n + ' min ago' : 'just now'; };
+{ const sv = save; save = function(fn, keepOpen){
+    const id = typeof keepOpen === 'string' ? keepOpen : '', m = id && !SANDBOX && EMAIL ? (RAW.matches || []).find(x => x.id === id) : null;
+    if (!m) return sv(fn, keepOpen);
+    const stamped = d => { fn(d); const x = d.matches.find(y => y.id === id); if (!x) return; if (SC_LIVE.includes(x.status)) x.scorer = {k:meKey(), n:meName(), at:Date.now()}; else delete x.scorer; };
+    const o = SC_LIVE.includes(m.status) && scOther(m);
+    if (!o || SC_TOOK[id] === o.k) return sv(stamped, keepOpen);
+    return new Promise(res => ask(`${o.n} is scoring this match`, `Their last update was ${scAgo(o)}. If you both score, everything goes in twice. Take over only if ${o.n.split(' ')[0]} has stopped; nothing has been changed yet.`, 'Take over scoring', () => { SC_TOOK[id] = o.k; res(sv(stamped, keepOpen)); })); }; }
+{ const cp = coachPanel; coachPanel = function(m){ const h = cp.apply(this, arguments), s = m && m.scorer && SC_LIVE.includes(m.status) && !SANDBOX ? m.scorer : null; if (!s) return h; const mine = s.k === meKey();
+    return `<p class="sc-who${mine ? '' : ' other'}">${mine ? 'You are scoring this match.' : `<b>${esc(s.n)}</b> is scoring this match (last update ${scAgo(s)}). Leave the scoring to them, or it goes in twice.`}</p>` + h; }; }
+{ const st = document.createElement('style'); st.textContent = '.sc-who{margin:0 0 10px;padding:9px 12px;border-radius:10px;font-size:14px;line-height:1.35;background:rgba(220,192,138,.10);border:1px solid rgba(220,192,138,.35);color:#F1F0EC}.sc-who.other{background:rgba(214,69,69,.14);border-color:rgba(214,69,69,.55)}.push-teams{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:6px 12px;margin:10px 0}.push-teams label{display:flex;gap:8px;align-items:center;font-size:15px}'; document.head.appendChild(st); }
+
+/* =============================== KICK-OFF REMINDERS ===============================
+   A coach's phone can be told, about 15 minutes before one of their teams kicks off, to open ERGS Live and press Kick off. The
+   phone registers with its browser's notification service and the registration is kept in the database (pushsubs); a job that
+   runs every few minutes on GitHub (.github/workflows/kickoff.yml) reads the fixtures and sends the notifications. */
+const PUSH_KEY = 'BA9NLSI-WJiIH_vQ5UxTKmkbeZem57vXJKMfRFdzzpY0FQd7aumvKuCmg3lqPlyUdhJI23L2oUupCeGSZxEvz9U';
+const pushOK = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const pushId = async ep => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ep)))].slice(0, 16).map(x => x.toString(16).padStart(2, '0')).join('');
+const pushTeams = () => { try { const t = JSON.parse(localStorage.getItem('ergs.pushTeams') || 'null'); if (Array.isArray(t)) return t; } catch(e){} return Object.keys(TEAM_NAMES); };
+const pushKeyBytes = () => Uint8Array.from(atob(PUSH_KEY.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+async function pushSub(){ if (!pushOK()) return null; try { const reg = await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); } catch(e){ return null; } }
+async function pushOn(teams){
+  const perm = await Notification.requestPermission(); if (perm !== 'granted'){ toast('Notifications are blocked for ERGS Live on this phone. Allow them in the browser’s site settings, then try again.'); return false; }
+  const reg = await navigator.serviceWorker.ready, sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:pushKeyBytes()});
+  await FB.pushSave(await pushId(sub.endpoint), JSON.stringify(sub), teams);
+  try { localStorage.setItem('ergs.pushTeams', JSON.stringify(teams)); localStorage.setItem('ergs.pushAt', String(Date.now())); } catch(e){}
+  try { await reg.showNotification('Kick-off reminders are on', {body:'This is what a reminder looks like. You’ll get one about 15 minutes before your teams kick off.', icon:'icons/icon-192.png', tag:'ergs-test'}); } catch(e){}
+  return true;
+}
+async function pushOff(){ const sub = await pushSub(); if (sub){ try { await FB.pushDrop(await pushId(sub.endpoint)); } catch(e){} try { await sub.unsubscribe(); } catch(e){} } try { localStorage.removeItem('ergs.pushAt'); } catch(e){} }
+async function pushDialog(){
+  if (!pushOK()){ openDialog('<h2>Kick-off reminders</h2><p>This browser can’t show notifications from ERGS Live.</p><p class="hint">On an iPhone or iPad: open ERGS Live in Safari, press Share, then <b>Add to Home Screen</b>. Open it from the new icon and come back here. On Android, use Chrome or the ERGS Live app.</p><div class="dlg-a"><span style="flex:1"></span><button type="button" class="btn primary" data-close>OK</button></div>'); return; }
+  const sub = await pushSub(), on = !!sub && Notification.permission === 'granted', mine = pushTeams();
+  openDialog(`<h2>Kick-off reminders</h2><p>${on ? 'Reminders are <b>on</b> for this phone.' : 'Get a notification on this phone about 15 minutes before a match kicks off, so you can open ERGS Live, press Kick off and keep the score.'}</p>
+    <div class="push-teams">${Object.entries(TEAM_NAMES).map(([k, t]) => `<label><input type="checkbox" value="${k}" ${mine.includes(k) ? 'checked' : ''}> ${esc(t)}</label>`).join('')}</div>
+    <p class="hint">It comes from a job that runs every few minutes, so it can arrive a little early or late. Matches with no kick-off time set don’t get one. Each phone you score on needs turning on separately.</p>
+    <div class="dlg-a">${on ? '<button type="button" class="btn ghost" id="pushNo">Turn off</button>' : ''}<span style="flex:1"></span><button type="button" class="btn ghost" data-close>Cancel</button><button type="button" class="btn primary" id="pushGo">${on ? 'Save' : 'Turn on'}</button></div>`, d => {
+    d.querySelector('#pushGo').onclick = async () => { const teams = [...d.querySelectorAll('.push-teams input:checked')].map(i => i.value); if (!teams.length){ toast('Tick at least one team.'); return; }
+      try { if (await pushOn(teams)){ closeDialog(); toast(on ? 'Saved.' : 'Reminders are on for this phone.'); pushBtnSync(); } } catch(e){ console.error(e); toast(/permission/.test(String(e && e.code)) ? 'Reminders need the latest Firebase rules publishing.' : 'That didn’t work on this phone. Try again.'); } };
+    const no = d.querySelector('#pushNo'); if (no) no.onclick = async () => { await pushOff(); closeDialog(); toast('Reminders are off for this phone.'); pushBtnSync(); }; });
+}
+const pushBtn = document.createElement('button'); pushBtn.type = 'button'; pushBtn.className = 'share-btn'; pushBtn.hidden = true; pushBtn.textContent = '🔔 Kick-off reminders'; pushBtn.onclick = pushDialog;
+async function pushBtnSync(){ pushBtn.hidden = !COACH || SANDBOX; if (pushBtn.hidden) return; const sub = await pushSub(), on = !!sub && Notification.permission === 'granted'; pushBtn.textContent = on ? '🔔 Reminders on' : '🔔 Kick-off reminders';
+  // keep the registration fresh (the job drops ones not seen for four months)
+  if (on){ let at = 0; try { at = +localStorage.getItem('ergs.pushAt') || 0; } catch(e){} if (Date.now() - at > 14*864e5){ try { await FB.pushSave(await pushId(sub.endpoint), JSON.stringify(sub), pushTeams()); localStorage.setItem('ergs.pushAt', String(Date.now())); } catch(e){} } } }
+{ const f = document.querySelector('.share-row'); if (f) f.append(pushBtn); let was = null; setInterval(() => { const now = COACH && !SANDBOX; if (now !== was){ was = now; pushBtnSync(); } }, 1500); }
+
+/* ---------- "watching now" check-ins left behind by phones that closed without saying so: a coach's device clears a finished match's ---------- */
+async function vwSweep(){ if (!COACH || SANDBOX || !window.FB || !FB.viewSweep) return; let done = {}; try { done = JSON.parse(localStorage.getItem('ergs.vwSwept') || '{}'); } catch(e){}
+  const now = Date.now(), list = (RAW.matches || []).filter(m => m.status === 'FT' && !done[m.id] && now - kot(m) > 4*3600e3 && now - kot(m) < (ADMIN ? 400 : 5)*864e5).slice(0, ADMIN ? 40 : 6);
+  for (const m of list){ try { await FB.viewSweep(m.id); done[m.id] = 1; } catch(e){ break; } }
+  if (list.length){ try { localStorage.setItem('ergs.vwSwept', JSON.stringify(done)); } catch(e){} } }
+setTimeout(vwSweep, 25000);
+// a pressed reminder (or a pasted match link) while the page is already open: go to that match
+addEventListener('hashchange', () => { const h = location.hash.match(/^#m\.([A-Za-z0-9_-]+)$/); if (h && V.open !== h[1]){ V.open = h[1]; render(); scrollTo(0, 0); } });
+
 })();

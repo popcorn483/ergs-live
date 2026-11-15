@@ -23,6 +23,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+      - name: Use the private signing key, if one has been set
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          KP: ${{ secrets.ANDROID_KEY_PASS }}
+        run: |
+          if [ -n "$KS" ] && [ -n "$KP" ]; then
+            echo "$KS" | base64 -d > "$RUNNER_TEMP/ergs.keystore"
+            echo "ERGS_KEYSTORE=$RUNNER_TEMP/ergs.keystore" >> "$GITHUB_ENV"
+            echo "ERGS_KEY_PASS=$KP" >> "$GITHUB_ENV"
+            echo "Signing with the private key."
+          else echo "No private key set: signing with the key in the repository."; fi
       - name: Build the APK and the Play app bundle
         run: gradle -p android assembleRelease bundleRelease --no-daemon --stacktrace
       - name: Name them

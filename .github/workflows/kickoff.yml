@@ -1,0 +1,42 @@
+name: Kick-off reminders
+
+# Sends coaches a phone notification about 15 minutes before one of their matches kicks off (ERGS Live: Kick-off reminders).
+# Starts every half hour through the day and then keeps watch for the next half hour, checking the fixtures every few minutes.
+# Needs the secret VAPID_PRIVATE (Settings > Secrets and variables > Actions). Without it, it does nothing.
+on:
+  schedule:
+    - cron: '7,37 6-20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kickoff
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Which reminders have already gone
+        uses: actions/cache/restore@v4
+        with:
+          path: .kickoff-sent.json
+          key: kickoff-sent-${{ github.run_id }}
+          restore-keys: kickoff-sent-
+      - run: npm install --no-save --no-audit --no-fund web-push@3
+      - run: node tools/kickoff.mjs .kickoff-sent.json
+        env:
+          VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
+      - name: Remember what was sent
+        if: always() && hashFiles('.kickoff-sent.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: .kickoff-sent.json
+          key: kickoff-sent-${{ github.run_id }}

@@ -20,10 +20,14 @@ android {
 
     signingConfigs {
         ergs {
-            storeFile file('../ergs-live.keystore')
-            storePassword 'ergslive'
+            // A private signing key, when the build is given one (GitHub secrets ANDROID_KEYSTORE_B64 and ANDROID_KEY_PASS);
+            // otherwise the original key kept in this folder, whose password is public.
+            def ks = System.getenv('ERGS_KEYSTORE'), kp = System.getenv('ERGS_KEY_PASS')
+            def own = ks && kp && new File(ks).exists()
+            storeFile own ? new File(ks) : file('../ergs-live.keystore')
+            storePassword own ? kp : 'ergslive'
             keyAlias 'ergslive'
-            keyPassword 'ergslive'
+            keyPassword own ? kp : 'ergslive'
         }
     }
 

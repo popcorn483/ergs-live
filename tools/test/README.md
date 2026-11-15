@@ -15,6 +15,7 @@ Needs Node and Playwright (`require('playwright')`). From this folder:
     STUB3=1 node flow3.js             # likes, photo tags, headshots, a score request, the rules note
     STUB3=1 node flow4.js             # no connection, the day's reads used up, a device's copy against the database
     STUB3=1 node flow5.js             # Access checks: what people without a login left behind
+    STUB3=1 node flow6.js             # extra emails, the player search, the contact list, a changed email, parents, who is scoring
     STUB3=1 node walk.js admin        # presses every control it can find on every screen (add "phone" for a phone)
     node walklive.js out              # the same on ERGS Live
     node syn.js ../../app/index.html  # syntax of the page's scripts

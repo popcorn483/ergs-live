@@ -49,6 +49,7 @@ service cloud.firestore {
     // a player sends their own headshot (once a season, unless a coach opens it again); coaches approve it
     match /headshots/{email} {
       allow read: if own(email) || isCoach() || mine(email);
+      allow create: if isCoach();   // moving a person's record to their new email when a coach changes their login
       allow update, delete: if isCoach();
       allow create, update: if isPlayer() && mine(email)
         && request.resource.data.status == 'pending' && request.resource.data.photo is string && request.resource.data.photo.size() < 950000
@@ -62,6 +63,7 @@ service cloud.firestore {
     // a player says whether they can play each match; coaches see it when picking the team
     match /avail/{email} {
       allow read: if own(email) || isCoach() || mine(email);
+      allow create: if isCoach();   // moving a person's record to their new email when a coach changes their login
       allow write: if isPlayer() && mine(email) && request.resource.data.keys().hasOnly(['m', 'name', 'team', 'rid', 'at']) && request.resource.data.m.size() < 60;
       allow delete: if isCoach();
     }
@@ -85,6 +87,7 @@ service cloud.firestore {
     // Play IQ leaderboard: each person's best scores; the squad can see the board, you only write your own, coaches can remove an entry
     match /piq/{email} {
       allow read: if isSquad();
+      allow create: if isCoach();   // moving a person's record to their new email when a coach changes their login
       allow delete: if isCoach();
       allow create, update: if isSquad() && mine(email)
         && request.resource.data.keys().hasOnly(['name', 'team', 'week', 'best', 'wk', 'sd', 'sdWk', 'games', 'updated'])
@@ -103,18 +106,21 @@ service cloud.firestore {
     // read receipts: one doc per player (p: the player's own reads, g: their parent/guardian's); coaches see them all
     match /reads/{email} {
       allow read: if own(email) || isCoach() || mine(email);
+      allow create: if isCoach();   // moving a person's record to their new email when a coach changes their login
       allow create, update: if isSquad() && mine(email) && request.resource.data.keys().hasOnly(['p', 'g', 'name', 'at']) && request.resource.data.get('p', {}).size() < 400 && request.resource.data.get('g', {}).size() < 400;
       allow delete: if isCoach();
     }
     // a player's own match record: games they played, their position and stats they counted from the VEO; coaches read them all
     match /pstats/{email} {
       allow read: if own(email) || isCoach() || mine(email);
+      allow create: if isCoach();   // moving a person's record to their new email when a coach changes their login
       allow create, update: if isSquad() && mine(email) && request.resource.data.keys().hasOnly(['g', 'name', 'team', 'at']) && request.resource.data.g is map && request.resource.data.g.size() <= 150 && request.resource.data.name is string && request.resource.data.name.size() < 80;
       allow delete: if isCoach();
     }
     // photo likes: one doc per person (the photos they ♥); everyone in the squad sees the counts
     match /likes/{email} {
       allow read: if isSquad();
+      allow create: if isCoach();   // moving a person's record to their new email when a coach changes their login
       allow create, update: if isSquad() && mine(email) && request.resource.data.keys().hasOnly(['p', 'name', 'at']) && request.resource.data.p is map && request.resource.data.p.size() <= 500 && request.resource.data.at is number;
       allow delete: if own(email) || isCoach() || mine(email);
     }
@@ -129,6 +135,14 @@ service cloud.firestore {
       allow read, delete: if isAdmin();
       allow create: if isCoach() && request.resource.data.keys().hasOnly(['at', 'by', 'act', 'who', 'det']) && request.resource.data.by == me() && request.resource.data.at is number
         && request.resource.data.act is string && request.resource.data.act.size() < 100 && request.resource.data.who is string && request.resource.data.who.size() < 150 && request.resource.data.det is string && request.resource.data.det.size() < 400;
+    }
+    // kick-off reminders: a coach's phone asks to be notified before their teams' matches. The scheduled job that sends them
+    // (.github/workflows/kickoff.yml) has no login, so these are readable; they are no use without the job's private key.
+    match /pushsubs/{id} {
+      allow read: if true;
+      allow create, update: if isCoach() && id.size() < 80 && request.resource.data.keys().hasOnly(['sub', 'teams', 'at'])
+        && request.resource.data.sub is string && request.resource.data.sub.size() < 2500 && request.resource.data.teams is list && request.resource.data.teams.size() <= 20;
+      allow delete: if isCoach();
     }
     match /sponsors/{doc} { allow read, write: if isCoach(); }
     match /sheets/{doc} { allow read, write: if isCoach(); }

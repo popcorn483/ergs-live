@@ -31,7 +31,7 @@ const who = () => { const e = me(), admin = e === ADMIN, onList = col => !!e && 
     costSquad:admin || !e ? 0 : W.__rules2 ? (player ? 1 : 2) : (coach ? 1 : 2),
     costOwn:id => admin || !e ? 0 : W.__rules2 ? (id === e ? 0 : coach ? 1 : 2) : 1}; };
 // who may read: "own" = the person the document belongs to, or a coach (a whole collection of those: coaches only)
-const RD = {live:'all', viewers:'all', coaches:'own', requests:'own', headshots:'own', avail:'own', players:'own', team:'squad', plays:'squad', images:'squad', totw:'coach', drills:'squad', analysis:'squad', faces:'all',
+const RD = {pushsubs:'all', live:'all', viewers:'all', coaches:'own', requests:'own', headshots:'own', avail:'own', players:'own', team:'squad', plays:'squad', images:'squad', totw:'coach', drills:'squad', analysis:'squad', faces:'all',
   piq:'squad', notify:'signed', posts:'squad', reads:'own', pstats:'own', likes:'squad', phtags:'squad', audit:'admin', sponsors:'coach', sheets:'coach', members:'coach'};
 function allow(path, write, isCol){ const parts = path.split('/'), col = parts[0], id = isCol ? null : parts[1], U = who(), r = RD[col] || 'coach';
   if ((W.__deny || []).includes(col)) return {ok:false, cost:0};
@@ -53,6 +53,8 @@ const COACH_W = ['coaches', 'players', 'team', 'plays', 'images', 'totw', 'drill
 function canWrite(path, cur, next){ const parts = path.split('/'), col = parts[0], id = parts[1], U = who(), del = next === null, create = cur === undefined && !del, update = cur !== undefined && !del;
   if ((W.__deny || []).includes(col)) return false;
   if (COACH_W.includes(col)) return U.coach;
+  if (create && U.coach && ['headshots', 'avail', 'piq', 'reads', 'pstats', 'likes'].includes(col)) return true;   // a coach moving a record to a new email
+  if (col === 'pushsubs') return U.coach && (del || (id.length < 80 && only(next, ['sub', 'teams', 'at']) && isStr(next.sub) && next.sub.length < 2500 && Array.isArray(next.teams) && next.teams.length <= 20));
   switch (col){
     case 'live': return !del && U.coach && isStr(next.json) && next.json.length < 900000;
     case 'viewers': return del || (parts[1].length < 80 && parts[3].length < 40 && only(next, ['at', 'exp']));
