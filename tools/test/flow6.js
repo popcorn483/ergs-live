@@ -18,7 +18,7 @@ const has = (p, path) => p.evaluate(x => { const d = window.__fs.store.get(x); r
     f.value = 'zzzz'; f.oninput(); const none = sel.options[0].textContent; f.value = ''; f.oninput(); return {all, one, none, back:sel.options.length}; });
   ok(r && r.all > 20 && r.one.v === ME && /gran@example\.com already opens Adam Armstrong/.test(r.one.note) && /Nobody/.test(r.none) && r.back === r.all, 'the picker has a search box; an email that already opens an account finds its player and says so: ' + JSON.stringify(r));
   console.log('contact list');
-  r = await A.evaluate(async me => { const rows = await window.__ev('ctRows')(), x = rows.find(q => q.name === 'Adam Armstrong'); return {n:rows.length, own:x && x.own.map(q => q.e), par:x && x.par.map(q => q.e)}; }, ME);
+  r = await A.evaluate(async me => { const rows = await window.__ev('contactRows')(), x = rows.find(q => q.name === 'Adam Armstrong'); return {n:rows.length, own:x && x.own.map(q => q.e), par:x && x.par.map(q => q.e)}; }, ME);
   ok(r.n > 100 && r.own.includes(ME) && r.own.includes('adam.home@example.com') && r.par.length === 3 && r.par.includes('parent0@example.com'), `the contact list has ${r.n} players; Adam’s own emails ${r.own} and parents ${r.par}`);
   r = await A.evaluate(() => { const b = document.querySelector('.ct-open'); if (!b) return null; b.click(); return true; }); await A.waitForTimeout(1500);
   ok(r && await A.evaluate(() => !!document.querySelector('#ctCsv') && document.querySelectorAll('.ct-t tbody tr').length > 100), 'the Contact list button on Access opens it'); await A.evaluate(() => { const c = document.querySelector('[data-tclose]'); if (c) c.click(); });
