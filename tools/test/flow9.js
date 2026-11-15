@@ -1,0 +1,36 @@
+// A player set up under a school email who signs in with a personal one: the coach can add the new email to the login they
+// already have (they used to be missing from the list, leaving only "New player", a duplicate).
+const { chromium } = require('playwright'); const { open } = require('./real.js');
+const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) process.exitCode = 1; };
+const has = (p, path) => p.evaluate(x => { const d = window.__fs.store.get(x); return d === undefined ? null : JSON.parse(JSON.stringify(d)); }, path);
+(async () => { const b = await chromium.launch(); const ME = 'adam.armstrong0@example.com';
+  const A = await open(b, 'admin', {ctx:await b.newContext({viewport:{width:1300, height:1000}})});
+  await A.addInitScript(() => { const S = window.__fsSeed, now = Date.now(); if (!S) return; S['requests/adam.personal@example.com'] = {name:'Adam Armstrong', at:now, sent:now}; S['requests/someone.new@example.com'] = {name:'Zed Newcomer', at:now, sent:now}; });
+  await A.goto('http://app.test/app/'); await A.settle(3000); await A.nav('people'); await A.settle(2500);
+  let r = await A.evaluate(() => { const el = document.querySelector('.rq2[data-rq="adam.personal@example.com"]'); if (!el) return null; const sel = el.querySelector('[data-rqlink]');
+    return {value:sel.value, btn:el.querySelector('[data-rqp]').textContent, note:(el.querySelector('.rq-join') || {}).textContent || '', accs:[...sel.options].filter(o => o.value.startsWith('acc:')).length, find:!!el.querySelector('.gq-find'), newHidden:el.querySelector('.rq-new').hidden}; });
+  ok(r && r.value === 'acc:' + ME && /Add this email to Adam’s login/.test(r.btn) && /already has a login/.test(r.note) && r.accs > 100 && r.newHidden, 'a waiting sign-in whose name matches a player with a login is offered that login, not “New player”: ' + JSON.stringify(r && {btn:r.btn, accs:r.accs}));
+  r = await A.evaluate(() => { const el = document.querySelector('.rq2[data-rq="someone.new@example.com"]'), sel = el.querySelector('[data-rqlink]'), f = el.querySelector('.gq-find'), o = {start:sel.value, all:sel.options.length};
+    f.value = 'ben armst'; f.oninput(); o.found = [...sel.options].map(x => x.textContent).slice(0, 4); o.value = sel.value; o.btn = el.querySelector('[data-rqp]').textContent; f.value = ''; f.oninput(); o.back = sel.options.length; o.end = sel.value; return o; });
+  ok(r.start === 'new' && r.found.length <= 4 && r.found.some(t => /Ben Armstrong/.test(t)) && /^acc:/.test(r.value) && /Ben’s login/.test(r.btn) && r.back === r.all, 'someone new starts on “New player”; the list can be searched and a player with a login picked: ' + JSON.stringify({found:r.found, btn:r.btn}));
+  await A.evaluate(() => document.querySelector('.rq2[data-rq="adam.personal@example.com"] [data-rqp]').click()); await A.settle(2500);
+  const al = await has(A, 'players/adam.personal@example.com'), rq = await has(A, 'requests/adam.personal@example.com'), n = await A.evaluate(() => [...window.__fs.store.keys()].filter(k => k.startsWith('players/')).length);
+  ok(al && al.aliasOf === ME && al.rel === 'self' && !rq, 'pressing it adds the personal email to the same login and clears the request (no second player is made)');
+  console.log('players already made twice');
+  await A.evaluate(me => { const F = window.__fs, now = Date.now(), k = F.store.get('players/' + me); F.set('players/adam.second@example.com', Object.assign({}, k, {added:now, rid:''}));
+    F.set('players/adams.gran@example.com', {aliasOf:'adam.second@example.com', rel:'guardian', gname:'Gran', name:k.name, team:k.team || '', added:now});
+    F.store.delete('piq/' + me);
+    F.set('piq/adam.second@example.com', {name:k.name, team:k.team || '', best:900, wk:900, week:'2026-W46', games:2, updated:now}); F.set('likes/adam.second@example.com', {p:{phZ:{t:now, s:'S1', n:'z.jpg'}}, name:'', at:now}); F.set('likes/' + me, {p:{phY:{t:now, s:'S1', n:'y.jpg'}}, name:'', at:now}); window.__ev('LG').at = 0; }, ME);
+  await A.nav('menu'); await A.waitForTimeout(500); await A.nav('people'); await A.settle(2500);
+  const note = await A.evaluate(() => (document.querySelector('#dupNote') || {}).innerText || ''); ok(/1 player appears twice/i.test(note), 'Access says a player appears twice: ' + note.replace(/\s+/g, ' ').slice(0, 70));
+  await A.evaluate(() => document.querySelector('#dupNote').click()); await A.settle(1500);
+  r = await A.evaluate(() => { const g = document.querySelector('#tagModal [data-dup]'); return g ? {keep:(g.querySelector('input:checked') || {}).value, emails:[...g.querySelectorAll('input')].map(x => x.value)} : null; });
+  ok(r && r.keep === ME && r.emails.includes('adam.second@example.com'), 'the two logins are shown, with the one on the squad list picked to keep: ' + JSON.stringify(r));
+  await A.evaluate(() => document.querySelector('#tagModal [data-dupgo]').click()); await A.settle(3000);
+  const d2 = await has(A, 'players/adam.second@example.com'), gran = await has(A, 'players/adams.gran@example.com'), piq = await has(A, 'piq/' + ME), piqOld = await has(A, 'piq/adam.second@example.com'), lk = await has(A, 'likes/' + ME), lkOld = await has(A, 'likes/adam.second@example.com'), main = await has(A, 'players/' + ME);
+  ok(d2 && d2.aliasOf === ME && !d2.rid && main && !main.aliasOf, 'merged: the second email is now an extra email on the first login');
+  ok(gran && gran.aliasOf === ME && piq && piq.best === 900 && !piqOld, 'an extra email that pointed at the second login follows, and its Play IQ score moves across');
+  ok(lk && lk.p.phY && lkOld && lkOld.p.phZ, 'where both had records (likes), the kept login’s stay and the other’s are left, not lost');
+  ok(await A.evaluate(async () => { const ev = window.__ev; ev('LG').at = 0; return ev('dupGroups')(await ev('lgLoad')(true)).length === 0; }), 'and nobody appears twice any more');
+  console.log('     errors', A.errs.filter(e => !/reading 'set'/.test(e)).slice(0, 4), 'refused:', await A.evaluate(() => (window.__denied || []).splice(0)));
+  await b.close(); })();
