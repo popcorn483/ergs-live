@@ -63,15 +63,18 @@ const has = (p, path) => p.evaluate(x => { const d = window.__fs.store.get(x); r
   console.log('ERGS Live: check-ins left behind');
   r = await L(C1, async () => { const F = window.__fs, m = RAW.matches.find(x => x.status === 'FT' && Date.now() - kot(x) > 5*3600e3 && Date.now() - kot(x) < 300*864e5); if (!m) return null; F.set('viewers/' + m.id + '/s/aaa', {at:1}); F.set('viewers/' + m.id + '/s/bbb', {at:2}); await vwSweep(); return {id:m.id, left:[...F.store.keys()].filter(k => k.startsWith('viewers/' + m.id + '/')).length}; });
   ok(r && r.left === 0, 'a finished match’s check-ins are cleared by a coach’s device: ' + JSON.stringify(r));
-  r = await L(C1, () => ({btn:!pushBtn.hidden, where:!!pushBtn.parentElement, txt:pushBtn.textContent})); ok(r.btn && r.where, 'the Match alerts button is there: ' + r.txt);
-  await L(C1, () => pushBtn.click()); await C1.waitForTimeout(800); dlg = await L(C1, () => { const d = document.querySelector('#dialog'); return d && !document.querySelector('#modal').hidden ? d.innerText.replace(/\s+/g, ' ').slice(0, 160) : ''; }); ok(/Match alerts/i.test(dlg), 'which opens: ' + dlg.slice(0, 110));
+  await C1.click('#hdBurger'); await C1.waitForTimeout(600); r = await C1.evaluate(() => { const b = document.querySelector('#drawer [data-malert]'), v = !!b && b.offsetParent !== null; if (b) b.click(); return v; }); ok(r, 'Match alerts is in the menu, and can be seen'); await C1.waitForTimeout(800); dlg = await L(C1, () => { const d = document.querySelector('#dialog'); return d && !document.querySelector('#modal').hidden ? d.innerText.replace(/\s+/g, ' ').slice(0, 160) : ''; }); ok(/Match alerts/i.test(dlg), 'which opens: ' + dlg.slice(0, 110));
   r = await L(C1, async () => { try { await FB.pushSave('abc123', '{"endpoint":"https://push.example/x"}', ['Meds', '1XV'], true); return 'saved'; } catch(e){ return String(e.code || e.message); } }); ok(r === 'saved' && (await has(C1, 'pushsubs/abc123')).coach === true, 'a coach’s phone registers, marked as a coach’s: ' + r);
   const O = await mk('out');
   r = await L(O, async () => { const o = {}; try { await FB.pushSave('pub456', '{"endpoint":"https://push.example/y"}', ['1XV'], false); o.plain = 'saved'; } catch(e){ o.plain = String(e.code || e.message); }
     try { await FB.pushSave('pub789', '{"endpoint":"https://push.example/z"}', ['1XV'], true); o.asCoach = 'saved'; } catch(e){ o.asCoach = String(e.code || e.message); }
     try { await FB.pushSave('abc123', '{"endpoint":"https://evil.example/"}', ['1XV'], false); o.hijack = 'saved'; } catch(e){ o.hijack = String(e.code || e.message); }
-    o.btn = !pushBtn.hidden; return o; });
-  ok(r.plain === 'saved' && r.btn && /permission/.test(r.asCoach) && /permission/.test(r.hijack), 'someone not signed in can register too, but not as a coach, and not over another phone’s registration: ' + JSON.stringify(r));
+    return o; });
+  ok(r.plain === 'saved' && /permission/.test(r.asCoach) && /permission/.test(r.hijack), 'someone not signed in can register too, but not as a coach, and not over another phone’s registration: ' + JSON.stringify(r));
+  await O.click('#hdBurger'); await O.waitForTimeout(600); await O.click('#drawer [data-mshare]'); await O.waitForTimeout(700);
+  r = await O.evaluate(() => { const d = document.querySelector('#dialog'); const o = {t:d.innerText.replace(/\s+/g, ' ').slice(0, 300), wa:!!d.querySelector('.ga-wa'), copy:!!d.querySelector('[data-ga="copy"]'), alert:!!document.querySelector('#drawer [data-malert]')}; d.querySelectorAll('details').forEach(x => { x.open = true; }); return o; }); await O.waitForTimeout(400);
+  ok(/Install & share/i.test(r.t) && /Put it on this/i.test(r.t) && /Send it to someone/i.test(r.t) && r.wa && r.copy && await O.evaluate(() => !!document.querySelector('#dialog .ga-qr canvas')), 'the menu’s “Install & share” opens one screen: install first, then sharing, with the QR code folded away');
+  await O.evaluate(() => document.querySelector('#dialog [data-close]').click());
   await O.evaluate(() => { try { localStorage.removeItem('ergs.pushAsk'); } catch(e){} }); await L(O, () => pushPopMaybe()); await O.waitForTimeout(900);
   r = await O.evaluate(() => { const p = document.querySelector('.push-pop'); return p && !p.hidden ? p.innerText.replace(/\s+/g, ' ') : ''; });
   console.log('     the offer (only where the browser can do notifications): ' + (r || 'not shown in this test browser'));

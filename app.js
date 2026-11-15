@@ -2712,38 +2712,6 @@ function offDialog(m){
       closeDialog(); save(dd => { const x = dd.matches.find(y => y.id === m.id); if (x){ x.off = off; x.offWhy = why; x.offAt = Date.now(); } }, m.id).then(() => toast(`Marked ${off}. Everyone can see the notice.`)); };
   });
 }
-/* install as an app: the APK on Android, Add to Home Screen instructions on iPhone (hidden once installed) */
-(() => {
-  const slot = $('#installSlot'); if (!slot) return;
-  const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1), android = /Android/i.test(ua);
-  const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || /\buk\.org\.ergs\.live\b/.test(document.referrer || '') || document.referrer.startsWith('android-app://');
-  if (installed) return;
-  if (android){ slot.innerHTML = `<a class="install-btn" href="https://github.com/popcorn483/ergs-live/releases/download/android/ERGS-Live.apk" rel="noopener"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>Android install</a>`;
-    slot.querySelector('a').addEventListener('click', () => setTimeout(() => toast('Open the downloaded ERGS-Live.apk and tap Install. Allow installs from this source if asked.'), 400)); return; }
-  const iosSteps = `<ol class="ios-steps"><li>Open this page in <b>Safari</b>.</li><li>Tap the <b>Share</b> button <span class="ios-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 0L8 7m4-4l4 4"/><path d="M6 11H5v10h14V11h-1"/></svg></span> at the bottom of the screen.</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>. ERGS Live appears on your home screen with the school crest and opens like an app.</li></ol>`;
-  if (!ios){ // computers: install straight from Chrome or Edge, with phone options alongside
-    let deferred = null;
-    addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; });
-    addEventListener('appinstalled', () => { slot.innerHTML = ''; toast('ERGS Live is installed. Open it from your desktop or Start menu.'); });
-    const mac = /Macintosh/.test(ua), edge = /Edg\//.test(ua), chromium = /Chrome\//.test(ua);
-    slot.innerHTML = `<button type="button" class="install-btn" id="getApp"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Install on PC</button>`;
-    $('#getApp').onclick = async () => {
-      if (deferred){ deferred.prompt(); const r = await deferred.userChoice.catch(() => null); deferred = null; if (r && r.outcome === 'accepted') return; }
-      const pc = chromium ? `<ol class="ios-steps"><li>In ${edge ? 'Edge' : 'Chrome'}, click the <b>install icon</b> at the right of the address bar (a small screen with an arrow), or open the <b>⋮ menu</b>${edge ? ' › <b>Apps</b> › <b>Install ERGS Live</b>' : ' › <b>Cast, save and share</b> › <b>Install page as app</b>'}.</li><li>Click <b>Install</b>. ERGS Live gets its own window and a desktop / Start menu icon.</li></ol>`
-        : mac ? `<ol class="ios-steps"><li>In Safari, open the <b>File</b> menu and choose <b>Add to Dock</b>.</li><li>Click <b>Add</b>. ERGS Live opens from the Dock like an app.</li></ol>`
-        : `<p>Open <b>popcorn483.github.io/ergs-live</b> in <b>Chrome</b> or <b>Edge</b> and click the install icon at the right of the address bar.</p>`;
-      openDialog(`<h2>Install ERGS Live</h2><p><b>On this computer:</b></p>${pc}
-      <p><b>Android:</b> open this page on the phone and tap <b>Android install</b>, or use this link:</p>
-      <a class="btn primary" href="https://github.com/popcorn483/ergs-live/releases/download/android/ERGS-Live.apk" rel="noopener">Download for Android</a>
-      <p><b>iPhone:</b></p>${iosSteps}
-      <p class="hint">Web address: <b>popcorn483.github.io/ergs-live</b></p>
-      <div class="dlg-a"><button type="button" class="btn ghost" data-close>Close</button></div>`); };
-    return; }
-  slot.innerHTML = `<button type="button" class="install-btn" id="iosAdd"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 15V3m0 0L8 7m4-4l4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>Add to iPhone</button>`;
-  $('#iosAdd').onclick = () => openDialog(`<h2>Add ERGS Live to your iPhone</h2>
-    <ol class="ios-steps"><li>Open this page in <b>Safari</b>.</li><li>Tap the <b>Share</b> button <span class="ios-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 0L8 7m4-4l4 4"/><path d="M6 11H5v10h14V11h-1"/></svg></span> at the bottom of the screen.</li><li>Scroll down and tap <b>Add to Home Screen</b>.</li><li>Tap <b>Add</b>. ERGS Live appears on your home screen with the school crest and opens like an app.</li></ol>
-    <div class="dlg-a"><button type="button" class="btn primary" data-close>Got it</button></div>`);
-})();
 try { if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch(e){}
 const googleIn = async () => { try { sessionStorage.setItem('ergs.toApp', '1'); } catch(e){} try { await FB.signIn(); } catch(e){ toast(/popup/.test(e && e.code || '') ? 'Allow pop-ups for this site, then try again.' : 'Sign-in didn’t finish. Try again.'); } };
 // sign in: Google, or an email link for school C2k accounts (their admins block Google sign-in for outside apps)
@@ -3023,7 +2991,7 @@ function menuOpen(){
       ${item('video', 'Match videos', '', 'data-mact="videos"')}
       <details class="dr-more"><summary>Less used<span class="dr-chev" aria-hidden="true"></span></summary>${item('past', 'Add a past result', '', 'data-mact="past"')}${item('past', 'Add past results in bulk', '', 'data-mact="pastbulk"')}${item('imp', 'Import fixtures', '', 'data-mact="import"')}${item('crest', 'School crests', '', 'data-mact="schools"')}${item('demo', 'Practise in the demo', '', 'data-mdemo="in"')}</details></details>` : ''}
     ${SANDBOX && real.COACH ? `<div class="dr-sec">Demo</div>${item('demo', 'Leave the demo', '', 'data-mdemo="out"')}` : ''}
-    <div class="dr-foot"><button type="button" data-mshare>${ic('share')}Share</button>${document.querySelector('#installSlot button, #installSlot a') ? `<button type="button" data-minst>${ic('imp')}Install</button>` : ''}${EMAIL ? `<button type="button" data-mout>${ic('out')}Sign out</button>` : `<button type="button" data-min>${ic('in')}Sign in</button>`}</div></nav>`;
+    <div class="dr-foot"><button type="button" data-mshare>${ic('imp')}Install &amp; share</button>${SANDBOX ? '' : `<button type="button" data-malert><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/></svg>Match alerts</button>`}${EMAIL ? `<button type="button" data-mout>${ic('out')}Sign out</button>` : `<button type="button" data-min>${ic('in')}Sign in</button>`}</div></nav>`;
   dr.querySelector('.dr-x').onclick = menuClose;
   const gp = dr.querySelector('.dr-grp'); if (gp) gp.addEventListener('toggle', () => { try { localStorage.setItem('ergsLive.drGrp', gp.open ? '1' : '0'); } catch(e){} });
   const mf = dr.querySelector('[data-mfollow]'); if (mf) mf.onclick = () => { menuClose(); followDialog(false); };
@@ -3036,7 +3004,7 @@ function menuOpen(){
   const mn = dr.querySelector('[data-mnews]'); if (mn) mn.onclick = () => { menuClose(); compOpen('rugby'); };
   dr.querySelectorAll('[data-mcomp]').forEach(b => b.onclick = () => { menuClose(); compOpen(b.dataset.mcomp); });
   const so = dr.querySelector('[data-mout]'); if (so) so.onclick = () => { menuClose(); if (SANDBOX) sbExit(); act('signout', null); };
-  const ins = dr.querySelector('[data-minst]'); if (ins) ins.onclick = () => { menuClose(); const t = document.querySelector('#installSlot button, #installSlot a'); if (t) t.click(); };
+  const al = dr.querySelector('[data-malert]'); if (al) al.onclick = () => { menuClose(); pushDialog(); };
   const si = dr.querySelector('[data-min]'); if (si) si.onclick = () => { menuClose(); signLink.click(); };
   dr.hidden = false; document.body.classList.add('dr-lock'); requestAnimationFrame(() => dr.classList.add('on')); const f = dr.querySelector('.dr-app, .dr-item'); if (f) f.focus();
 }
@@ -3559,6 +3527,73 @@ function cupPaste(){
   });
 }
 
+/* =============================== INSTALL & SHARE: one screen ===============================
+   Installing first (one button where the browser can do it, otherwise three steps for this phone), then sharing (the phone's own
+   share sheet, WhatsApp, copy the link), with the QR code folded away for posters. */
+let INSTALL_EVT = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); INSTALL_EVT = e; });
+addEventListener('appinstalled', () => { INSTALL_EVT = null; try { localStorage.setItem('ergs.installed', '1'); } catch(e){} const s = $('#installSlot'); if (s) s.innerHTML = ''; toast('ERGS Live is installed. Open it from its own icon.'); });
+const APK_URL = 'https://github.com/popcorn483/ergs-live/releases/download/android/ERGS-Live.apk';
+const gaWhere = () => { const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1), android = /Android/i.test(ua);
+  return {ios, android, inApp:/FBAN|FBAV|FB_IAB|Instagram|Snapchat|TikTok|Line\//i.test(ua), otherIOS:ios && /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua), mac:/Macintosh/.test(ua) && !ios, edge:/Edg\//.test(ua), chromium:/Chrome\//.test(ua),
+    installed:matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || document.referrer.startsWith('android-app://')}; };
+const GA_SHARE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m0 0L8 7m4-4l4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>';
+const gaSteps = l => `<ol class="ga-steps">${l.map(x => `<li><span>${x}</span></li>`).join('')}</ol>`;
+const GA_IOS = ['Tap the <b>Share</b> button <i class="ga-ic">' + GA_SHARE + '</i> at the bottom of Safari.', 'Scroll down and tap <b>Add to Home Screen</b>.', 'Tap <b>Add</b>. ERGS Live is now on your home screen.'];
+const GA_AND = ['Open this page in <b>Chrome</b>.', 'Tap the <b>⋮</b> menu at the top right.', 'Tap <b>Add to Home screen</b>, then <b>Install</b>.'];
+function gaInstall(w){
+  if (w.installed) return `<p class="ga-done"><b>✓ Installed.</b> You’re using the ERGS Live app.</p>`;
+  if (w.inApp) return `<p class="ga-lead">You’ve opened this inside another app (Facebook, Instagram…), which can’t install it.</p>${gaSteps(['Tap the <b>⋯</b> or <b>⋮</b> menu at the top.', `Choose <b>Open in ${w.ios ? 'Safari' : 'Chrome'}</b> (or “Open in browser”).`, 'Come back to <b>Install &amp; share</b> there.'])}<button type="button" class="btn" data-ga="copy">Copy the link instead</button>`;
+  if (INSTALL_EVT) return `<button type="button" class="btn primary ga-big" data-ga="install"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>Install ERGS Live</button><p class="ga-note">One tap. It’s free, takes a few seconds and adds the crest to your ${w.android ? 'home screen' : 'desktop'}.</p>`;
+  if (w.ios) return (w.otherIOS ? `<p class="ga-lead">On an iPhone this works best from <b>Safari</b>. Open this page there, then:</p>` : '') + gaSteps(GA_IOS);
+  if (w.android) return gaSteps(GA_AND) + `<a class="ga-alt" href="${APK_URL}" rel="noopener" data-ga="apk">Or download the Android app file instead</a>`;
+  return gaSteps(w.chromium ? [`Click the <b>install icon</b> at the right of the address bar${w.edge ? ', or open <b>⋯</b> › <b>Apps</b> › <b>Install ERGS Live</b>' : ', or open <b>⋮</b> › <b>Cast, save and share</b> › <b>Install page as app</b>'}.`, 'Click <b>Install</b>. ERGS Live gets its own window and icon.']
+    : w.mac ? ['In Safari, open the <b>File</b> menu and choose <b>Add to Dock</b>.', 'Click <b>Add</b>. ERGS Live opens from the Dock.'] : ['Open <b>popcorn483.github.io/ergs-live</b> in <b>Chrome</b> or <b>Edge</b>.', 'Click the install icon at the right of the address bar.']);
+}
+function appDialog(){
+  const w = gaWhere(), url = SHORT_APP, text = 'ERGS Rugby: live scores, fixtures and results', S = window.ERGSShare; S.style();
+  const others = [!w.ios ? ['iPhone or iPad', gaSteps(['Open the link in <b>Safari</b>.'].concat(GA_IOS))] : null, !w.android ? ['Android phone', gaSteps(GA_AND)] : null, w.ios || w.android ? ['Computer', gaSteps(['Open the link in <b>Chrome</b> or <b>Edge</b>.', 'Click the install icon at the right of the address bar.'])] : null].filter(Boolean);
+  openDialog(`<div class="ga-head"><img alt="" src="${esc(DATA.crest || '')}"><div><h2>Install &amp; share</h2><p>Live scores, fixtures and results, one tap from your home screen.</p></div></div>
+    <section class="ga-sec"><h3><span class="ga-n">1</span>${w.installed ? 'On this device' : w.ios || w.android ? 'Put it on this phone' : 'Put it on this computer'}</h3>${gaInstall(w)}</section>
+    <section class="ga-sec"><h3><span class="ga-n">2</span>Send it to someone</h3>
+      <div class="ga-share">${navigator.share ? `<button type="button" class="btn primary" data-ga="share">${GA_SHARE}Share…</button>` : ''}<a class="btn ga-wa" href="https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}" target="_blank" rel="noopener">WhatsApp</a><button type="button" class="btn" data-ga="copy">Copy link</button></div>
+      <p class="ga-link">${esc(url.replace(/^https?:\/\//, ''))}</p></section>
+    <details class="ga-more"><summary>QR code, for posters and programmes</summary><div class="ga-qr"></div><button type="button" class="btn" data-ga="qr">Save the QR code</button></details>
+    <details class="ga-more"><summary>Installing on a different device</summary>${others.map(([t, h]) => `<h4>${t}</h4>${h}`).join('')}<p class="ga-note"><a href="${APK_URL}" rel="noopener">Android app file (APK)</a>, for phones without Chrome.</p></details>
+    <div class="dlg-a"><span style="flex:1"></span><button type="button" class="btn ghost" data-close>Close</button></div>`, d => {
+    const copy = async b => { try { await navigator.clipboard.writeText(url); toast('Link copied.'); } catch(e){ toast(url.replace(/^https?:\/\//, '')); } };
+    d.querySelectorAll('[data-ga="copy"]').forEach(b => b.onclick = () => copy(b));
+    const sh = d.querySelector('[data-ga="share"]'); if (sh) sh.onclick = async () => { try { await navigator.share({title:'ERGS Rugby', text, url}); } catch(e){} };
+    const ins = d.querySelector('[data-ga="install"]'); if (ins) ins.onclick = async () => { const ev = INSTALL_EVT; if (!ev) return; INSTALL_EVT = null; ev.prompt(); const r = await ev.userChoice.catch(() => null); if (r && r.outcome === 'accepted') closeDialog(); else { INSTALL_EVT = null; appDialog(); } };
+    const apk = d.querySelector('[data-ga="apk"]'); if (apk) apk.addEventListener('click', () => setTimeout(() => toast('Open the downloaded ERGS-Live.apk and tap Install. Allow installs from this source if asked.', 6000), 400));
+    const qr = d.querySelector('.ga-qr'); let cv = null; d.querySelector('details.ga-more').addEventListener('toggle', () => { if (!cv){ cv = S.draw(url, DATA.crest); qr.appendChild(cv); } });
+    d.querySelector('[data-ga="qr"]').onclick = () => { if (!cv) return; cv.toBlob(b => { if (!b) return; const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'ergs-rugby-qr.png'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); }, 'image/png'); };
+  });
+}
+shareBtn.onclick = appDialog;
+// the header's small button (computers and tablets): the same screen
+{ const slot = $('#installSlot'); if (slot && !gaWhere().installed){ slot.innerHTML = `<button type="button" class="install-btn"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></svg>Install</button>`; slot.querySelector('button').onclick = appDialog; } }
+{ const st = document.createElement('style'); st.textContent = `
+.ga-head{display:flex;gap:14px;align-items:center;margin-bottom:6px}.ga-head img{width:54px;height:54px;object-fit:contain;flex:none}.ga-head h2{margin:0}.ga-head p{margin:4px 0 0;color:var(--mute);font-size:14px;line-height:1.4}
+.ga-sec{margin-top:14px;padding:14px;border-radius:14px;background:rgba(255,255,255,.035);border:1px solid var(--rule)}
+.ga-sec h3{display:flex;align-items:center;gap:10px;margin:0 0 12px;font-family:var(--f-cond);font-size:17px;letter-spacing:.06em;text-transform:uppercase;color:var(--chalk)}
+.ga-n{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--gold);color:var(--gold-ink);font-size:14px;font-weight:800;flex:none}
+.ga-big{width:100%;min-height:54px;font-size:18px;display:flex;align-items:center;justify-content:center;gap:10px}
+.ga-note{margin:10px 0 0;color:var(--mute);font-size:13px;line-height:1.4}.ga-note a,.ga-alt{color:var(--gold)}
+.ga-lead{margin:0 0 10px;font-size:15px;line-height:1.4}
+.ga-done{margin:0;font-size:15px;color:var(--win)}.ga-done b{color:var(--win)}
+.ga-steps{list-style:none;counter-reset:ga;margin:0;padding:0;display:grid;gap:10px}
+.ga-steps li{counter-increment:ga;display:flex;gap:12px;align-items:flex-start;font-size:16px;line-height:1.4}
+.ga-steps li::before{content:counter(ga);display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--raise);color:var(--gold);font-weight:700;font-size:14px;flex:none}
+.ga-ic{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:6px;background:var(--raise);vertical-align:-7px;color:#5ab0ff;font-style:normal}
+.ga-alt{display:inline-block;margin-top:12px;font-size:14px}
+.ga-share{display:flex;flex-wrap:wrap;gap:8px}.ga-share .btn{flex:1 1 110px;min-height:46px;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none}
+.ga-wa{background:#1FA855!important;border-color:#1FA855!important;color:#fff!important}
+.ga-link{margin:14px 0 0;font:14px ui-monospace,Menlo,monospace;color:var(--mute);text-align:center;user-select:all}
+.ga-more{margin-top:10px;border-top:1px solid var(--rule);padding-top:10px}.ga-more summary{cursor:pointer;color:var(--mute);font-size:14px;padding:4px 0}
+.ga-more[open] summary{color:var(--chalk);margin-bottom:10px}.ga-more h4{margin:12px 0 8px;font-size:14px;color:var(--gold);text-transform:uppercase;letter-spacing:.06em}
+.ga-qr{display:grid;place-items:center;margin-bottom:10px}.ga-qr canvas{width:min(220px,60vw);height:auto;background:#fff;border-radius:14px;padding:10px;image-rendering:pixelated}`; document.head.appendChild(st); }
+
 /* =============================== WHO IS SCORING ===============================
    Two coaches scoring the same match put every score in twice. Each save to a match in play notes who made it (a name and a
    scrambled id, never the email). Coaches see who is scoring; anyone else who goes to score is told, and has to choose to take over. */
@@ -3624,7 +3659,7 @@ const pushBtn = document.createElement('button'); pushBtn.type = 'button'; pushB
 async function pushBtnSync(){ pushBtn.hidden = !!SANDBOX; if (pushBtn.hidden) return; const sub = await pushSub(), on = !!sub && Notification.permission === 'granted'; pushBtn.textContent = on ? '🔔 Alerts on' : '🔔 Match alerts';
   // keep the registration fresh (the job drops ones not seen for four months), and tell it when this phone turns out to be a coach's
   if (on){ const at = +pushLS('ergs.pushAt') || 0, was = pushLS('ergs.pushCoach') === '1'; if (Date.now() - at > 14*864e5 || (COACH && !was)){ try { await FB.pushSave(await pushId(sub.endpoint), JSON.stringify(sub), pushTeams(), !!COACH); pushLS('ergs.pushAt', Date.now()); pushLS('ergs.pushCoach', COACH ? '1' : '0'); } catch(e){} } } }
-{ const f = document.querySelector('.share-row'); if (f) f.append(pushBtn); let was = null; setInterval(() => { const now = (COACH ? 'c' : 'p') + (SANDBOX ? 's' : ''); if (now !== was){ was = now; pushBtnSync(); } }, 1500); }
+{ let was = null; setInterval(() => { const now = (COACH ? 'c' : 'p') + (SANDBOX ? 's' : ''); if (now !== was){ was = now; pushBtnSync(); } }, 1500); }
 /* the offer: a card that slides up once, a little after the page opens. "Not now" puts it away for a month. */
 const pushPop = document.createElement('div'); pushPop.className = 'push-pop'; pushPop.setAttribute('role', 'dialog'); pushPop.setAttribute('aria-label', 'Match alerts'); pushPop.hidden = true;
 function pushPopHide(snooze){ pushPop.classList.remove('on'); setTimeout(() => { pushPop.hidden = true; }, 350); if (snooze) pushLS('ergs.pushAsk', Date.now()); }
