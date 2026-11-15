@@ -1,0 +1,33 @@
+// Team of the week: the team a coach is working on is shown to every coach, before it is published.
+const { chromium } = require('playwright'); const { open } = require('./real.js');
+const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) process.exitCode = 1; };
+(async () => { const b = await chromium.launch(); const ctx = await b.newContext({viewport:{width:1300, height:1000}});
+  const A = await open(b, 'admin', {ctx}); await A.goto('http://app.test/app/'); await A.settle(3000);
+  const B = await open(b, 'coach', {ctx});
+  // the second coach's device still holds an old draft of its own from before
+  await B.addInitScript(() => { try { if (!localStorage.getItem('__once')){ localStorage.setItem('__once', '1'); const k = Object.keys(localStorage).find(x => /twDrafts$/.test(x)) || 'ergs.twDrafts'; window.__legacyKey = k; } } catch(e){} });
+  await B.goto('http://app.test/app/'); await B.settle(3000);
+  await B.evaluate(() => { const ev = window.__ev; ev('TW').drafts.boys = Object.assign(ev('twPub')('boys'), {title:'Stale draft on coach two'}); ev('store')('twDrafts', ev('TW').drafts); });
+  const cur = p => p.evaluate(() => { const ev = window.__ev, d = ev('twCur')('boys'); return {title:d.title, p0:(d.players[0].f + ' ' + d.players[0].l).trim(), draft:!!ev('TW').drafts.boys, status:(document.querySelector('#twStatus') || {}).innerText || ''}; });
+  await A.nav('totw'); await A.settle(1500);
+  await A.evaluate(() => { const ev = window.__ev; ev('TW').side = 'boys'; ev('twEdit')(x => { x.title = 'Shared test team'; x.players[0] = {f:'Adam', l:'Armstrong', t:'U12', photo:''}; }, true); });
+  await A.waitForTimeout(4500); let a = await cur(A);
+  ok(/Every coach sees this team/.test(a.status), 'the coach who made the team is told every coach sees it: ' + a.status.replace(/\s+/g, ' ').slice(0, 110));
+  await B.nav('totw'); await B.settle(2500); let c = await cur(B);
+  ok(c.title === 'Shared test team' && c.p0 === 'Adam Armstrong' && c.draft, 'a second coach opening Team of the week sees that team, not the old draft their device held: ' + JSON.stringify({title:c.title, p0:c.p0}));
+  ok(/Not published/i.test(c.status) && /last change: /i.test(c.status), 'and is told whose it is and that it isn’t published: ' + c.status.replace(/\s+/g, ' ').slice(0, 120));
+  await B.evaluate(() => window.__ev('twEdit')(x => { x.players[1] = {f:'Ben', l:'Armstrong', t:'U13', photo:''}; }, true)); await B.waitForTimeout(5000);
+  ok(await A.evaluate(() => { const d = window.__ev('twCur')('boys'); return d.players[1].f === 'Ben' && d.players[0].f === 'Adam'; }), 'a change by the second coach shows on the first coach’s screen without reloading');
+  await A.evaluate(() => window.__ev('twSaveNow')()); await A.waitForTimeout(4000);
+  a = await cur(A); c = await cur(B);
+  const pub = await A.evaluate(() => { const d = window.__int.Cloud.docs['totw/boys'] || {}; return {title:d.title, n:(d.players || []).filter(p => p.f).length}; });
+  ok(!a.draft && !c.draft && pub.title === 'Shared test team' && pub.n === 2 && c.title === 'Shared test team' && /Published/.test(c.status), 'publishing clears the working copy for both, and both show the published team: ' + c.status.replace(/\s+/g, ' ').slice(0, 80));
+  await B.evaluate(() => window.__ev('twEdit')(x => { x.title = 'Second thoughts'; }, true)); await B.waitForTimeout(4500);
+  ok((await cur(A)).title === 'Second thoughts', 'a later change is shared again');
+  await B.evaluate(() => document.querySelector('#twDiscard').click()); await B.waitForTimeout(3500);
+  a = await cur(A); ok(!a.draft && a.title === 'Shared test team', 'discarding it puts every coach back on the published team');
+  const P = await open(b, 'player', {ctx}); await P.goto('http://app.test/app/'); await P.settle(2500);
+  const pl = await P.evaluate(async () => { const A = window.ERGS_AUTH; try { const d = await A.raw.getDoc(A.raw.doc(A.raw.fs, 'totw', 'boys-wip')); return d.exists() ? 'read' : 'none'; } catch(e){ return String(e.code || e.message); } });
+  ok(/permission/.test(pl), 'a player can’t read the coaches’ working copy: ' + pl);
+  console.log('     errors', A.errs.concat(B.errs).filter(e => !/reading 'set'/.test(e)).slice(0, 5), 'refused:', await A.evaluate(() => (window.__denied || []).splice(0)), await B.evaluate(() => (window.__denied || []).splice(0)));
+  await b.close(); })();
