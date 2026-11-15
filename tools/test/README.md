@@ -1,0 +1,25 @@
+# Checks for the two apps
+
+These run the real pages and the real database code (`app/fb-main.js`, `fb.js`) in a headless browser, against a stand-in
+for Firebase (`fake/`). The stand-in keeps a database in memory, counts reads, writes and deletes the way Firebase bills
+them (including the look-ups its rules make), refuses what `firestore.rules` refuses, and can be put "offline".
+Nothing here touches the real database, and none of it is loaded by the apps.
+
+Needs Node and Playwright (`require('playwright')`). From this folder:
+
+    node mkseed.js                    # once: writes fake/seed.js (153 players, 11 coaches, 60 posts… all made up)
+    STUB3=1 node real.js player       # what opening the app costs, as admin | coach | squadcoach | player | guardian | public | out
+    STUB3=1 RELOAD=1 node real.js coach squads,news     # …and opening it again, then those screens
+    STUB3=1 node flow1.js             # Team news on two devices
+    STUB3=1 node flow2.js             # the one-off move of the premade drills, from the app as it was before
+    STUB3=1 node flow3.js             # likes, photo tags, headshots, a score request, the rules note
+    STUB3=1 node flow4.js             # no connection, the day's reads used up, a device's copy against the database
+    STUB3=1 node flow5.js             # Access checks: what people without a login left behind
+    STUB3=1 node walk.js admin        # presses every control it can find on every screen (add "phone" for a phone)
+    node walklive.js out              # the same on ERGS Live
+    node syn.js ../../app/index.html  # syntax of the page's scripts
+
+`STUB3=1` swaps the 3D library for a stub: without a graphics card the 3D drawing makes everything very slow. Leave it off
+to exercise the 3D screens themselves. `RULES2=1` counts reads as they are with the reordered rules; `DETAIL=1` lists them.
+
+When `firestore.rules` changes, change `canWrite` / `RD` in `fake/firebase-firestore.js` to match.
