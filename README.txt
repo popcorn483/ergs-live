@@ -33,6 +33,14 @@ EACH MATCH
   5. Click "Enhance & upload". A new folder is made in Rugby on Google Drive and the
      full-size enhanced photos are uploaded into it. "Open in Google Drive" opens it.
 
+PHOTO-BY-PHOTO TUNING
+  Every photo is analysed before it's enhanced, and only gets the corrections it needs:
+  contrast only for flat photos, colour correction only when there's a real cast (judged
+  from white kit, lines, cloud - never the green pitch), vibrance for dull colours,
+  more sharpening for soft shots and less for crisp ones, plus the shadow/highlight fixes.
+  Gentle / Balanced / Punchy set how far it's allowed to go.
+  The viewer shows the values chosen for each photo and why.
+
 FINE-TUNING A PHOTO
   In the before/after viewer, the panel on the right lets you pick a different look for
   that photo (Gentle / Balanced / Punchy) or adjust it by hand: strength, colour, exposure,

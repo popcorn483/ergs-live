@@ -599,12 +599,24 @@
       clearTimeout(sliderT); sliderT = setTimeout(() => { loadAfter(p); refreshTile(p); }, 220);
     }));
   }
-  function paintPanel(p){
-    const vals = lookVals(p);
+  function setSliders(vals){
     SL.forEach(([k], i) => { const v = Math.round(vals[i] * 100); $("s_" + k).value = v; $("v_" + k).textContent = (SL[i][2] < 0 && v > 0 ? "+" : "") + v; });
-    const cur = p.look ? (p.look.vals ? "custom" : p.look.preset) : "";
-    $("mLooks").querySelectorAll("button").forEach(b => b.classList.toggle("on", cur !== "custom" && b.dataset.l === cur));
-    $("mLookNote").textContent = !p.look ? `Following the default look (${globalPreset()}).` : p.look.vals ? "Custom look for this photo." : `${p.look.preset} look for this photo.`;
+  }
+  let autoSeq = 0;
+  function paintPanel(p){
+    setSliders(lookVals(p));
+    const which = p.look ? (p.look.vals ? "custom" : p.look.preset) : "";
+    $("mLooks").querySelectorAll("button").forEach(b => b.classList.toggle("on", which !== "custom" && b.dataset.l === which));
+    const name = p.look ? p.look.preset : globalPreset();
+    if (p.look && p.look.vals) { $("mLookNote").textContent = "Custom settings for this photo."; return; }
+    $("mLookNote").textContent = `${name} — tuning for this photo…`;
+    const seq = ++autoSeq;
+    api(`/api/auto/${encodeURIComponent(p.id)}?s=${lookStr(p)}`).then(r => {
+      if (seq !== autoSeq || photos[cur] !== p || (p.look && p.look.vals)) return;
+      if (!r.ok) { $("mLookNote").textContent = `${name} look.`; return; }
+      setSliders(r.vals);
+      $("mLookNote").textContent = `${name}, auto-tuned for this photo` + (r.notes.length ? ": " + r.notes.join(" · ") + "." : ".") + " Move any slider to take over.";
+    });
   }
   $("mLooks").addEventListener("click", e => {
     const b = e.target.closest("button"); const p = photos[cur]; if (!b || !p) return;

@@ -1,10 +1,10 @@
 {
-  "version": "1.6.0",
+  "version": "1.7.0",
   "file": "rugby_photo_enhancer.py",
-  "sha256": "647d7dfc508dd14b598567424a833716a9e76665ac614e63683f33e184120bee",
+  "sha256": "5ec14d71f4c39d8a33008ed21fb0a4a47e25113e94c938c60fa10923b4547dba",
   "requires": [
     "pillow",
     "numpy"
   ],
-  "notes": "Save on this PC only - for the camera card and for earlier Drive uploads."
+  "notes": "Photo-by-photo tuning: each photo gets only the corrections it needs, with smarter white balance."
 }

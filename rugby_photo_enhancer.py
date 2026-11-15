@@ -24,7 +24,7 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 APP_NAME = "Rugby Photo Enhancer"
-APP_VERSION = "1.6.0"
+APP_VERSION = "1.7.0"
 # Updates are published here (branch "photo-enhancer" of github.com/popcorn483/ergs-live)
 UPDATE_BASE = "https://raw.githubusercontent.com/popcorn483/ergs-live/photo-enhancer/"
 DEFAULT_SOURCE = r"E:\DCIM\100CANON"
@@ -33,18 +33,20 @@ DRIVE_SUBPATH = os.path.join("School Photos", "2026-27", "Rugby")
 PHOTO_EXT = (".jpg", ".jpeg", ".png")
 
 PRESETS = {
-    "Gentle":   dict(strength=0.55, colour=0.45, exposure=0.45, contrast=0.20, vibrance=0.20, sharpen=0.25, shadows=0.45, highlights=0.35, bright=0.0, warmth=0.0),
-    "Balanced": dict(strength=0.80, colour=0.60, exposure=0.65, contrast=0.35, vibrance=0.35, sharpen=0.40, shadows=0.65, highlights=0.50, bright=0.0, warmth=0.0),
-    "Punchy":   dict(strength=1.00, colour=0.75, exposure=0.80, contrast=0.55, vibrance=0.60, sharpen=0.55, shadows=0.80, highlights=0.60, bright=0.0, warmth=0.0),
+    "Gentle":   dict(strength=0.55, colour=0.45, exposure=0.45, contrast=0.20, vibrance=0.20, sharpen=0.25, shadows=0.45, highlights=0.35, bright=0.0, warmth=0.0, auto=1.0),
+    "Balanced": dict(strength=0.80, colour=0.60, exposure=0.65, contrast=0.35, vibrance=0.35, sharpen=0.40, shadows=0.65, highlights=0.50, bright=0.0, warmth=0.0, auto=1.0),
+    "Punchy":   dict(strength=1.00, colour=0.75, exposure=0.80, contrast=0.55, vibrance=0.60, sharpen=0.55, shadows=0.80, highlights=0.60, bright=0.0, warmth=0.0, auto=1.0),
 }
 # order used when a look is sent as a list of numbers; bright/warmth run -1..1, the rest 0..1
-LOOK_KEYS = ["strength", "colour", "exposure", "contrast", "vibrance", "sharpen", "shadows", "highlights", "bright", "warmth"]
+LOOK_KEYS = ["strength", "colour", "exposure", "contrast", "vibrance", "sharpen", "shadows", "highlights", "bright", "warmth", "auto"]
 
 
 def look_from_list(vals, fallback="Balanced"):
     """Turn a list of 8 numbers (from the window) into a validated settings dict."""
     try:
         vals = [float(v) for v in vals]
+        if len(vals) == len(LOOK_KEYS) - 1:
+            vals.append(0.0)                    # older 10-value looks were always exact
         if len(vals) != len(LOOK_KEYS):
             raise ValueError
     except (TypeError, ValueError):
@@ -53,6 +55,7 @@ def look_from_list(vals, fallback="Balanced"):
     for k, v in zip(LOOK_KEYS, vals):
         lo = -1.0 if k in ("bright", "warmth") else 0.0
         out[k] = min(1.0, max(lo, v))
+    out["auto"] = 1.0 if out["auto"] >= 0.5 else 0.0
     return out
 
 
@@ -101,16 +104,25 @@ def build_luts(arr, s):
     i = np.arange(256, dtype=np.float64)
     colour = s["colour"] * (1 - 0.5 * backlit)        # backlit scenes fool colour correction - go easy
 
+    # per-channel black point scaled to each channel's level, so the plain levels stretch keeps the colour
+    # balance as it is (an uncorrected cast isn't amplified); the colour step then removes casts on purpose
+    mean_l = max(1.0, float((HL * i).sum() / total))
+    lo_c = [Lo * min(1.5, float((H[c] * i).sum() / total) / mean_l) for c in range(3)]
+
     def levels(c):
-        a = np.clip((i - Lo) / (Hi - Lo), 0, 1)
+        a = np.clip((i - lo_c[c]) / (Hi - lo_c[c]), 0, 1)
         b = np.clip((i - c_lo[c]) / (c_hi[c] - c_lo[c]), 0, 1)
         x = a + (b - a) * colour
         return np.clip(i / 255 + (x - i / 255) * S, 0, 1)
 
     lv = [levels(c) for c in range(3)]
-    m = [float(np.clip((H[c] * lv[c]).sum() / total, 0.03, 0.97)) for c in range(3)]
-    avg = sum(m) / 3
-    cg = [float(np.clip((np.log(avg) / np.log(m[c])) ** (colour * S * 0.6), 0.85, 1.18)) for c in range(3)]
+    # white balance from near-neutral pixels only (white shirts, lines, sky, grey) - not the green pitch
+    neutral, _ = neutral_mask(sm_arr.astype(np.float32))
+    cg = [1.0, 1.0, 1.0]
+    if neutral is not None:
+        m = [float(np.clip(lv[c][sm_arr[..., c][neutral]].mean(), 0.03, 0.97)) for c in range(3)]
+        avg = sum(m) / 3
+        cg = [float(np.clip((np.log(avg) / np.log(m[c])) ** (colour * S * 0.8), 0.85, 1.18)) for c in range(3)]
     if colour > 0.1 and (cast > 14 or max(cg) - min(cg) > 0.06):
         tags.append("colour cast fixed")
     if lum_hi - lum_lo < 215 and S > 0.2:
@@ -195,8 +207,97 @@ def shadows_highlights(out, s, info, tags):
         tags.append("highlights recovered")
 
 
+def neutral_mask(f):
+    """The least colourful midtone pixels (white kit, lines, cloud, grey) - they show any colour cast.
+    Using the least colourful 20% (rather than a fixed limit) still works when a strong cast tints everything."""
+    mx, mn = f.max(2), f.min(2)
+    sat = (mx - mn) / np.maximum(mx, 1)
+    lum = f.mean(2) / 255
+    mid = (lum > 0.15) & (lum < 0.85)
+    if mid.mean() < 0.02:
+        return None, 1.0
+    lim = max(0.12, float(np.percentile(sat[mid], 20)))
+    lim = min(lim, 0.45)
+    m = mid & (sat <= lim)
+    if m.mean() < 0.01:
+        return None, 1.0
+    return m, float(np.percentile(sat[mid], 20))
+
+
+def analyse_photo(arr):
+    """Measure what a photo actually needs. Works the same on a preview or the full-size file."""
+    sm = _small(arr, 160_000).astype(np.float32)
+    mx, mn = sm.max(2), sm.min(2)
+    lum = (0.299 * sm[..., 0] + 0.587 * sm[..., 1] + 0.114 * sm[..., 2]) / 255
+    sat = (mx - mn) / np.maximum(mx, 1)
+    p5, p95 = np.percentile(lum, [5, 95])
+    neutral, p20 = neutral_mask(sm)
+    cast, trust = 0.0, 0.0
+    bal = sm
+    if neutral is not None:
+        # very colourful scenes with nothing near-neutral (e.g. a whole frame of pitch) are less certain
+        trust = float(np.clip(1 - (p20 - 0.18) / 0.35, 0.4, 1))
+        ch = [float(sm[..., c][neutral].mean()) for c in range(3)]
+        cast = (max(ch) - min(ch)) / max(1.0, sum(ch) / 3)
+        avg = sum(ch) / 3
+        bal = sm * np.array([avg / max(c, 1) for c in ch], dtype=np.float32)   # colours as they'd be without the cast
+    bmx, bmn = bal.max(2), bal.min(2)
+    bsat = (bmx - bmn) / np.maximum(bmx, 1)
+    lit = lum > 0.1
+    meansat = float(bsat[lit].mean()) if lit.any() else 0.0
+    # sharpness: Laplacian energy on a fixed-size version, so previews and full files agree
+    h, w = arr.shape[:2]
+    sc = 1000 / max(h, w)
+    g = Image.fromarray(arr).convert("L")
+    if sc < 1:
+        g = g.resize((max(1, int(w * sc)), max(1, int(h * sc))), Image.BOX)
+    G = np.asarray(g, dtype=np.float32)
+    lap = 4 * G[1:-1, 1:-1] - G[:-2, 1:-1] - G[2:, 1:-1] - G[1:-1, :-2] - G[1:-1, 2:]
+    sharp = float(np.percentile(np.abs(lap), 99))      # strongest edges: high = crisp, low = soft
+    return {"spread": float(p95 - p5), "sat": meansat, "cast": cast, "trust": trust, "sharp": sharp}
+
+
+def auto_settings(arr, s):
+    """Scale each correction to what this photo needs. The look (Gentle/Balanced/Punchy) sets the maximum."""
+    a = analyse_photo(arr)
+    t = dict(s)
+    notes = []
+    # contrast: flat photos get the full amount, already-contrasty ones little or none
+    need_c = float(np.clip((0.88 - a["spread"]) / 0.38, 0, 1.25))
+    t["contrast"] = min(1.0, s["contrast"] * need_c)
+    # colour: only correct a real cast, and trust it less with few neutral areas
+    need_w = float(np.clip((a["cast"] - 0.025) / 0.09, 0, 1.2)) * a["trust"]
+    t["colour"] = min(1.0, s["colour"] * need_w)
+    # vibrance: dull photos get more, colourful ones less
+    need_v = float(np.clip((0.42 - a["sat"]) / 0.25, 0, 1.25))
+    t["vibrance"] = min(1.0, s["vibrance"] * need_v)
+    # sharpening: soft photos get more, crisp ones only a light touch
+    need_s = float(np.clip((95 - a["sharp"]) / 55, 0.3, 1.4))
+    t["sharpen"] = min(1.0, s["sharpen"] * need_s)
+    t["auto"] = 0.0
+    if need_c < 0.35:
+        notes.append("contrast already good")
+    elif need_c > 0.9:
+        notes.append("flat photo - extra contrast")
+    if need_w < 0.15:
+        notes.append("colours already neutral")
+    if need_v < 0.35:
+        notes.append("already colourful")
+    elif need_v > 0.9:
+        notes.append("dull colours - extra vibrance")
+    if need_s > 1.0:
+        notes.append("slightly soft - extra sharpening")
+    elif need_s <= 0.35:
+        notes.append("already sharp")
+    return t, notes, a
+
+
 def enhance_array(arr, s):
+    notes = []
+    if s.get("auto"):
+        s, notes, _ = auto_settings(arr, s)
     luts, info, tags = build_luts(arr, s)
+    tags = notes + tags
     out = np.empty_like(arr)
     for c in range(3):
         out[..., c] = luts[c][arr[..., c]]
@@ -226,7 +327,12 @@ def process_one(src, dst, settings, quality=93):
         exif[0x0112] = 1                          # orientation now 'normal'
         rgb = im.convert("RGB")
     arr = np.asarray(rgb)
-    out, tags = enhance_array(arr, settings)
+    if settings.get("auto"):
+        settings, notes, _ = auto_settings(arr, settings)
+        out, tags = enhance_array(arr, settings)
+        tags = notes + tags
+    else:
+        out, tags = enhance_array(arr, settings)
     img = Image.fromarray(out, "RGB")
     if settings["sharpen"] > 0.01:
         radius = max(1.0, max(img.size) / 2500)
@@ -617,7 +723,13 @@ def make_preview(path, max_side, settings=None, quality=85):
         im.thumbnail((max_side, max_side), Image.LANCZOS)
     tags = []
     if settings:
-        out, tags = enhance_array(np.asarray(im), settings)
+        arr = np.asarray(im)
+        if settings.get("auto"):
+            settings, notes, _ = auto_settings(arr, settings)
+            out, tags = enhance_array(arr, settings)
+            tags = notes + tags
+        else:
+            out, tags = enhance_array(arr, settings)
         im = Image.fromarray(out, "RGB")
         if settings["sharpen"] > 0.01:
             im = im.filter(ImageFilter.UnsharpMask(radius=1.0, percent=int(settings["sharpen"] * 90), threshold=2))
@@ -798,6 +910,32 @@ class App:
             self.tags[(pid, look)] = tags
         cache.put(k, data)
         return data
+
+    def auto_values(self, pid, look):
+        """The slider values the automatic per-photo tuning picks for this photo (shown in the viewer)."""
+        ph = self.photos.get(pid)
+        if not ph:
+            return {"ok": False}
+        k = ("auto", ph["key"], look)
+        hit = self.views.get(k)
+        if hit:
+            return hit
+        base = look_from_list(look.split(","))
+        if not base.get("auto"):
+            return {"ok": True, "vals": [base[x] for x in LOOK_KEYS[:-1]], "notes": []}
+        src = self.local_copy(ph, full=True)
+        with Image.open(src) as im:
+            try:
+                im.draft("RGB", (1600, 1600))
+            except Exception:
+                pass
+            im = ImageOps.exif_transpose(im).convert("RGB")
+            im.thumbnail((1600, 1600), Image.LANCZOS)
+            arr = np.asarray(im)
+        t, notes, _ = auto_settings(arr, base)
+        res = {"ok": True, "vals": [round(float(t[x]), 3) for x in LOOK_KEYS[:-1]], "notes": notes}
+        self.views.put(k, res)
+        return res
 
     # ---------- previous uploads in Drive ----------
     def drive_folders(self):
@@ -1206,6 +1344,12 @@ def make_handler(app):
                 if data is None:
                     return self._send(404, {"error": "unknown photo"})
                 return self._send(200, data, "image/jpeg", cache=True)
+            if p.startswith("/api/auto/"):
+                pid = unquote(p[len("/api/auto/"):])
+                try:
+                    return self._send(200, app.auto_values(pid, q.get("s", "")))
+                except Exception as e:
+                    return self._send(200, {"ok": False, "error": str(e)})
             if p.startswith("/api/info/"):
                 pid = unquote(p[len("/api/info/"):])
                 return self._send(200, {"tags": app.tags.get((pid, q.get("s", "")), [])})
@@ -1970,12 +2114,24 @@ UI_HTML = r"""<!DOCTYPE html>
       clearTimeout(sliderT); sliderT = setTimeout(() => { loadAfter(p); refreshTile(p); }, 220);
     }));
   }
-  function paintPanel(p){
-    const vals = lookVals(p);
+  function setSliders(vals){
     SL.forEach(([k], i) => { const v = Math.round(vals[i] * 100); $("s_" + k).value = v; $("v_" + k).textContent = (SL[i][2] < 0 && v > 0 ? "+" : "") + v; });
-    const cur = p.look ? (p.look.vals ? "custom" : p.look.preset) : "";
-    $("mLooks").querySelectorAll("button").forEach(b => b.classList.toggle("on", cur !== "custom" && b.dataset.l === cur));
-    $("mLookNote").textContent = !p.look ? `Following the default look (${globalPreset()}).` : p.look.vals ? "Custom look for this photo." : `${p.look.preset} look for this photo.`;
+  }
+  let autoSeq = 0;
+  function paintPanel(p){
+    setSliders(lookVals(p));
+    const which = p.look ? (p.look.vals ? "custom" : p.look.preset) : "";
+    $("mLooks").querySelectorAll("button").forEach(b => b.classList.toggle("on", which !== "custom" && b.dataset.l === which));
+    const name = p.look ? p.look.preset : globalPreset();
+    if (p.look && p.look.vals) { $("mLookNote").textContent = "Custom settings for this photo."; return; }
+    $("mLookNote").textContent = `${name} — tuning for this photo…`;
+    const seq = ++autoSeq;
+    api(`/api/auto/${encodeURIComponent(p.id)}?s=${lookStr(p)}`).then(r => {
+      if (seq !== autoSeq || photos[cur] !== p || (p.look && p.look.vals)) return;
+      if (!r.ok) { $("mLookNote").textContent = `${name} look.`; return; }
+      setSliders(r.vals);
+      $("mLookNote").textContent = `${name}, auto-tuned for this photo` + (r.notes.length ? ": " + r.notes.join(" · ") + "." : ".") + " Move any slider to take over.";
+    });
   }
   $("mLooks").addEventListener("click", e => {
     const b = e.target.closest("button"); const p = photos[cur]; if (!b || !p) return;
