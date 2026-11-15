@@ -35,7 +35,8 @@ const has = (p, path) => p.evaluate(x => { const d = window.__fs.store.get(x); r
   ok(r.g && !r.anl && !r.drills && r.laws && !r.menu.includes('anl') && r.menu.includes('laws'), 'a parent has Rugby laws, and not Video analysis or drills: ' + JSON.stringify({anl:r.anl, drills:r.drills, laws:r.laws}));
   await G.nav('photos'); await G.waitForTimeout(2500); await G.evaluate(async () => { await window.__ev('lkToggle')({id:'phG', name:'g.jpg'}, 'S1'); }); await G.waitForTimeout(800);
   const gl = await has(G, 'likes/parent0@example.com'), kid = await has(G, 'likes/' + ME);
-  ok(gl && gl.p.phG && /parent/.test(gl.name) && !(kid && kid.p && kid.p.phG), 'a parent’s like is their own (' + (gl && gl.name) + '), not the child’s');
+  ok(gl && gl.p.phG && gl.name === '' && !(kid && kid.p && kid.p.phG), 'a parent’s like is their own, not the child’s, and no name is kept with it');
+  ok(await G.evaluate(() => { const o = window.__ev('lkCounts')().get('phG'); return !!o && o.n === 1; }), 'likes show as a count');
   await G.evaluate(async () => { await window.__ev('lkToggle')({id:'phG', name:'g.jpg'}, 'S1'); }); await G.waitForTimeout(800); const gl2 = await has(G, 'likes/parent0@example.com');
   ok(gl2 && !gl2.p.phG && kid && kid.p.ph0 !== undefined || (gl2 && !gl2.p.phG), 'and taking it back leaves the child’s likes alone');
   console.log('     errors', G.errs.slice(0, 5), [...new Set(G.cons)].slice(0, 5), 'refused:', await G.evaluate(() => (window.__denied || []).splice(0)));
