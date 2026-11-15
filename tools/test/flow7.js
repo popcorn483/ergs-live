@@ -4,8 +4,10 @@ const { chromium } = require('playwright'); const { open } = require('./real.js'
 const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) process.exitCode = 1; };
 (async () => { const b = await chromium.launch(); const ctx = await b.newContext({viewport:{width:420, height:900}}); const P = await open(b, 'player', {ctx});
   await P.route('https://www.googleapis.com/drive/**', r => { const u = new URL(r.request().url()); const m = /\/files\/([^/?]+)/.exec(u.pathname);
-    if (m) return r.fulfill({contentType:'application/json', body:JSON.stringify({id:m[1], name:m[1] === 'ALBUMFOLDER1' ? 'Dungannon 14 11 26' : 'Season', parents:[m[1] === 'ALBUMFOLDER1' ? 'SEASONFOLDER1' : 'ROOT']})});
-    return r.fulfill({contentType:'application/json', body:JSON.stringify({files:[]})}); });
+    // as Google answers a request made with only the app's key: the folder's name, but not which folder it is in
+    if (m) return r.fulfill({contentType:'application/json', body:JSON.stringify({id:m[1], name:m[1] === 'ALBUMFOLDER1' ? 'Dungannon 14 11 26' : 'Season'})});
+    const q = decodeURIComponent(u.searchParams.get('q') || ''), F = 'application/vnd.google-apps.folder';
+    return r.fulfill({contentType:'application/json', body:JSON.stringify({files:/'SEASONFOLDER1' in parents/.test(q) ? [{id:'OTHERALBUM', name:'Coleraine 07 11 26', mimeType:F}, {id:'ALBUMFOLDER1', name:'Dungannon 14 11 26', mimeType:F}] : []})}); });
   await P.addInitScript(() => { const S = window.__fsSeed, now = Date.now(); if (!S) return; S['team/photos'] = {j:JSON.stringify({seasons:[{folder:'SEASONFOLDER1', label:'2026-27'}], hidden:{}, links:{abc:'ALBUMFOLDER1'}, updated:now}), u:now};
     S['posts/albTEST1'] = {at:now, u:now, del:false, by:'coach0@example.com', byName:'Coach', team:'*', text:'📸 New photos: Dungannon 14 11 26\n82 photos are in the app.', links:[{u:'http://app.test/#pabc', t:'Open the album'}], pin:false, album:'ALBUMFOLDER1'};
     S['posts/albTEST2'] = {at:now - 1000, u:now, del:false, by:'coach0@example.com', byName:'Coach', team:'*', text:'📸 New photos: older link', links:[{u:'http://app.test/app/#a=ALBUMFOLDER1', t:'Open the album'}], pin:false}; });
