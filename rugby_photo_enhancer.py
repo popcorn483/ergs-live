@@ -24,7 +24,7 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 APP_NAME = "Rugby Photo Enhancer"
-APP_VERSION = "2.2.0"
+APP_VERSION = "2.3.0"
 # Updates are published here (branch "photo-enhancer" of github.com/popcorn483/ergs-live)
 UPDATE_BASE = "https://raw.githubusercontent.com/popcorn483/ergs-live/photo-enhancer/"
 DEFAULT_SOURCE = r"E:\DCIM\100CANON"
@@ -455,11 +455,19 @@ def pro_auto(a, s):
     need_v = float(np.clip((0.45 - a["sat"]) / 0.28, 0, 1.25))
     t["vibrance"] = min(1.0, s["vibrance"] * need_v)
     # brightening magnifies noise, so judge it as it will look after the exposure change
-    ev0 = float(np.clip(np.log2(0.19 / max(a["key"], 1e-4)), -1.0, 1.8))
+    ev0 = float(np.clip(np.log2(0.19 / max(a["key"], 1e-4)), -1.0, 3.0))
     amp = 2 ** (max(0.0, abs(ev0) - 0.3) * (1 if ev0 > 0 else 0) * s["exposure"] * 0.8)
     need_n = float(np.clip((a["noise"] * amp - 1.4) / 3.5, 0, 1))
+    meta = a.get("meta") or {}
+    iso = meta.get("iso") or 0
+    if iso:
+        # the camera's ISO is the most reliable noise guide (sport mode in winter pushes it high)
+        need_n = max(need_n, float(np.clip(np.log2(max(iso, 1) / 640) / 3.3, 0, 1)) * min(1.6, amp))
+        need_n = min(1.0, need_n)
     t["denoise"] = min(1.0, s.get("denoise", 0.6) * need_n * 1.4)
     need_s = float(np.clip((95 - a["sharp"]) / 55, 0.3, 1.4)) * (1 - 0.5 * need_n)
+    if (meta.get("focal") or 0) >= 135:
+        need_s = min(1.4, need_s * 1.2)          # long-lens shots are usually a little soft
     t["sharpen"] = min(1.0, s["sharpen"] * need_s)
     # outdoor light
     cond = light_conditions(a, a.get("haze", 0.0))
@@ -494,7 +502,9 @@ def pro_auto(a, s):
     elif need_v > 0.9:
         notes.append("dull colours - extra vibrance")
     if need_n > 0.25:
-        notes.append("noisy (high ISO) - noise reduced")
+        notes.append(f"ISO {int(iso)} grain - noise reduced" if iso >= 1600 else "noisy - noise reduced")
+    if ev0 > 0.9:
+        notes.append("dark/winter light - brightened")
     if need_s > 1.0:
         notes.append("slightly soft - extra sharpening")
     elif need_s <= 0.35:
@@ -561,12 +571,121 @@ def light_conditions(a, haze_level):
     return {"mist": mist, "overcast": overcast, "harsh": harsh}
 
 
-def auto_plan(arr, s, noise=None):
+# --------------------------------------------------------------------------
+# Camera settings (EXIF): ISO, shutter, aperture, focal length, lens - used to tune the fixes
+# --------------------------------------------------------------------------
+_META = {}
+
+
+def read_meta(path):
+    """Camera settings from the photo's EXIF (cached). Missing values are None."""
+    try:
+        key = (path, os.path.getmtime(path))
+    except OSError:
+        return {}
+    if key in _META:
+        return _META[key]
+    m = {}
+    try:
+        with Image.open(path) as im:
+            ex = im.getexif()
+            sub = ex.get_ifd(0x8769)
+            def num(v):
+                try:
+                    return float(v[0]) / float(v[1]) if isinstance(v, tuple) else float(v)
+                except Exception:
+                    return None
+            iso = sub.get(0x8827)
+            if isinstance(iso, (tuple, list)):
+                iso = iso[0] if iso else None
+            m = {"iso": num(iso) if iso is not None else None, "f": num(sub.get(0x829D)), "shutter": num(sub.get(0x829A)),
+                 "focal": num(sub.get(0x920A)), "lens": str(sub.get(0xA434) or "").strip("\x00 "),
+                 "model": str(ex.get(0x0110) or "").strip("\x00 ")}
+    except Exception:
+        m = {}
+    _META[key] = m
+    return m
+
+
+def meta_label(m):
+    if not m:
+        return ""
+    parts = []
+    if m.get("iso"):
+        parts.append(f"ISO {int(m['iso'])}")
+    if m.get("shutter"):
+        sh = m["shutter"]
+        parts.append(f"1/{round(1 / sh)}s" if sh < 1 else f"{sh:g}s")
+    if m.get("f"):
+        parts.append(f"f/{m['f']:g}")
+    if m.get("focal"):
+        parts.append(f"{int(round(m['focal']))}mm")
+    return " · ".join(parts)
+
+
+def vignette_amount(arr_small, meta):
+    """Corner darkening (EV) to correct. Telephoto zooms wide open darken the corners; only corrected
+    when the camera settings say it's likely AND the photo's corners really are darker."""
+    f, focal = meta.get("f"), meta.get("focal")
+    lens = (meta.get("lens") or "").lower()
+    tele = (focal and focal >= 50) or any(z in lens for z in ("70-200", "70-300", "55-250", "75-300", "100-400"))
+    if not f or not tele:
+        return 0.0
+    expected = float(np.interp(f, [2.8, 4.0, 5.6, 8.0], [0.6, 0.45, 0.25, 0.08]))
+    if expected < 0.05:
+        return 0.0
+    # lens vignetting darkens ALL FOUR corners smoothly relative to the middle of the edges next to them;
+    # a scene that just has something dark in a corner doesn't do that - so require at least 3 of 4
+    g = cv2.GaussianBlur(arr_small.astype(np.float32).mean(2), (0, 0), max(arr_small.shape[:2]) / 60)
+    h, w = g.shape
+    ph, pw = max(2, h // 10), max(2, w // 10)
+    def patch(cy, cx):
+        y0, x0 = int(cy * (h - ph)), int(cx * (w - pw))
+        return float(g[y0:y0 + ph, x0:x0 + pw].mean())
+    drops = []
+    for cy, cx in ((0, 0), (0, 1), (1, 0), (1, 1)):
+        corner = patch(cy, cx)
+        edges = (patch(cy, 0.5) + patch(0.5, cx)) / 2
+        drops.append(np.log2(max(edges, 1) / max(corner, 1)))
+    drops = np.array(drops)
+    if (drops > 0.08).sum() < 3 or np.median(drops) < 0.1:
+        return 0.0
+    # corner-vs-edge-middle is about 40% of the full corner-vs-centre falloff
+    measured = float(np.median(drops)) / 0.4
+    return float(np.clip(min(expected, measured), 0, 0.8))
+
+
+def correct_vignette(arr, ev):
+    """Brighten towards the corners (in linear light) by up to `ev` stops."""
+    h, w = arr.shape[:2]
+    xs = ((np.arange(w, dtype=np.float32) - w / 2) / (w / 2)) ** 2
+    out = np.empty_like(arr)
+    for y0 in range(0, h, 256):
+        y1 = min(h, y0 + 256)
+        ys = ((np.arange(y0, y1, dtype=np.float32) - h / 2) / (h / 2)) ** 2
+        r2 = (ys[:, None] + xs[None, :]) / 2                     # 0 centre .. 1 corner
+        gain = np.exp2(ev * r2 ** 1.3)[..., None]
+        lin = LIN_LUT[arr[y0:y1]] * gain
+        out[y0:y1] = np.clip(_to_srgb(lin) * 255 + 0.5, 0, 255).astype(np.uint8)
+    return out
+
+
+def auto_plan(arr, s, noise=None, meta=None):
     """Detect haze/mist/glare and remove it, then measure the clearer photo and tune every setting for it.
     Returns (image to continue with, analysis, tuned settings, notes)."""
     h, w = arr.shape[:2]
     sc = min(1.0, 1000 / max(h, w))
     small = cv2.resize(arr, (max(1, int(w * sc)), max(1, int(h * sc))), interpolation=cv2.INTER_AREA) if sc < 1 else arr
+    meta = meta or {}
+    pre_notes = []
+    # Lens vignetting: Canon bodies already correct it in-camera for Canon lenses (Peripheral illumination
+    # correction), and judging it from the picture alone misfires on scenes with dark corners - so it is
+    # only applied when explicitly asked for (s["vignette"] > 0), never automatically.
+    vig = vignette_amount(small, meta) * s.get("vignette", 0.0) if s.get("vignette", 0) else 0.0
+    if vig > 0.08:
+        arr = correct_vignette(arr, vig)
+        small = cv2.resize(arr, (max(1, int(w * sc)), max(1, int(h * sc))), interpolation=cv2.INTER_AREA) if sc < 1 else arr
+        pre_notes.append(f"lens corners brightened ({vig:.1f} EV)")
     A, level, patch = haze_model(small)
     mist = float(np.clip((level - 0.28) / 0.25, 0, 1))
     amt = min(1.0, s.get("dehaze", 0.0) * (mist if s.get("auto") else 1.0))
@@ -576,6 +695,7 @@ def auto_plan(arr, s, noise=None):
             noise = noise / max(0.45, 1 - 0.9 * amt * level)   # removing haze also lifts noise
     a = pro_analyse(arr, noise)
     a["haze"], a["mist"] = level, mist
+    a["meta"] = meta
     notes = []
     if s.get("auto"):
         s, notes = pro_auto(a, s)
@@ -590,7 +710,7 @@ def auto_plan(arr, s, noise=None):
             s["shadows"] *= (1 - 0.5 * amt)
     if amt > 0.04:
         notes.insert(0, "mist/haze removed" if mist > 0.5 else "haze/glare cleared")
-    return arr, a, s, notes
+    return arr, a, s, pre_notes + notes
 
 
 def _tone(rgb8, A, B, P):
@@ -625,10 +745,10 @@ def _tone(rgb8, A, B, P):
     return x
 
 
-def pro_enhance(arr, s, noise=None):
+def pro_enhance(arr, s, noise=None, meta=None):
     """Full professional pipeline on an RGB uint8 image. Returns (uint8 image, tags)."""
     h, w = arr.shape[:2]
-    arr, a, s, notes = auto_plan(arr, s, noise)
+    arr, a, s, notes = auto_plan(arr, s, noise, meta)
     S = s["strength"]
     tags = list(notes)
     flat = float(np.clip((0.75 - a["spread"]) / 0.35, 0, 1))
@@ -640,9 +760,13 @@ def pro_enhance(arr, s, noise=None):
     gains *= np.array([1 + 0.12 * wm, 1 + 0.02 * wm, 1 - 0.12 * wm], np.float32)
     gains /= (0.2126 * gains[0] + 0.7152 * gains[1] + 0.0722 * gains[2])
     # ---- exposure (EV) from the subject's brightness (skin first), with a dead zone for good photos
-    ev = float(np.clip(np.log2(0.19 / max(a["key"], 1e-4)), -1.0, 1.8))
-    ev = np.sign(ev) * max(0.0, abs(ev) - 0.3)
-    ev = ev * s["exposure"] * (0.5 + 0.5 * S) * (1 + 0.5 * a["backlit"]) + 1.0 * s.get("bright", 0.0)
+    raw = float(np.clip(np.log2(0.19 / max(a["key"], 1e-4)), -1.0, 3.0))
+    ev = np.sign(raw) * max(0.0, abs(raw) - 0.3)
+    k_ev = s["exposure"] * (0.5 + 0.5 * S) * (1 + 0.5 * a["backlit"])
+    if raw > 0.8:
+        # properly dark (winter afternoon / floodlights): go most of the way to a correct exposure
+        k_ev = k_ev + (0.92 - k_ev) * float(np.clip((raw - 0.8) / 1.0, 0, 1))
+    ev = ev * min(k_ev, 1.0) + 1.0 * s.get("bright", 0.0)
     if ev > 0.15:
         tags.append(f"brightened {ev:+.1f} EV")
     elif ev < -0.15:
@@ -734,7 +858,7 @@ def process_one(src, dst, settings, quality=93):
         rgb = im.convert("RGB")
     arr = np.asarray(rgb)
     if cv2 is not None:
-        out, tags = pro_enhance(arr, settings)
+        out, tags = pro_enhance(arr, settings, meta=read_meta(src))
         img = Image.fromarray(out, "RGB")
     elif settings.get("auto"):
         settings, notes, _ = auto_settings(arr, settings)
@@ -1154,7 +1278,7 @@ def make_preview(path, max_side, settings=None, quality=85):
     if settings:
         arr = np.asarray(im)
         if cv2 is not None:
-            out, tags = pro_enhance(arr, settings, noise=file_noise(path) if max_side > 600 else None)
+            out, tags = pro_enhance(arr, settings, noise=file_noise(path) if max_side > 600 else None, meta=read_meta(path))
             im = Image.fromarray(out, "RGB")
         elif settings.get("auto"):
             settings, notes, _ = auto_settings(arr, settings)
@@ -1367,10 +1491,11 @@ class App:
             im.thumbnail((1600, 1600), Image.LANCZOS)
             arr = np.asarray(im)
         if cv2 is not None:
-            _, _, t, notes = auto_plan(arr, base, noise=file_noise(src))
+            _, _, t, notes = auto_plan(arr, base, noise=file_noise(src), meta=read_meta(src))
         else:
             t, notes, _ = auto_settings(arr, base)
-        res = {"ok": True, "vals": [round(float(t.get(x, 0.0)), 3) for x in LOOK_KEYS[:-1]], "notes": notes}
+        res = {"ok": True, "vals": [round(float(t.get(x, 0.0)), 3) for x in LOOK_KEYS[:-1]], "notes": notes,
+               "camera": meta_label(read_meta(src))}
         self.views.put(k, res)
         return res
 
@@ -2671,6 +2796,7 @@ UI_HTML = r"""<!DOCTYPE html>
       if (!r.ok) { $("mLookNote").textContent = "✨ Auto"; return; }
       setSliders(r.vals);
       $("mLookNote").textContent = "✨ Auto-tuned for this photo" + (r.notes.length ? ": " + r.notes.join(" · ") + "." : ".");
+      if (r.camera && !$("mName").textContent.includes(r.camera)) $("mName").textContent += "  ·  📷 " + r.camera;
     });
   }
   $("mLooks").addEventListener("click", e => {

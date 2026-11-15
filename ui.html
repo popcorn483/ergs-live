@@ -677,6 +677,7 @@
       if (!r.ok) { $("mLookNote").textContent = "✨ Auto"; return; }
       setSliders(r.vals);
       $("mLookNote").textContent = "✨ Auto-tuned for this photo" + (r.notes.length ? ": " + r.notes.join(" · ") + "." : ".");
+      if (r.camera && !$("mName").textContent.includes(r.camera)) $("mName").textContent += "  ·  📷 " + r.camera;
     });
   }
   $("mLooks").addEventListener("click", e => {

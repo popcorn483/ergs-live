@@ -51,6 +51,11 @@ THE ENHANCEMENT ENGINE (v2)
    - mist, fog, haze and sun glare: removed with a dehaze step (gentle on open sky)
    - overcast/grey days: warmed slightly, contrast and colour restored
    - harsh sun and backlight: shadows opened up, highlights and shine held back
+  Winter / sport-mode photos: the app reads each photo's camera settings (ISO, shutter,
+  aperture, focal length). Dark photos are brightened most of the way to a proper
+  exposure (measured on the players, not floodlights or sky), and high-ISO grain is
+  cleaned according to the ISO the camera used. Long-lens (135mm+) shots get a little
+  extra sharpening. Floodlights and bright sky are protected from burning out.
   It needs OpenCV (installed automatically). If OpenCV can't be installed, the app
   still works using the simpler engine.
 

@@ -1,11 +1,11 @@
 {
-  "version": "2.2.0",
+  "version": "2.3.0",
   "file": "rugby_photo_enhancer.py",
-  "sha256": "a4c1eba8b9fac84fd3376345436dfde7ed4058d75804323343e5da0e6d7876b8",
+  "sha256": "4834d9e7153aec8f5ac04c61fce2d0947f806ce5b8bcf9efd2fa6699409b4ecb",
   "requires": [
     "pillow",
     "numpy",
     "opencv-python-headless"
   ],
-  "notes": "Outdoor light: mist/fog/haze and glare removal, overcast and harsh-sun handling."
+  "notes": "Winter & sport mode: dark photos brightened properly, ISO-aware noise reduction, camera settings shown in the viewer."
 }
