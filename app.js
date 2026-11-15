@@ -3701,6 +3701,7 @@ async function vwSweep(){ if (!COACH || SANDBOX || !window.FB || !FB.viewSweep) 
   if (list.length){ try { localStorage.setItem('ergs.vwSwept', JSON.stringify(done)); } catch(e){} } }
 setTimeout(vwSweep, 25000);
 // a pressed reminder (or a pasted match link) while the page is already open: go to that match
-addEventListener('hashchange', () => { const h = location.hash.match(/^#m\.([A-Za-z0-9_-]+)$/); if (h && V.open !== h[1]){ V.open = h[1]; render(); scrollTo(0, 0); } });
+addEventListener('hashchange', () => { if (/^#p[a-z0-9]{3,6}$/.test(location.hash)){ location.replace('app/' + location.hash); return; }   // an album link, with ERGS Live already open: pass it on to the team app
+  const h = location.hash.match(/^#m\.([A-Za-z0-9_-]+)$/); if (h && V.open !== h[1]){ V.open = h[1]; render(); scrollTo(0, 0); } });
 
 })();
