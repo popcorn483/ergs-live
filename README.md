@@ -23,3 +23,10 @@ under `pushsubs` (see `firestore.rules`).
 
 The Android build signs with a private key when the secrets `ANDROID_KEYSTORE_B64` and `ANDROID_KEY_PASS` are set, and with the
 key in `android/` otherwise. Changing the key means everyone reinstalls the Android app once.
+
+## Icons
+
+`icons.js` (loaded by both apps) holds the one set of line icons. The apps' text still contains picture characters (🏉, 📸…);
+as each part of a page appears, `icons.js` swaps them for the matching icon, so every screen gets the same style without
+being rewired. To add or change one, edit the two lists at the top of that file (or `P` and `M` if you regenerate it).
+Icons take the colour of the words beside them; in headings and icon tiles they are the school gold.
