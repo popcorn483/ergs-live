@@ -24,7 +24,7 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 APP_NAME = "Rugby Photo Enhancer"
-APP_VERSION = "2.0.0"
+APP_VERSION = "2.1.0"
 # Updates are published here (branch "photo-enhancer" of github.com/popcorn483/ergs-live)
 UPDATE_BASE = "https://raw.githubusercontent.com/popcorn483/ergs-live/photo-enhancer/"
 DEFAULT_SOURCE = r"E:\DCIM\100CANON"
@@ -33,6 +33,7 @@ DRIVE_SUBPATH = os.path.join("School Photos", "2026-27", "Rugby")
 PHOTO_EXT = (".jpg", ".jpeg", ".png")
 
 PRESETS = {
+    "Auto":     dict(strength=0.85, colour=0.70, exposure=0.75, contrast=0.50, vibrance=0.50, sharpen=0.50, shadows=0.70, highlights=0.55, bright=0.0, warmth=0.0, denoise=0.70, auto=1.0),
     "Gentle":   dict(strength=0.55, colour=0.45, exposure=0.45, contrast=0.20, vibrance=0.20, sharpen=0.25, shadows=0.45, highlights=0.35, bright=0.0, warmth=0.0, denoise=0.6, auto=1.0),
     "Balanced": dict(strength=0.80, colour=0.60, exposure=0.65, contrast=0.35, vibrance=0.35, sharpen=0.40, shadows=0.65, highlights=0.50, bright=0.0, warmth=0.0, denoise=0.6, auto=1.0),
     "Punchy":   dict(strength=1.00, colour=0.75, exposure=0.80, contrast=0.55, vibrance=0.60, sharpen=0.55, shadows=0.80, highlights=0.60, bright=0.0, warmth=0.0, denoise=0.6, auto=1.0),
@@ -1096,6 +1097,7 @@ class App:
         self.views = LRU(40)
         self.tags = {}
         self.job = {"running": False}
+        self.ctx = {}
         self.job_lock = threading.Lock()
         self.last_seen = time.time() + 60
         self.update = {"state": "idle"}
@@ -1136,7 +1138,7 @@ class App:
             "onlyDate": c.get("only_date", True),
             "skip": c.get("skip_imported", True),
             "keepOriginals": c.get("keep_originals", False),
-            "preset": c.get("preset", "Balanced"),
+            "preset": "Auto",
             "quality": c.get("quality_num", 93),
         }
 
@@ -1164,7 +1166,7 @@ class App:
                       "action": self.cfg.get("drive_action", "replace"), "skipEnhanced": self.cfg.get("skip_enhanced", True),
                       "folderLink": self.cfg.get("folder_link") or f"https://drive.google.com/drive/folders/{DEFAULT_RUGBY_FOLDER_ID}"},
             "today": date.today().isoformat(), "update": self.update,
-            "presets": {n: [v[k] for k in LOOK_KEYS] for n, v in PRESETS.items()},
+            "presets": {"Auto": [PRESETS["Auto"][k] for k in LOOK_KEYS]},
             "lookKeys": LOOK_KEYS,
         }
 
@@ -1299,248 +1301,286 @@ class App:
         self.photos = photos
         return {"ok": True, "photos": out, "total": total, "skipped": skipped}
 
-    def _work_drive(self, ids, looks, quality, action, local_root=""):
-        """Re-enhance photos already in Drive: download, enhance, then replace or save to an 'Enhanced' subfolder."""
-        from concurrent.futures import ThreadPoolExecutor
-        job, lock, up = self.job, threading.Lock(), self.uploader()
-        staging = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "RugbyPhotoEnhancer", "staging", "drive")
-        os.makedirs(staging, exist_ok=True)
-        sub_ids, sub_lock = {}, threading.Lock()
-        n_workers = max(1, min(2 if cv2 is not None else 4, (os.cpu_count() or 2) - 1))   # pro engine uses ~1 GB per photo
-        job["message"] = "Downloading…"
-        with ProcessPoolExecutor(max_workers=n_workers) as ex:
-            def one(pid):
-                ph = self.photos[pid]
-                try:
-                    job["status"][pid] = "downloading"
-                    src = self.local_copy(ph, full=True)
-                    job["status"][pid] = "working"
-                    base, ext = os.path.splitext(ph["name"])
-                    import hashlib
-                    dst = os.path.join(staging, hashlib.sha1(ph["drive"].encode()).hexdigest()[:16] + (".png" if ext.lower() == ".png" else ".jpg"))
-                    if action == "local":
-                        out_dir = os.path.join(local_root, safe_folder_name(ph["folderName"]) or "Drive photos")
-                        os.makedirs(out_dir, exist_ok=True)
-                        dst = os.path.join(out_dir, base + os.path.splitext(dst)[1])
-                    tags = ex.submit(process_one, src, dst, looks[pid], quality).result()
-                    with lock:
-                        job["enh"] += 1
-                    if action == "local":
-                        job["status"][pid] = "done"
-                        self._log(f"✓ {ph['folderName']} / {ph['name']}  ({', '.join(tags)})")
-                        try:
-                            os.remove(src)
-                        except OSError:
-                            pass
-                        ph["path"] = None
-                        return
-                    job["status"][pid] = "uploading"
-                    if action == "subfolder":
-                        with sub_lock:
-                            if ph["folder"] not in sub_ids:
-                                sub_ids[ph["folder"]] = up.mkdir("Enhanced", parent=ph["folder"])["id"]
-                        named = os.path.join(staging, base + os.path.splitext(dst)[1])
-                        os.replace(dst, named)
-                        dst = named
-                        up.upload(dst, sub_ids[ph["folder"]])
-                        note = ""
-                    else:
-                        res = up.replace(ph["drive"], dst)
-                        note = "" if res.get("trashed", True) else " (original kept - no permission to move it to the Bin)"
-                    with lock:
-                        job["up"] += 1
-                    job["status"][pid] = "done"
-                    self._log(f"✓ {ph['folderName']} / {ph['name']}  ({', '.join(tags)}){note}")
-                    for pth in (dst, src):
-                        try:
-                            os.remove(pth)
-                        except OSError:
-                            pass
-                    ph["path"] = None
-                except Exception as e:
-                    with lock:
-                        job["fail"] += 1
-                    job["status"][pid], job["errors"][pid] = "error", str(e)
-                    self._log(f"✗ {ph['folderName']} / {ph['name']}: {e}")
-            with ThreadPoolExecutor(max_workers=3) as pool:
-                list(pool.map(one, ids))
-        done_n = job["enh"] if action == "local" else job["up"]
-        where = {"replace": "replaced in Google Drive", "subfolder": "saved to ‘Enhanced’ folders", "local": "saved on this PC"}[action]
-        job["message"] = (f"{done_n} of {job['total']} photos {where}"
-                          + (f" — {job['fail']} failed, run again to retry them" if job["fail"] else ""))
-        job["running"] = False
-        job["finished"] = True
+    # ---------- the run: stage 1 enhance (then wait for the user's OK), stage 2 upload ----------
+    def _staging_dir(self, *parts):
+        d = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "RugbyPhotoEnhancer", "staging", *parts)
+        os.makedirs(d, exist_ok=True)
+        return d
 
-    # ---------- the run ----------
+    @staticmethod
+    def _look_key(look):
+        return ",".join(f"{look[k]:.3f}" for k in LOOK_KEYS)
+
     def run(self, req):
+        """Stage 1: enhance the chosen photos. Uploads wait for approve(); local-only saves finish straight away."""
         with self.job_lock:
             if self.job.get("running"):
                 return {"ok": False, "error": "Already running"}
             ids = [i for i in req.get("ids", []) if i in self.photos]
-            if req.get("source") == "drive":
-                if not ids:
-                    return {"ok": False, "error": "No photos selected"}
+            if not ids:
+                return {"ok": False, "error": "No photos selected"}
+            s = req.get("settings", {})
+            self.save_settings(s)
+            source = "drive" if req.get("source") == "drive" else "card"
+            ctx = {"source": source, "quality": int(s.get("quality", 93)), "s": s}
+            if source == "drive":
                 if not self.uploader():
                     return {"ok": False, "error": "setup"}
-                s = req.get("settings", {})
-                self.save_settings(s)
                 action = req.get("action") if req.get("action") in ("subfolder", "local") else "replace"
-                local_root = (s.get("driveLocalDir") or "").strip()
-                if action == "local":
-                    try:
-                        os.makedirs(local_root, exist_ok=True)
-                    except OSError:
-                        return {"ok": False, "error": "Choose a folder on this PC to save into"}
+                ctx["action"] = action
                 with self.cfg_lock:
                     self.cfg["drive_action"] = action
                     save_config(self.cfg)
-                default = PRESETS.get(s.get("preset"), PRESETS["Balanced"])
-                given = req.get("looks") or {}
-                looks = {i: (look_from_list(given[i]) if i in given else dict(default)) for i in ids}
-                folders = {self.photos[i]["folderUrl"] for i in ids} if action != "local" else {local_root}
-                self.job = {"running": True, "total": len(ids), "enh": 0, "up": 0, "fail": 0, "direct": action != "local",
-                            "status": {i: "queued" for i in ids}, "errors": {}, "log": [], "name": "",
-                            "open": folders.pop() if len(folders) == 1 else "", "started": time.time(), "message": "Starting…"}
-                threading.Thread(target=self._work_drive, args=(ids, looks, int(s.get("quality", 93)), action, local_root), daemon=True).start()
-                return {"ok": True}
-            name = safe_folder_name(req.get("name", ""))
-            s = req.get("settings", {})
-            self.save_settings(s)
-            direct = s.get("mode") == "direct"
-            up = self.uploader() if direct else None
-            if not ids:
-                return {"ok": False, "error": "No photos selected"}
-            if not name:
-                return {"ok": False, "error": "Give the new folder a name, e.g. “Dungannon 14 11 26”"}
-            if direct and not up:
-                return {"ok": False, "error": "setup"}
-            if direct:
-                base = s.get("localDir") if s.get("keepLocal") else os.path.join(
-                    os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "RugbyPhotoEnhancer", "staging")
+                if action == "local":
+                    root = (s.get("driveLocalDir") or "").strip()
+                    try:
+                        os.makedirs(root, exist_ok=True)
+                    except OSError:
+                        return {"ok": False, "error": "Choose a folder on this PC to save into"}
+                    ctx["local_root"], ctx["upload"] = root, False
+                    ctx["open"] = root
+                else:
+                    ctx["upload"] = True
+                    urls = {self.photos[i]["folderUrl"] for i in ids}
+                    ctx["open"] = urls.pop() if len(urls) == 1 else ""
             else:
-                base = s.get("dest", "")
-                if not base:
-                    return {"ok": False, "error": "Choose the folder to save into"}
+                name = safe_folder_name(req.get("name", ""))
+                if not name:
+                    return {"ok": False, "error": "Give the new folder a name, e.g. “Dungannon 14 11 26”"}
+                direct = s.get("mode") == "direct"
+                if direct and not self.uploader():
+                    return {"ok": False, "error": "setup"}
+                if direct:
+                    base = s.get("localDir") if s.get("keepLocal") else self._staging_dir("card")
+                else:
+                    base = s.get("dest", "")
+                    if not base:
+                        return {"ok": False, "error": "Choose the folder to save into"}
+                out_dir = os.path.join(base, name)
                 try:
-                    os.makedirs(base, exist_ok=True)
-                except OSError:
-                    return {"ok": False, "error": f"Can't use {base} — choose another folder"}
-            out_dir = os.path.join(base, name)
-            try:
-                os.makedirs(out_dir, exist_ok=True)
-            except OSError as e:
-                return {"ok": False, "error": f"Couldn't create {out_dir}: {e}"}
-            self.job = {"running": True, "total": len(ids), "enh": 0, "up": 0, "fail": 0, "direct": direct,
-                        "status": {i: "queued" for i in ids}, "errors": {}, "log": [], "name": name,
-                        "open": "" if direct else out_dir, "started": time.time(), "message": "Starting…"}
-        default = PRESETS.get(s.get("preset"), PRESETS["Balanced"])
-        given = req.get("looks") or {}
-        looks = {i: (look_from_list(given[i]) if i in given else dict(default)) for i in ids}
-        threading.Thread(target=self._work, args=(ids, name, s, direct, up, out_dir, looks), daemon=True).start()
+                    os.makedirs(out_dir, exist_ok=True)
+                except OSError as e:
+                    return {"ok": False, "error": f"Couldn't create {out_dir}: {e}"}
+                ctx.update(name=name, upload=direct, out_dir=out_dir, open="" if direct else out_dir,
+                           keep_local=bool(s.get("keepLocal")), keep_orig=bool(s.get("keepOriginals")))
+            given = req.get("looks") or {}
+            looks = {i: (look_from_list(given[i]) if i in given else dict(PRESETS["Auto"])) for i in ids}
+            self.job = {"running": True, "phase": "enhance", "total": len(ids), "enh": 0, "up": 0, "fail": 0,
+                        "direct": ctx["upload"], "status": {i: "queued" for i in ids}, "errors": {}, "log": [],
+                        "open": ctx.get("open", ""), "started": time.time(), "message": "Enhancing…",
+                        "review": False, "staged": {}}
+            self.ctx = ctx
+        threading.Thread(target=self._enhance_phase, args=(ids, looks), daemon=True).start()
         return {"ok": True}
 
     def _log(self, t):
         self.job["log"] = (self.job["log"] + [t])[-200:]
 
-    def _work(self, ids, name, s, direct, up, out_dir, looks):
+    def _mark_imported(self, pid):
+        if self.photos[pid].get("drive"):
+            return
+        with self.cfg_lock:
+            self.cfg.setdefault("imported", []).append(self.photos[pid]["key"])
+
+    def _target(self, pid):
+        """Where stage 1 writes this photo."""
+        ctx, ph = self.ctx, self.photos[pid]
+        base, ext = os.path.splitext(ph["name"])
+        ext = ".png" if ext.lower() == ".png" else ".jpg"
+        if ctx["source"] == "card":
+            return os.path.join(ctx["out_dir"], base + ext)
+        if ctx["action"] == "local":
+            d = os.path.join(ctx["local_root"], safe_folder_name(ph["folderName"]) or "Drive photos")
+            os.makedirs(d, exist_ok=True)
+            return os.path.join(d, base + ext)
+        import hashlib
+        d = self._staging_dir("drive", hashlib.sha1(ph["drive"].encode()).hexdigest()[:16])
+        return os.path.join(d, base + ext)
+
+    def _enhance_phase(self, ids, looks):
         from concurrent.futures import ThreadPoolExecutor
-        job, lock = self.job, threading.Lock()
-        quality = int(s.get("quality", 93))
-        keep_orig, keep_local = bool(s.get("keepOriginals")), bool(s.get("keepLocal"))
-        orig_dir = os.path.join(out_dir, "Originals") if keep_orig else None
-        if orig_dir:
-            os.makedirs(orig_dir, exist_ok=True)
-        folder_id = sub_id = None
-        if direct:
-            try:
-                job["message"] = "Creating the Drive folder…"
-                res = up.mkdir(name)
-                folder_id, job["open"] = res["id"], res.get("url", "")
-                self._log(("Adding to existing" if res.get("existed") else "Created") + f" Drive folder “{name}”")
-                if orig_dir:
-                    sub_id = up.mkdir("Originals", parent=folder_id)["id"]
-            except Exception as e:
-                job.update(running=False, message=f"Couldn't create the Drive folder: {e}", failed=True)
-                return
-
-        def mark_imported(pid):
-            with self.cfg_lock:
-                self.cfg.setdefault("imported", []).append(self.photos[pid]["key"])
-
-        def do_upload(pid, path, fid, is_orig=False):
-            try:
-                if not is_orig:
-                    job["status"][pid] = "uploading"
-                up.upload(path, fid)
-                if is_orig:
-                    return
-                with lock:
-                    job["up"] += 1
-                job["status"][pid] = "done"
-                mark_imported(pid)
-                if not keep_local:
-                    try:
-                        os.remove(path)
-                    except OSError:
-                        pass
-            except Exception as e:
-                if not is_orig:
-                    with lock:
-                        job["fail"] += 1
-                    job["status"][pid], job["errors"][pid] = "error", f"Upload failed: {e}"
-                self._log(f"✗ {os.path.basename(path)}: upload failed — {e}")
-
-        n_workers = max(1, min(2 if cv2 is not None else 4, (os.cpu_count() or 2) - 1))   # pro engine uses ~1 GB per photo
-        job["message"] = "Enhancing…"
-        with ThreadPoolExecutor(max_workers=3) as uploads, ProcessPoolExecutor(max_workers=n_workers) as ex:
-            futs = {}
-            for pid in ids:
-                ph = self.photos[pid]
-                base, ext = os.path.splitext(ph["name"])
-                dst = os.path.join(out_dir, base + (".png" if ext.lower() == ".png" else ".jpg"))
-                futs[ex.submit(process_one, ph["path"], dst, looks[pid], quality)] = (pid, dst)
-                job["status"][pid] = "working"
-            for fut in as_completed(futs):
-                pid, dst = futs[fut]
+        job, ctx, lock = self.job, self.ctx, threading.Lock()
+        n_workers = max(1, min(2 if cv2 is not None else 4, (os.cpu_count() or 2) - 1))   # pro engine ~1 GB per photo
+        with ProcessPoolExecutor(max_workers=n_workers) as ex:
+            def one(pid):
                 ph = self.photos[pid]
                 try:
-                    tags = fut.result()
+                    if ph.get("drive"):
+                        job["status"][pid] = "downloading"
+                    src = self.local_copy(ph, full=True)
+                    job["status"][pid] = "working"
+                    dst = self._target(pid)
+                    tags = ex.submit(process_one, src, dst, looks[pid], ctx["quality"]).result()
                     with lock:
                         job["enh"] += 1
-                    self._log(f"✓ {ph['name']}  ({', '.join(tags)})")
-                    if orig_dir:
-                        op = os.path.join(orig_dir, ph["name"])
-                        shutil.copy2(ph["path"], op)
-                        if direct:
-                            uploads.submit(do_upload, pid, op, sub_id, True)
-                    if direct:
-                        job["status"][pid] = "uploading"
-                        uploads.submit(do_upload, pid, dst, folder_id)
+                    job["staged"][pid] = {"dst": dst, "look": self._look_key(looks[pid])}
+                    self._log(f"✓ {ph.get('folderName', '') + ' / ' if ph.get('folderName') else ''}{ph['name']}  ({', '.join(tags)})")
+                    if ctx["upload"]:
+                        job["status"][pid] = "ready"
                     else:
                         job["status"][pid] = "done"
-                        mark_imported(pid)
+                        self._mark_imported(pid)
+                        if ctx["source"] == "card" and ctx.get("keep_orig"):
+                            od = os.path.join(ctx["out_dir"], "Originals")
+                            os.makedirs(od, exist_ok=True)
+                            shutil.copy2(ph["path"], os.path.join(od, ph["name"]))
+                        if ph.get("drive"):
+                            try:
+                                os.remove(src)
+                            except OSError:
+                                pass
+                            ph["path"] = None
                 except Exception as e:
                     with lock:
                         job["fail"] += 1
                     job["status"][pid], job["errors"][pid] = "error", str(e)
                     self._log(f"✗ {ph['name']}: {e}")
+            with ThreadPoolExecutor(max_workers=3 if ctx["source"] == "drive" else n_workers) as pool:
+                list(pool.map(one, ids))
         with self.cfg_lock:
             self.cfg["imported"] = self.cfg.get("imported", [])[-20000:]
             save_config(self.cfg)
-        ok = job["up"] if direct else job["enh"]
-        job["message"] = (f"{ok} of {job['total']} photos " + ("uploaded to Google Drive" if direct else "saved")
+        n = job["enh"]
+        if ctx["upload"] and n:
+            job["review"] = True
+            where = "Google Drive" if ctx["source"] == "card" else ("Drive (replacing the originals)" if ctx["action"] == "replace" else "the ‘Enhanced’ folders in Drive")
+            failed = " (%d failed)" % job["fail"] if job["fail"] else ""
+            job["message"] = "%d photo%s enhanced%s. Check them, then confirm to upload to %s." % (n, "" if n == 1 else "s", failed, where)
+        else:
+            job["message"] = (f"{n} of {job['total']} photos saved on this PC"
+                              + (f" — {job['fail']} failed, run again to retry them" if job["fail"] else ""))
+            job["finished"] = True
+        job["running"] = False
+
+    def approve(self, req):
+        """Stage 2: the user is happy - redo any photo whose settings changed during the review, then upload."""
+        with self.job_lock:
+            job = self.job
+            if job.get("running") or not job.get("review"):
+                return {"ok": False, "error": "Nothing waiting to upload"}
+            ids = [i for i in req.get("ids", []) if i in job["staged"]]
+            if not ids:
+                return {"ok": False, "error": "No photos selected"}
+            given = req.get("looks") or {}
+            looks = {i: (look_from_list(given[i]) if i in given else None) for i in ids}
+            # photos unticked during the review are dropped (their staged copies removed)
+            for pid, st in list(job["staged"].items()):
+                if pid not in ids:
+                    self._discard_file(pid, st)
+                    job["status"][pid] = "skipped"
+                    del job["staged"][pid]
+            job.update(running=True, phase="upload", review=False, up=0, fail=0, total=len(ids),
+                       started=time.time(), message="Uploading…")
+            for i in ids:
+                job["status"][i] = "queued"
+        threading.Thread(target=self._upload_phase, args=(ids, looks), daemon=True).start()
+        return {"ok": True}
+
+    def _discard_file(self, pid, st):
+        ctx = self.ctx
+        keep = ctx["source"] == "card" and ctx.get("keep_local")
+        if not keep:
+            try:
+                os.remove(st["dst"])
+            except OSError:
+                pass
+
+    def discard(self):
+        """The user isn't happy and cancels: nothing is uploaded, staged copies are removed."""
+        with self.job_lock:
+            job = self.job
+            if job.get("running") or not job.get("review"):
+                return {"ok": False}
+            for pid, st in job["staged"].items():
+                self._discard_file(pid, st)
+                job["status"][pid] = None
+            job.update(review=False, staged={}, finished=False, message="Cancelled — nothing was uploaded.")
+        return {"ok": True}
+
+    def _upload_phase(self, ids, looks):
+        from concurrent.futures import ThreadPoolExecutor
+        job, ctx, lock, up = self.job, self.ctx, threading.Lock(), self.uploader()
+        folder_id = sub_id = None
+        sub_ids, sub_lock = {}, threading.Lock()
+        if ctx["source"] == "card":
+            try:
+                job["message"] = "Creating the Drive folder…"
+                res = up.mkdir(ctx["name"])
+                folder_id, job["open"] = res["id"], res.get("url", "")
+                self._log(("Adding to existing" if res.get("existed") else "Created") + f" Drive folder “{ctx['name']}”")
+                if ctx.get("keep_orig"):
+                    sub_id = up.mkdir("Originals", parent=folder_id)["id"]
+            except Exception as e:
+                job.update(running=False, review=True, message=f"Couldn't create the Drive folder: {e} — try again.")
+                return
+        job["message"] = "Uploading…"
+        n_workers = max(1, min(2 if cv2 is not None else 4, (os.cpu_count() or 2) - 1))
+        with ProcessPoolExecutor(max_workers=n_workers) as ex:
+            def one(pid):
+                ph, st = self.photos[pid], job["staged"][pid]
+                try:
+                    lk = looks.get(pid)
+                    if lk is not None and self._look_key(lk) != st["look"]:
+                        job["status"][pid] = "working"               # settings changed in the review - redo it
+                        src = self.local_copy(ph, full=True)
+                        ex.submit(process_one, src, st["dst"], lk, ctx["quality"]).result()
+                        st["look"] = self._look_key(lk)
+                        self._log(f"↻ {ph['name']} redone with your adjustments")
+                    job["status"][pid] = "uploading"
+                    note = ""
+                    if ctx["source"] == "card":
+                        up.upload(st["dst"], folder_id)
+                        if sub_id:
+                            od = os.path.join(ctx["out_dir"], "Originals")
+                            os.makedirs(od, exist_ok=True)
+                            op = os.path.join(od, ph["name"])
+                            shutil.copy2(ph["path"], op)
+                            up.upload(op, sub_id)
+                    elif ctx["action"] == "subfolder":
+                        with sub_lock:
+                            if ph["folder"] not in sub_ids:
+                                sub_ids[ph["folder"]] = up.mkdir("Enhanced", parent=ph["folder"])["id"]
+                        up.upload(st["dst"], sub_ids[ph["folder"]])
+                    else:
+                        res = up.replace(ph["drive"], st["dst"])
+                        if not res.get("trashed", True):
+                            note = " (original kept - no permission to move it to the Bin)"
+                    with lock:
+                        job["up"] += 1
+                    job["status"][pid] = "done"
+                    self._mark_imported(pid)
+                    self._log(f"⇪ {ph['name']} uploaded{note}")
+                    self._discard_file(pid, st)
+                    if ph.get("drive") and ph.get("path"):
+                        try:
+                            os.remove(ph["path"])
+                        except OSError:
+                            pass
+                        ph["path"] = None
+                except Exception as e:
+                    with lock:
+                        job["fail"] += 1
+                    job["status"][pid], job["errors"][pid] = "error", f"Upload failed: {e}"
+                    self._log(f"✗ {ph['name']}: upload failed — {e}")
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                list(pool.map(one, ids))
+        with self.cfg_lock:
+            self.cfg["imported"] = self.cfg.get("imported", [])[-20000:]
+            save_config(self.cfg)
+        where = ("uploaded to Google Drive" if ctx["source"] == "card"
+                 else "replaced in Google Drive" if ctx["action"] == "replace" else "saved to ‘Enhanced’ folders")
+        job["message"] = (f"{job['up']} of {job['total']} photos {where}"
                           + (f" — {job['fail']} failed, run again to retry them" if job["fail"] else ""))
         job["running"] = False
         job["finished"] = True
 
     def job_view(self):
-        j = dict(self.job)
+        j = {k: v for k, v in self.job.items() if k != "staged"}
         if j.get("running") and j.get("total"):
-            steps = j["total"] * (2 if j["direct"] else 1)
-            done = j["enh"] + j.get("up", 0) + j["fail"] * (2 if j["direct"] else 1)
+            done = (j["enh"] if j.get("phase") == "enhance" else j["up"]) + j["fail"]
             el = time.time() - j["started"]
-            j["eta"] = int(el / max(done, 1) * max(steps - done, 0)) if done else None
-            j["progress"] = done / steps
+            j["eta"] = int(el / max(done, 1) * max(j["total"] - done, 0)) if done else None
+            j["progress"] = done / j["total"]
         return j
 
     # ---------- Drive setup ----------
@@ -1664,7 +1704,7 @@ def make_handler(app):
                 pid = unquote(p[len("/img/"):])
                 kind = q.get("kind", "before")
                 side = 1600 if q.get("size") == "view" else 420
-                look = q.get("s") or ",".join(str(PRESETS["Balanced"][k]) for k in LOOK_KEYS)
+                look = q.get("s") or ",".join(str(PRESETS["Auto"][k]) for k in LOOK_KEYS)
                 try:
                     data = app.thumb(pid, kind, look, side)
                 except Exception as e:
@@ -1704,6 +1744,10 @@ def make_handler(app):
                 return self._send(200, app.drive_folders())
             if p == "/api/drive/load":
                 return self._send(200, app.drive_load(body.get("folders", []), body.get("skipEnhanced", True)))
+            if p == "/api/approve":
+                return self._send(200, app.approve(body))
+            if p == "/api/discard":
+                return self._send(200, app.discard())
             if p == "/api/run":
                 return self._send(200, app.run(body))
             if p == "/api/browse":
@@ -1913,6 +1957,7 @@ UI_HTML = r"""<!DOCTYPE html>
   .tile:hover{border-color:var(--line2)}
   .tile.off{opacity:.38}
   .tile.isdone .sel{visibility:hidden}
+  .review-on .tile:not(.off){box-shadow:0 0 0 1px rgba(111,207,151,.35)}
   .thumb{aspect-ratio:3/2;background:#0c0d0f;cursor:zoom-in;position:relative;overflow:hidden}
   .thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .25s}
   .thumb img.ld{opacity:1}
@@ -2019,8 +2064,10 @@ UI_HTML = r"""<!DOCTYPE html>
     </div>
 
     <div class="sec">
-      <h2>Look</h2>
-      <div class="seg" id="presets"></div>
+      <h2>Enhancement</h2>
+      <div class="seg gone" id="presets"></div>
+      <div class="note" style="margin:0 0 4px;color:var(--text)">✨ <b>Auto</b> — every photo is analysed and tuned individually.</div>
+      <div class="note" style="margin:0">Click any photo to see what it got, or fine-tune it.</div>
       <div class="row" style="margin-top:9px;justify-content:space-between">
         <span class="count">JPEG quality</span>
         <select id="quality"><option value="88">Good (88%)</option><option value="93">High (93%)</option><option value="97">Max (97%)</option></select>
@@ -2055,6 +2102,7 @@ UI_HTML = r"""<!DOCTYPE html>
         <input type="text" id="folderName" placeholder="e.g. Dungannon 14 11 26" spellcheck="false">
       </div>
       <div class="namebox gone" id="driveBox"><label>Improving earlier uploads</label><div style="font-size:18px;padding:9px 0" id="driveSummary">Pick folders on the left, then Load photos.</div></div>
+      <button class="btn ghost go gone" id="cancelReview">Cancel</button>
       <button class="btn go" id="go" disabled>Enhance &amp; upload</button>
     </div>
     <div class="progress"><div class="bar"><i id="bar"></i></div><div class="stat"><span id="status">Put the camera card in and pick a date.</span><span id="eta"></span></div></div>
@@ -2093,15 +2141,15 @@ UI_HTML = r"""<!DOCTYPE html>
       </div>
     </div>
     <div class="panel">
-      <h4>Look for this photo</h4>
-      <div class="seg" id="mLooks"><button data-l="">Default</button><button data-l="Gentle">Gentle</button><button data-l="Balanced">Balanced</button><button data-l="Punchy">Punchy</button></div>
-      <div class="note" id="mLookNote"></div>
+      <h4>This photo</h4>
+      <div class="seg gone" id="mLooks"></div>
+      <div class="note" id="mLookNote" style="color:var(--text)"></div>
       <div id="sliders"></div>
       <div class="row" style="margin-top:14px;flex-wrap:wrap">
-        <button class="btn ghost sm" id="mReset">Reset</button>
+        <button class="btn ghost sm" id="mReset">Reset to Auto</button>
         <button class="btn ghost sm" id="mApplyAll">Use on all selected</button>
       </div>
-      <div class="note" style="margin-top:12px">Changes are used for this photo when you upload. Keys: ← → next/previous, X exclude.</div>
+      <div class="note" style="margin-top:12px">The sliders show what Auto chose. Move one only if you want to override it — your change is used for this photo when you save. Keys: ← → next/previous, X exclude.</div>
     </div>
   </div>
 </div>
@@ -2129,6 +2177,17 @@ UI_HTML = r"""<!DOCTYPE html>
   </div>
 </div>
 
+<div class="dlg" id="happy">
+  <div class="card" style="width:min(520px,94vw)">
+    <h3 id="happyTitle">All done — are you happy with them?</h3>
+    <p id="happyText"></p>
+    <div class="row" style="justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn ghost" id="happyReview">Let me check them first</button>
+      <button class="btn" id="happyYes">Yes, upload</button>
+    </div>
+  </div>
+</div>
+
 <div class="dlg" id="confirm">
   <div class="card" style="width:min(460px,94vw)">
     <h3>Replace photos in Drive?</h3>
@@ -2147,7 +2206,7 @@ UI_HTML = r"""<!DOCTYPE html>
     const r = await fetch(path + (body ? "" : (path.includes("?") ? "&" : "?") + "t=" + T), body ? {method:"POST", headers:{"Content-Type":"application/json","X-Token":T}, body:JSON.stringify(body)} : {});
     return r.json();
   };
-  let S = null, photos = [], show = "after", running = false, lastStatus = {}, source = "card", driveFolderList = [];
+  let S = null, photos = [], show = "after", running = false, reviewing = false, lastStatus = {}, source = "card", driveFolderList = [];
   const fmtEta = s => s == null ? "" : s < 60 ? `about ${s}s left` : `about ${Math.floor(s/60)}m ${s%60}s left`;
   let tt; const toast = t => { const e = $("toast"); e.textContent = t; e.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => e.classList.remove("show"), 3200); };
   const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -2162,7 +2221,7 @@ UI_HTML = r"""<!DOCTYPE html>
   const globalPreset = () => document.querySelector("#presets .on").dataset.p;
   const lookVals = p => (p.look && p.look.vals) || S.presets[(p.look && p.look.preset) || globalPreset()];
   const lookStr = p => lookVals(p).map(v => +(+v).toFixed(3)).join(",");
-  const lookName = p => !p.look ? "" : p.look.vals ? "Custom" : p.look.preset;
+  const lookName = p => p.look && p.look.vals ? "Custom" : "";
 
   /* ---------- settings ---------- */
   function settings(){
@@ -2198,7 +2257,7 @@ UI_HTML = r"""<!DOCTYPE html>
     $("driveLocalDir").value = st.driveLocalDir;
     document.querySelector(`input[name=driveAction][value=${["subfolder","local"].includes(S.drive.action) ? S.drive.action : "replace"}]`).checked = true;
     document.querySelector(`input[name=mode][value=${st.mode === "folder" ? "folder" : "direct"}]`).checked = true;
-    $("presets").innerHTML = Object.keys(S.presets).map(p => `<button data-p="${p}" class="${p === st.preset ? "on" : ""}">${p}</button>`).join("");
+    $("presets").innerHTML = `<button data-p="Auto" class="on">Auto</button>`;
     const d = new Date(); $("folderName").value = [d.getDate(), d.getMonth()+1, d.getFullYear()%100].map(n => String(n).padStart(2,"0")).join(" ");
     $("folderLink").value = S.drive.folderLink;
     buildSliders();
@@ -2233,6 +2292,7 @@ UI_HTML = r"""<!DOCTYPE html>
   /* ---------- source switch ---------- */
   $("srcTabs").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b || running) return;
+    if (reviewing) { toast("Upload or cancel the photos waiting for your OK first"); return; }
     source = b.dataset.s;
     $("srcTabs").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
     const drive = source === "drive";
@@ -2277,7 +2337,7 @@ UI_HTML = r"""<!DOCTYPE html>
 
   /* ---------- photos (card) ---------- */
   async function scan(){
-    if (running || source !== "card") return;
+    if (running || reviewing || source !== "card") return;
     $("grid").innerHTML = `<div class="empty"><div class="big">Reading the card…</div></div>`;
     const s = settings();
     const r = await api("/api/scan", {source: s.source, onlyDate: s.onlyDate, date: $("day").value, skip: s.skip});
@@ -2327,6 +2387,7 @@ UI_HTML = r"""<!DOCTYPE html>
   }
   function refreshTile(p){
     const img = p.el && p.el.querySelector("img"); if (!img) return;
+    paintBadge(p);
     const u = imgURL(p, show);
     if (img.src) { img.classList.remove("ld"); img.src = u; } else img.dataset.src = u;
     paintChip(p);
@@ -2343,7 +2404,7 @@ UI_HTML = r"""<!DOCTYPE html>
     if (running) return;
     const p = photos[i]; if (!p || p.done) return;
     p.include = !p.include; p.el.classList.toggle("off", !p.include);
-    updateCount(); if (cur === i) $("mToggle").textContent = p.include ? "Exclude" : "Include";
+    paintBadge(p); updateCount(); if (cur === i) $("mToggle").textContent = p.include ? "Exclude" : "Include";
   }
   function setFolder(f, on){
     if (running) return;
@@ -2370,10 +2431,19 @@ UI_HTML = r"""<!DOCTYPE html>
     let verb;
     if (source === "drive") verb = document.querySelector("input[name=driveAction]:checked").value === "replace" ? "replace" : "save";
     else verb = settings().mode === "direct" ? "upload" : "save";
-    $("go").textContent = running ? "Working…" : n ? `Enhance & ${verb} ${n} photo${n === 1 ? "" : "s"}` : `Enhance & ${verb}`;
+    $("cancelReview").classList.toggle("gone", !reviewing);
+    document.body.classList.toggle("review-on", reviewing);
+    if (reviewing) {
+      const r = photos.filter(p => p.include && lastStatus[p.id] === "ready").length;
+      const what = source === "drive" && document.querySelector("input[name=driveAction]:checked").value === "replace" ? "replace" : "upload";
+      $("go").textContent = r ? `✓ Happy — ${what} ${r} photo${r === 1 ? "" : "s"}` : "Nothing selected";
+      $("go").disabled = running || !r;
+      return;
+    }
+    $("go").textContent = running ? "Working…" : n ? `Enhance ${n} photo${n === 1 ? "" : "s"}` : "Enhance";
     $("go").disabled = running || !n || (source === "card" && !$("folderName").value.trim());
   }
-  const BADGE = {queued:["Queued","work"], downloading:["Downloading…","up"], working:["Enhancing…","work"], uploading:["Uploading…","up"], done:["✓ Done","ok"], error:["✗ Failed","bad"]};
+  const BADGE = {queued:["Queued","work"], downloading:["Downloading…","up"], working:["Enhancing…","work"], ready:["✓ Ready","ok"], uploading:["Uploading…","up"], done:["✓ Done","ok"], error:["✗ Failed","bad"], skipped:["Skipped",""]};
   function paintBadge(p){
     const b = p.el && p.el.querySelector(".badge"); if (!b) return;
     const st = lastStatus[p.id];
@@ -2383,25 +2453,55 @@ UI_HTML = r"""<!DOCTYPE html>
     b.className = "badge " + cls;
     const dAct = document.querySelector("input[name=driveAction]:checked").value;
     b.textContent = st === "done" ? (source === "drive" ? (dAct === "local" ? "✓ Saved" : "✓ Improved") : settings().mode === "direct" ? "✓ In Drive" : "✓ Saved") : txt;
+    if (st === "ready" && p.lookAtRun && lookStr(p) !== p.lookAtRun) { b.textContent = "↻ Will redo"; b.className = "badge work"; }
+    if (st === "ready" && !p.include) { b.textContent = "Won't upload"; b.className = "badge"; }
     b.title = st === "error" && p.err ? p.err : "";
   }
   function setStatus(t, eta){ $("status").textContent = t || ""; $("eta").textContent = eta || ""; }
 
   /* ---------- run ---------- */
   $("go").onclick = async () => {
+    if (reviewing) { approve(); return; }
     const chosen = photos.filter(p => p.include);
-    const looks = {}; chosen.forEach(p => looks[p.id] = lookVals(p));
+    const looks = {}; chosen.forEach(p => { looks[p.id] = lookVals(p); p.lookAtRun = lookStr(p); });
     const body = {ids: chosen.map(p => p.id), looks, settings: settings(), source};
-    if (source === "drive") {
-      body.action = document.querySelector("input[name=driveAction]:checked").value;
-      if (body.action === "replace" && !confirmReplace) { askReplace(chosen.length); return; }
-    } else body.name = $("folderName").value.trim();
-    confirmReplace = false;
+    if (source === "drive") body.action = document.querySelector("input[name=driveAction]:checked").value;
+    else body.name = $("folderName").value.trim();
     const r = await api("/api/run", body);
     if (!r.ok) { if (r.error === "setup") openSetup(); else toast(r.error); return; }
     running = true; updateGo(); $("openBtn").classList.add("gone");
     poll();
   };
+  async function approve(){
+    $("happy").classList.remove("open");
+    const chosen = photos.filter(p => p.include && lastStatus[p.id] === "ready");
+    if (!chosen.length) { toast("Tick at least one photo to upload"); return; }
+    const looks = {}; chosen.forEach(p => looks[p.id] = lookVals(p));
+    const r = await api("/api/approve", {ids: chosen.map(p => p.id), looks});
+    if (!r.ok) { toast(r.error || "Couldn't start the upload"); return; }
+    reviewing = false; running = true; updateGo(); poll();
+  }
+  $("cancelReview").onclick = async () => {
+    await api("/api/discard", {});
+    reviewing = false; lastStatus = {}; photos.forEach(p => { paintBadge(p); });
+    setStatus("Cancelled — nothing was uploaded. Adjust anything you like and click Enhance again.");
+    $("bar").style.width = "0"; updateGo();
+  };
+  $("happyReview").onclick = () => { $("happy").classList.remove("open"); toast("Click any photo to compare. Untick any you don't want, then press “Happy — upload”."); };
+  $("happyYes").onclick = () => approve();
+  function askHappy(j){
+    const n = photos.filter(p => lastStatus[p.id] === "ready").length;
+    const replace = source === "drive" && document.querySelector("input[name=driveAction]:checked").value === "replace";
+    const sub = source === "drive" && !replace;
+    $("happyTitle").textContent = `${n} photo${n === 1 ? "" : "s"} enhanced — are you happy with them?`;
+    $("happyText").textContent = (replace ? "If you say yes, they replace the photos in Google Drive (the originals go to Drive’s Bin for 30 days). "
+      : sub ? "If you say yes, they're saved into an “Enhanced” folder inside each match folder. "
+      : `If you say yes, they're uploaded to a new “${$("folderName").value.trim()}” folder in Rugby. `)
+      + "Nothing has been uploaded yet — you can check them first, untick any, or fine-tune one (it's redone automatically)."
+      + (j.fail ? ` ${j.fail} couldn't be enhanced and will be left out.` : "");
+    $("happyYes").textContent = replace ? "Yes, replace them" : "Yes, upload";
+    $("happy").classList.add("open");
+  }
   let confirmReplace = false;
   function askReplace(n){
     $("setupMsg").textContent = "";
@@ -2417,11 +2517,17 @@ UI_HTML = r"""<!DOCTYPE html>
     photos.forEach(p => { p.err = (j.errors || {})[p.id]; paintBadge(p); });
     $("bar").style.width = ((j.running ? j.progress || 0 : (j.finished ? 1 : 0)) * 100) + "%";
     if (j.running) {
-      const t = j.direct ? `Enhanced ${j.enh} of ${j.total} · Uploaded ${j.up} of ${j.total}` : `Enhanced ${j.enh} of ${j.total}`;
-      setStatus(j.enh === 0 && j.up === 0 ? j.message : t, fmtEta(j.eta));
+      const t = j.phase === "upload" ? `Uploading ${j.up} of ${j.total}` : `Enhancing ${j.enh} of ${j.total}`;
+      setStatus(t, fmtEta(j.eta));
       setTimeout(poll, 700);
+    } else if (j.review) {
+      running = false; reviewing = true;
+      $("bar").style.width = "100%";
+      setStatus(j.message, "");
+      updateCount(); updateGo();
+      askHappy(j);
     } else {
-      running = false;
+      running = false; reviewing = false;
       photos.forEach(p => { if (lastStatus[p.id] === "done") { p.include = false; p.done = true; } });
       updateCount(); updateGo();
       setStatus(j.message || "Done.", "");
@@ -2450,15 +2556,14 @@ UI_HTML = r"""<!DOCTYPE html>
     setSliders(lookVals(p));
     const which = p.look ? (p.look.vals ? "custom" : p.look.preset) : "";
     $("mLooks").querySelectorAll("button").forEach(b => b.classList.toggle("on", which !== "custom" && b.dataset.l === which));
-    const name = p.look ? p.look.preset : globalPreset();
-    if (p.look && p.look.vals) { $("mLookNote").textContent = "Custom settings for this photo."; return; }
-    $("mLookNote").textContent = `${name} — tuning for this photo…`;
+    if (p.look && p.look.vals) { $("mLookNote").textContent = "Your own settings for this photo. “Reset to Auto” goes back."; return; }
+    $("mLookNote").textContent = "✨ Auto — analysing this photo…";
     const seq = ++autoSeq;
     api(`/api/auto/${encodeURIComponent(p.id)}?s=${lookStr(p)}`).then(r => {
       if (seq !== autoSeq || photos[cur] !== p || (p.look && p.look.vals)) return;
-      if (!r.ok) { $("mLookNote").textContent = `${name} look.`; return; }
+      if (!r.ok) { $("mLookNote").textContent = "✨ Auto"; return; }
       setSliders(r.vals);
-      $("mLookNote").textContent = `${name}, auto-tuned for this photo` + (r.notes.length ? ": " + r.notes.join(" · ") + "." : ".") + " Move any slider to take over.";
+      $("mLookNote").textContent = "✨ Auto-tuned for this photo" + (r.notes.length ? ": " + r.notes.join(" · ") + "." : ".");
     });
   }
   $("mLooks").addEventListener("click", e => {
@@ -2471,7 +2576,7 @@ UI_HTML = r"""<!DOCTYPE html>
     const p = photos[cur]; if (!p) return;
     const lk = p.look ? JSON.parse(JSON.stringify(p.look)) : null; let n = 0;
     photos.forEach(q => { if (q.include && q !== p && !q.done) { q.look = lk ? JSON.parse(JSON.stringify(lk)) : null; refreshTile(q); n++; } });
-    toast(`Look copied to ${n} other selected photo${n === 1 ? "" : "s"}`);
+    toast(lk ? `These settings copied to ${n} other selected photo${n === 1 ? "" : "s"}` : `${n} other selected photo${n === 1 ? "" : "s"} set back to Auto`);
   };
   function loadAfter(p){
     const seq = ++viewSeq; $("mUpd").classList.add("on");

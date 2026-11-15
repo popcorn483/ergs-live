@@ -70,6 +70,7 @@
   .tile:hover{border-color:var(--line2)}
   .tile.off{opacity:.38}
   .tile.isdone .sel{visibility:hidden}
+  .review-on .tile:not(.off){box-shadow:0 0 0 1px rgba(111,207,151,.35)}
   .thumb{aspect-ratio:3/2;background:#0c0d0f;cursor:zoom-in;position:relative;overflow:hidden}
   .thumb img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .25s}
   .thumb img.ld{opacity:1}
@@ -176,8 +177,10 @@
     </div>
 
     <div class="sec">
-      <h2>Look</h2>
-      <div class="seg" id="presets"></div>
+      <h2>Enhancement</h2>
+      <div class="seg gone" id="presets"></div>
+      <div class="note" style="margin:0 0 4px;color:var(--text)">✨ <b>Auto</b> — every photo is analysed and tuned individually.</div>
+      <div class="note" style="margin:0">Click any photo to see what it got, or fine-tune it.</div>
       <div class="row" style="margin-top:9px;justify-content:space-between">
         <span class="count">JPEG quality</span>
         <select id="quality"><option value="88">Good (88%)</option><option value="93">High (93%)</option><option value="97">Max (97%)</option></select>
@@ -212,6 +215,7 @@
         <input type="text" id="folderName" placeholder="e.g. Dungannon 14 11 26" spellcheck="false">
       </div>
       <div class="namebox gone" id="driveBox"><label>Improving earlier uploads</label><div style="font-size:18px;padding:9px 0" id="driveSummary">Pick folders on the left, then Load photos.</div></div>
+      <button class="btn ghost go gone" id="cancelReview">Cancel</button>
       <button class="btn go" id="go" disabled>Enhance &amp; upload</button>
     </div>
     <div class="progress"><div class="bar"><i id="bar"></i></div><div class="stat"><span id="status">Put the camera card in and pick a date.</span><span id="eta"></span></div></div>
@@ -250,15 +254,15 @@
       </div>
     </div>
     <div class="panel">
-      <h4>Look for this photo</h4>
-      <div class="seg" id="mLooks"><button data-l="">Default</button><button data-l="Gentle">Gentle</button><button data-l="Balanced">Balanced</button><button data-l="Punchy">Punchy</button></div>
-      <div class="note" id="mLookNote"></div>
+      <h4>This photo</h4>
+      <div class="seg gone" id="mLooks"></div>
+      <div class="note" id="mLookNote" style="color:var(--text)"></div>
       <div id="sliders"></div>
       <div class="row" style="margin-top:14px;flex-wrap:wrap">
-        <button class="btn ghost sm" id="mReset">Reset</button>
+        <button class="btn ghost sm" id="mReset">Reset to Auto</button>
         <button class="btn ghost sm" id="mApplyAll">Use on all selected</button>
       </div>
-      <div class="note" style="margin-top:12px">Changes are used for this photo when you upload. Keys: ← → next/previous, X exclude.</div>
+      <div class="note" style="margin-top:12px">The sliders show what Auto chose. Move one only if you want to override it — your change is used for this photo when you save. Keys: ← → next/previous, X exclude.</div>
     </div>
   </div>
 </div>
@@ -286,6 +290,17 @@
   </div>
 </div>
 
+<div class="dlg" id="happy">
+  <div class="card" style="width:min(520px,94vw)">
+    <h3 id="happyTitle">All done — are you happy with them?</h3>
+    <p id="happyText"></p>
+    <div class="row" style="justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn ghost" id="happyReview">Let me check them first</button>
+      <button class="btn" id="happyYes">Yes, upload</button>
+    </div>
+  </div>
+</div>
+
 <div class="dlg" id="confirm">
   <div class="card" style="width:min(460px,94vw)">
     <h3>Replace photos in Drive?</h3>
@@ -304,7 +319,7 @@
     const r = await fetch(path + (body ? "" : (path.includes("?") ? "&" : "?") + "t=" + T), body ? {method:"POST", headers:{"Content-Type":"application/json","X-Token":T}, body:JSON.stringify(body)} : {});
     return r.json();
   };
-  let S = null, photos = [], show = "after", running = false, lastStatus = {}, source = "card", driveFolderList = [];
+  let S = null, photos = [], show = "after", running = false, reviewing = false, lastStatus = {}, source = "card", driveFolderList = [];
   const fmtEta = s => s == null ? "" : s < 60 ? `about ${s}s left` : `about ${Math.floor(s/60)}m ${s%60}s left`;
   let tt; const toast = t => { const e = $("toast"); e.textContent = t; e.classList.add("show"); clearTimeout(tt); tt = setTimeout(() => e.classList.remove("show"), 3200); };
   const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -319,7 +334,7 @@
   const globalPreset = () => document.querySelector("#presets .on").dataset.p;
   const lookVals = p => (p.look && p.look.vals) || S.presets[(p.look && p.look.preset) || globalPreset()];
   const lookStr = p => lookVals(p).map(v => +(+v).toFixed(3)).join(",");
-  const lookName = p => !p.look ? "" : p.look.vals ? "Custom" : p.look.preset;
+  const lookName = p => p.look && p.look.vals ? "Custom" : "";
 
   /* ---------- settings ---------- */
   function settings(){
@@ -355,7 +370,7 @@
     $("driveLocalDir").value = st.driveLocalDir;
     document.querySelector(`input[name=driveAction][value=${["subfolder","local"].includes(S.drive.action) ? S.drive.action : "replace"}]`).checked = true;
     document.querySelector(`input[name=mode][value=${st.mode === "folder" ? "folder" : "direct"}]`).checked = true;
-    $("presets").innerHTML = Object.keys(S.presets).map(p => `<button data-p="${p}" class="${p === st.preset ? "on" : ""}">${p}</button>`).join("");
+    $("presets").innerHTML = `<button data-p="Auto" class="on">Auto</button>`;
     const d = new Date(); $("folderName").value = [d.getDate(), d.getMonth()+1, d.getFullYear()%100].map(n => String(n).padStart(2,"0")).join(" ");
     $("folderLink").value = S.drive.folderLink;
     buildSliders();
@@ -390,6 +405,7 @@
   /* ---------- source switch ---------- */
   $("srcTabs").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b || running) return;
+    if (reviewing) { toast("Upload or cancel the photos waiting for your OK first"); return; }
     source = b.dataset.s;
     $("srcTabs").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
     const drive = source === "drive";
@@ -434,7 +450,7 @@
 
   /* ---------- photos (card) ---------- */
   async function scan(){
-    if (running || source !== "card") return;
+    if (running || reviewing || source !== "card") return;
     $("grid").innerHTML = `<div class="empty"><div class="big">Reading the card…</div></div>`;
     const s = settings();
     const r = await api("/api/scan", {source: s.source, onlyDate: s.onlyDate, date: $("day").value, skip: s.skip});
@@ -484,6 +500,7 @@
   }
   function refreshTile(p){
     const img = p.el && p.el.querySelector("img"); if (!img) return;
+    paintBadge(p);
     const u = imgURL(p, show);
     if (img.src) { img.classList.remove("ld"); img.src = u; } else img.dataset.src = u;
     paintChip(p);
@@ -500,7 +517,7 @@
     if (running) return;
     const p = photos[i]; if (!p || p.done) return;
     p.include = !p.include; p.el.classList.toggle("off", !p.include);
-    updateCount(); if (cur === i) $("mToggle").textContent = p.include ? "Exclude" : "Include";
+    paintBadge(p); updateCount(); if (cur === i) $("mToggle").textContent = p.include ? "Exclude" : "Include";
   }
   function setFolder(f, on){
     if (running) return;
@@ -527,10 +544,19 @@
     let verb;
     if (source === "drive") verb = document.querySelector("input[name=driveAction]:checked").value === "replace" ? "replace" : "save";
     else verb = settings().mode === "direct" ? "upload" : "save";
-    $("go").textContent = running ? "Working…" : n ? `Enhance & ${verb} ${n} photo${n === 1 ? "" : "s"}` : `Enhance & ${verb}`;
+    $("cancelReview").classList.toggle("gone", !reviewing);
+    document.body.classList.toggle("review-on", reviewing);
+    if (reviewing) {
+      const r = photos.filter(p => p.include && lastStatus[p.id] === "ready").length;
+      const what = source === "drive" && document.querySelector("input[name=driveAction]:checked").value === "replace" ? "replace" : "upload";
+      $("go").textContent = r ? `✓ Happy — ${what} ${r} photo${r === 1 ? "" : "s"}` : "Nothing selected";
+      $("go").disabled = running || !r;
+      return;
+    }
+    $("go").textContent = running ? "Working…" : n ? `Enhance ${n} photo${n === 1 ? "" : "s"}` : "Enhance";
     $("go").disabled = running || !n || (source === "card" && !$("folderName").value.trim());
   }
-  const BADGE = {queued:["Queued","work"], downloading:["Downloading…","up"], working:["Enhancing…","work"], uploading:["Uploading…","up"], done:["✓ Done","ok"], error:["✗ Failed","bad"]};
+  const BADGE = {queued:["Queued","work"], downloading:["Downloading…","up"], working:["Enhancing…","work"], ready:["✓ Ready","ok"], uploading:["Uploading…","up"], done:["✓ Done","ok"], error:["✗ Failed","bad"], skipped:["Skipped",""]};
   function paintBadge(p){
     const b = p.el && p.el.querySelector(".badge"); if (!b) return;
     const st = lastStatus[p.id];
@@ -540,25 +566,55 @@
     b.className = "badge " + cls;
     const dAct = document.querySelector("input[name=driveAction]:checked").value;
     b.textContent = st === "done" ? (source === "drive" ? (dAct === "local" ? "✓ Saved" : "✓ Improved") : settings().mode === "direct" ? "✓ In Drive" : "✓ Saved") : txt;
+    if (st === "ready" && p.lookAtRun && lookStr(p) !== p.lookAtRun) { b.textContent = "↻ Will redo"; b.className = "badge work"; }
+    if (st === "ready" && !p.include) { b.textContent = "Won't upload"; b.className = "badge"; }
     b.title = st === "error" && p.err ? p.err : "";
   }
   function setStatus(t, eta){ $("status").textContent = t || ""; $("eta").textContent = eta || ""; }
 
   /* ---------- run ---------- */
   $("go").onclick = async () => {
+    if (reviewing) { approve(); return; }
     const chosen = photos.filter(p => p.include);
-    const looks = {}; chosen.forEach(p => looks[p.id] = lookVals(p));
+    const looks = {}; chosen.forEach(p => { looks[p.id] = lookVals(p); p.lookAtRun = lookStr(p); });
     const body = {ids: chosen.map(p => p.id), looks, settings: settings(), source};
-    if (source === "drive") {
-      body.action = document.querySelector("input[name=driveAction]:checked").value;
-      if (body.action === "replace" && !confirmReplace) { askReplace(chosen.length); return; }
-    } else body.name = $("folderName").value.trim();
-    confirmReplace = false;
+    if (source === "drive") body.action = document.querySelector("input[name=driveAction]:checked").value;
+    else body.name = $("folderName").value.trim();
     const r = await api("/api/run", body);
     if (!r.ok) { if (r.error === "setup") openSetup(); else toast(r.error); return; }
     running = true; updateGo(); $("openBtn").classList.add("gone");
     poll();
   };
+  async function approve(){
+    $("happy").classList.remove("open");
+    const chosen = photos.filter(p => p.include && lastStatus[p.id] === "ready");
+    if (!chosen.length) { toast("Tick at least one photo to upload"); return; }
+    const looks = {}; chosen.forEach(p => looks[p.id] = lookVals(p));
+    const r = await api("/api/approve", {ids: chosen.map(p => p.id), looks});
+    if (!r.ok) { toast(r.error || "Couldn't start the upload"); return; }
+    reviewing = false; running = true; updateGo(); poll();
+  }
+  $("cancelReview").onclick = async () => {
+    await api("/api/discard", {});
+    reviewing = false; lastStatus = {}; photos.forEach(p => { paintBadge(p); });
+    setStatus("Cancelled — nothing was uploaded. Adjust anything you like and click Enhance again.");
+    $("bar").style.width = "0"; updateGo();
+  };
+  $("happyReview").onclick = () => { $("happy").classList.remove("open"); toast("Click any photo to compare. Untick any you don't want, then press “Happy — upload”."); };
+  $("happyYes").onclick = () => approve();
+  function askHappy(j){
+    const n = photos.filter(p => lastStatus[p.id] === "ready").length;
+    const replace = source === "drive" && document.querySelector("input[name=driveAction]:checked").value === "replace";
+    const sub = source === "drive" && !replace;
+    $("happyTitle").textContent = `${n} photo${n === 1 ? "" : "s"} enhanced — are you happy with them?`;
+    $("happyText").textContent = (replace ? "If you say yes, they replace the photos in Google Drive (the originals go to Drive’s Bin for 30 days). "
+      : sub ? "If you say yes, they're saved into an “Enhanced” folder inside each match folder. "
+      : `If you say yes, they're uploaded to a new “${$("folderName").value.trim()}” folder in Rugby. `)
+      + "Nothing has been uploaded yet — you can check them first, untick any, or fine-tune one (it's redone automatically)."
+      + (j.fail ? ` ${j.fail} couldn't be enhanced and will be left out.` : "");
+    $("happyYes").textContent = replace ? "Yes, replace them" : "Yes, upload";
+    $("happy").classList.add("open");
+  }
   let confirmReplace = false;
   function askReplace(n){
     $("setupMsg").textContent = "";
@@ -574,11 +630,17 @@
     photos.forEach(p => { p.err = (j.errors || {})[p.id]; paintBadge(p); });
     $("bar").style.width = ((j.running ? j.progress || 0 : (j.finished ? 1 : 0)) * 100) + "%";
     if (j.running) {
-      const t = j.direct ? `Enhanced ${j.enh} of ${j.total} · Uploaded ${j.up} of ${j.total}` : `Enhanced ${j.enh} of ${j.total}`;
-      setStatus(j.enh === 0 && j.up === 0 ? j.message : t, fmtEta(j.eta));
+      const t = j.phase === "upload" ? `Uploading ${j.up} of ${j.total}` : `Enhancing ${j.enh} of ${j.total}`;
+      setStatus(t, fmtEta(j.eta));
       setTimeout(poll, 700);
+    } else if (j.review) {
+      running = false; reviewing = true;
+      $("bar").style.width = "100%";
+      setStatus(j.message, "");
+      updateCount(); updateGo();
+      askHappy(j);
     } else {
-      running = false;
+      running = false; reviewing = false;
       photos.forEach(p => { if (lastStatus[p.id] === "done") { p.include = false; p.done = true; } });
       updateCount(); updateGo();
       setStatus(j.message || "Done.", "");
@@ -607,15 +669,14 @@
     setSliders(lookVals(p));
     const which = p.look ? (p.look.vals ? "custom" : p.look.preset) : "";
     $("mLooks").querySelectorAll("button").forEach(b => b.classList.toggle("on", which !== "custom" && b.dataset.l === which));
-    const name = p.look ? p.look.preset : globalPreset();
-    if (p.look && p.look.vals) { $("mLookNote").textContent = "Custom settings for this photo."; return; }
-    $("mLookNote").textContent = `${name} — tuning for this photo…`;
+    if (p.look && p.look.vals) { $("mLookNote").textContent = "Your own settings for this photo. “Reset to Auto” goes back."; return; }
+    $("mLookNote").textContent = "✨ Auto — analysing this photo…";
     const seq = ++autoSeq;
     api(`/api/auto/${encodeURIComponent(p.id)}?s=${lookStr(p)}`).then(r => {
       if (seq !== autoSeq || photos[cur] !== p || (p.look && p.look.vals)) return;
-      if (!r.ok) { $("mLookNote").textContent = `${name} look.`; return; }
+      if (!r.ok) { $("mLookNote").textContent = "✨ Auto"; return; }
       setSliders(r.vals);
-      $("mLookNote").textContent = `${name}, auto-tuned for this photo` + (r.notes.length ? ": " + r.notes.join(" · ") + "." : ".") + " Move any slider to take over.";
+      $("mLookNote").textContent = "✨ Auto-tuned for this photo" + (r.notes.length ? ": " + r.notes.join(" · ") + "." : ".");
     });
   }
   $("mLooks").addEventListener("click", e => {
@@ -628,7 +689,7 @@
     const p = photos[cur]; if (!p) return;
     const lk = p.look ? JSON.parse(JSON.stringify(p.look)) : null; let n = 0;
     photos.forEach(q => { if (q.include && q !== p && !q.done) { q.look = lk ? JSON.parse(JSON.stringify(lk)) : null; refreshTile(q); n++; } });
-    toast(`Look copied to ${n} other selected photo${n === 1 ? "" : "s"}`);
+    toast(lk ? `These settings copied to ${n} other selected photo${n === 1 ? "" : "s"}` : `${n} other selected photo${n === 1 ? "" : "s"} set back to Auto`);
   };
   function loadAfter(p){
     const seq = ++viewSeq; $("mUpd").classList.add("on");

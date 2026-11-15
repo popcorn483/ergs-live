@@ -1,11 +1,11 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "file": "rugby_photo_enhancer.py",
-  "sha256": "12bc4d07dcdc01ca337b87635883bb68e924b64bf0c7804ae0cfa5dd0cae8e74",
+  "sha256": "21a66ce78064dadc1e4dd8a74ebd825f8898b932d13c08ff4a73ff43d803df2c",
   "requires": [
     "pillow",
     "numpy",
     "opencv-python-headless"
   ],
-  "notes": "Professional engine: linear-light white balance, skin-metered exposure, halo-free tone mapping, highlight roll-off, noise reduction and edge-only sharpening."
+  "notes": "Always Auto: every photo tuned individually. Asks if you're happy before anything is uploaded."
 }

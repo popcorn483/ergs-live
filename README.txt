@@ -27,11 +27,13 @@ EACH MATCH
   1. Put the SD card in (photos are read from E:\DCIM\100CANON - change with Browse).
   2. Type the folder name, e.g. "Dungannon 14 11 26".
   3. By default it only takes photos taken today, and skips any already imported.
-  4. Look through the grid (it shows the enhanced versions). Click any photo for a
-     before/after slider - arrow keys move between photos, X excludes one.
-     Untick any photos you don't want.
-  5. Click "Enhance & upload". A new folder is made in Rugby on Google Drive and the
-     full-size enhanced photos are uploaded into it. "Open in Google Drive" opens it.
+  4. Click "Enhance". Every photo is analysed and tuned automatically - there's no look
+     to choose.
+  5. When they're done it asks "are you happy with them?". Nothing is uploaded yet.
+     Say yes, or check them first: click any photo for a before/after slider (arrow keys
+     move between photos, X excludes one), untick any you don't want, or move a slider
+     to fine-tune one - it's redone automatically. Then press "Happy - upload".
+     Cancel uploads nothing.
 
 THE ENHANCEMENT ENGINE (v2)
   Works like a professional raw editor's "Auto", in this order:
@@ -53,7 +55,6 @@ PHOTO-BY-PHOTO TUNING
   contrast only for flat photos, colour correction only when there's a real cast (judged
   from white kit, lines, cloud - never the green pitch), vibrance for dull colours,
   more sharpening for soft shots and less for crisp ones, plus the shadow/highlight fixes.
-  Gentle / Balanced / Punchy set how far it's allowed to go.
   The viewer shows the values chosen for each photo and why.
 
 FINE-TUNING A PHOTO
