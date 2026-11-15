@@ -1,0 +1,20 @@
+// Who is asking for access: nobody reaches the form without choosing, and the coaches' waiting list says what each person chose.
+const { chromium } = require('playwright'); const { open } = require('./real.js');
+const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) process.exitCode = 1; };
+(async () => { const b = await chromium.launch(); const ctx = await b.newContext({viewport:{width:1300, height:1000}});
+  const N = await open(b, 'public', {ctx});
+  await N.addInitScript(() => { const S = window.__fsSeed, now = Date.now(); if (!S) return; S['requests/sent.player@example.com'] = {name:'Sam Sent', at:now, sent:now, squad:'U14', pos:'Scrum-half'}; S['requests/a.parent@example.com'] = {name:'Pat Parent', kind:'guardian', child:'Adam Armstrong', squad:'U12', at:now, sent:now}; S['requests/silent@example.com'] = {name:'Silent Signin', at:now}; });
+  await N.goto('http://app.test/app/'); await N.settle(3500);
+  let r = await N.evaluate(() => { const f = document.querySelector('#rqForm'); return {h:(f.querySelector('h2') || {}).textContent, opts:[...f.querySelectorAll('[data-iam]')].map(x => x.dataset.iam), form:!!f.querySelector('input, select')}; });
+  ok(/Who are you/.test(r.h) && r.opts.join() === 'player,guardian,coach,supporter' && !r.form, 'someone who signs in without having chosen is asked who they are before any form: ' + r.opts.join(', '));
+  await N.evaluate(() => document.querySelector('[data-iam="guardian"]').click()); await N.settle(2000);
+  r = await N.evaluate(() => { const f = document.querySelector('#rqForm'); return {h:(f.querySelector('h2') || {}).textContent, req:window.__fs.store.get('requests/nobody@example.com')}; });
+  ok(r.req && r.req.iam === 'guardian' && !/Who are you/.test(r.h), 'choosing Parent or guardian opens that form, and the choice is on their request straight away: ' + JSON.stringify({iam:r.req && r.req.iam, form:r.h}));
+  const A = await open(b, 'admin', {ctx}); await A.goto('http://app.test/app/'); await A.settle(3000); await A.nav('people'); await A.settle(2500);
+  r = await A.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-rq]')].map(el => [el.dataset.rq, ((el.querySelector('.iam-tag') || {}).innerText || '').replace(/\s+/g, ' ')])));
+  ok(/^Player · Under 14, Scrum-half$/.test(r['sent.player@example.com'] || ''), 'a player who sent the form: ' + r['sent.player@example.com']);
+  ok(/^Parent or guardian · child: Adam Armstrong$/.test(r['a.parent@example.com'] || ''), 'a parent: ' + r['a.parent@example.com']);
+  ok(/^Parent or guardian · hasn’t finished the form yet$/.test(r['nobody@example.com'] || ''), 'someone who chose but didn’t finish: ' + r['nobody@example.com']);
+  ok(/^Hasn’t said who they are/.test(r['silent@example.com'] || ''), 'someone who signed in and stopped: ' + r['silent@example.com']);
+  console.log('     errors', N.errs.concat(A.errs).filter(e => !/reading 'set'/.test(e)).slice(0, 4), 'refused:', await N.evaluate(() => (window.__denied || []).splice(0)));
+  await b.close(); })();
