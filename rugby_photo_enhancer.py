@@ -24,7 +24,7 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 APP_NAME = "Rugby Photo Enhancer"
-APP_VERSION = "2.1.0"
+APP_VERSION = "2.2.0"
 # Updates are published here (branch "photo-enhancer" of github.com/popcorn483/ergs-live)
 UPDATE_BASE = "https://raw.githubusercontent.com/popcorn483/ergs-live/photo-enhancer/"
 DEFAULT_SOURCE = r"E:\DCIM\100CANON"
@@ -33,13 +33,13 @@ DRIVE_SUBPATH = os.path.join("School Photos", "2026-27", "Rugby")
 PHOTO_EXT = (".jpg", ".jpeg", ".png")
 
 PRESETS = {
-    "Auto":     dict(strength=0.85, colour=0.70, exposure=0.75, contrast=0.50, vibrance=0.50, sharpen=0.50, shadows=0.70, highlights=0.55, bright=0.0, warmth=0.0, denoise=0.70, auto=1.0),
-    "Gentle":   dict(strength=0.55, colour=0.45, exposure=0.45, contrast=0.20, vibrance=0.20, sharpen=0.25, shadows=0.45, highlights=0.35, bright=0.0, warmth=0.0, denoise=0.6, auto=1.0),
-    "Balanced": dict(strength=0.80, colour=0.60, exposure=0.65, contrast=0.35, vibrance=0.35, sharpen=0.40, shadows=0.65, highlights=0.50, bright=0.0, warmth=0.0, denoise=0.6, auto=1.0),
-    "Punchy":   dict(strength=1.00, colour=0.75, exposure=0.80, contrast=0.55, vibrance=0.60, sharpen=0.55, shadows=0.80, highlights=0.60, bright=0.0, warmth=0.0, denoise=0.6, auto=1.0),
+    "Auto":     dict(strength=0.85, colour=0.70, exposure=0.75, contrast=0.50, vibrance=0.50, sharpen=0.50, shadows=0.70, highlights=0.55, bright=0.0, warmth=0.0, denoise=0.70, dehaze=0.80, auto=1.0),
+    "Gentle":   dict(strength=0.55, colour=0.45, exposure=0.45, contrast=0.20, vibrance=0.20, sharpen=0.25, shadows=0.45, highlights=0.35, bright=0.0, warmth=0.0, denoise=0.6, dehaze=0.6, auto=1.0),
+    "Balanced": dict(strength=0.80, colour=0.60, exposure=0.65, contrast=0.35, vibrance=0.35, sharpen=0.40, shadows=0.65, highlights=0.50, bright=0.0, warmth=0.0, denoise=0.6, dehaze=0.6, auto=1.0),
+    "Punchy":   dict(strength=1.00, colour=0.75, exposure=0.80, contrast=0.55, vibrance=0.60, sharpen=0.55, shadows=0.80, highlights=0.60, bright=0.0, warmth=0.0, denoise=0.6, dehaze=0.6, auto=1.0),
 }
 # order used when a look is sent as a list of numbers; bright/warmth run -1..1, the rest 0..1
-LOOK_KEYS = ["strength", "colour", "exposure", "contrast", "vibrance", "sharpen", "shadows", "highlights", "bright", "warmth", "denoise", "auto"]
+LOOK_KEYS = ["strength", "colour", "exposure", "contrast", "vibrance", "sharpen", "shadows", "highlights", "bright", "warmth", "denoise", "dehaze", "auto"]
 
 
 def look_from_list(vals, fallback="Balanced"):
@@ -47,9 +47,11 @@ def look_from_list(vals, fallback="Balanced"):
     try:
         vals = [float(v) for v in vals]
         if len(vals) == 10:
-            vals += [0.5, 0.0]                  # older looks: no noise setting, always exact
+            vals += [0.5, 0.0, 0.0]             # older looks: no noise/dehaze settings, always exact
         elif len(vals) == 11:
-            vals = vals[:10] + [0.5, vals[10]]
+            vals = vals[:10] + [0.5, 0.0, vals[10]]
+        elif len(vals) == 12:
+            vals = vals[:11] + [0.0, vals[11]]
         if len(vals) != len(LOOK_KEYS):
             raise ValueError
     except (TypeError, ValueError):
@@ -459,11 +461,26 @@ def pro_auto(a, s):
     t["denoise"] = min(1.0, s.get("denoise", 0.6) * need_n * 1.4)
     need_s = float(np.clip((95 - a["sharp"]) / 55, 0.3, 1.4)) * (1 - 0.5 * need_n)
     t["sharpen"] = min(1.0, s["sharpen"] * need_s)
+    # outdoor light
+    cond = light_conditions(a, a.get("haze", 0.0))
+    a["cond"] = cond
+    if cond["overcast"] > 0.15:
+        oc = cond["overcast"]
+        t["warmth"] = min(1.0, s.get("warmth", 0.0) + 0.22 * oc)          # take the grey/blue chill off
+        t["contrast"] = min(1.0, max(t["contrast"], s["contrast"] * (0.7 + 0.5 * oc)))
+        t["vibrance"] = min(1.0, max(t["vibrance"], s["vibrance"] * (0.6 + 0.6 * oc)))
+        notes.append("overcast - warmed, contrast and colour restored")
+    if cond["harsh"] > 0.25:
+        hs = cond["harsh"]
+        t["shadows"] = min(1.0, s["shadows"] * (1 + 0.45 * hs))
+        t["highlights"] = min(1.0, s["highlights"] * (1 + 0.6 * hs))
+        t["contrast"] = min(t["contrast"], s["contrast"] * (1 - 0.7 * hs))
+        notes.append("harsh sun - shadows opened, glare and shine tamed")
     t["auto"] = 0.0
     if a["skin"] > 0.002:
         notes.append("exposure set for faces/skin")
     if a["backlit"] > 0.2:
-        notes.append("backlit - subject lifted, sky held")
+        notes.append("bright light/backlit - shadows lifted, highlights held")
     if need_c < 0.35:
         notes.append("contrast already good")
     elif need_c > 0.9:
@@ -485,6 +502,97 @@ def pro_auto(a, s):
     return t, notes
 
 
+# --------------------------------------------------------------------------
+# Outdoor conditions: haze/mist/glare removal (dark channel prior) and light-type detection
+# --------------------------------------------------------------------------
+def haze_model(rgb8):
+    """Estimate atmospheric light A and haze level from a small copy (dark channel prior, He et al.)."""
+    x = rgb8.astype(np.float32) / 255
+    h, w = x.shape[:2]
+    patch = max(3, int(max(h, w) / 60) | 1)
+    dark = cv2.erode(x.min(2), np.ones((patch, patch), np.uint8))
+    flat = dark.reshape(-1)
+    top = flat >= np.percentile(flat, 99.9)
+    A = x.reshape(-1, 3)[top].mean(0)
+    A = np.clip(A, 0.6, 1.0)
+    lum = x.mean(2)
+    ground = lum < 0.82                                 # judge haze on the scene, not on open sky
+    dn = cv2.erode((x / A).min(2), np.ones((patch, patch), np.uint8))
+    level = float(dn[ground].mean()) if ground.mean() > 0.05 else float(dn.mean())
+    return A.astype(np.float32), level, patch
+
+
+def dehaze(arr, amount, A, patch):
+    """Remove haze/mist/veiling glare. amount 0..1. Transmission is refined edge-aware so there are no halos."""
+    h, w = arr.shape[:2]
+    f = max(1, int(round(max(h, w) / 800)))
+    small = cv2.resize(arr, (max(1, w // f), max(1, h // f)), interpolation=cv2.INTER_AREA) if f > 1 else arr
+    xs = small.astype(np.float32) / 255
+    p = max(3, int(max(xs.shape[:2]) / 60) | 1)
+    t_raw = 1 - (0.95 * amount) * cv2.erode((xs / A).min(2), np.ones((p, p), np.uint8))
+    gs = xs.mean(2)
+    r = max(4, int(max(xs.shape[:2]) / 40))
+    m = lambda z: cv2.boxFilter(z, -1, (2 * r + 1, 2 * r + 1))
+    mI, mp = m(gs), m(t_raw)
+    cov, var = m(gs * t_raw) - mI * mp, m(gs * gs) - mI * mI
+    a = cov / (var + 1e-3)
+    b = mp - a * mI
+    a, b = m(a), m(b)
+    a = cv2.resize(a, (w, h), interpolation=cv2.INTER_LINEAR) if f > 1 else a
+    b = cv2.resize(b, (w, h), interpolation=cv2.INTER_LINEAR) if f > 1 else b
+    out = np.empty_like(arr)
+    t0 = 0.35 + 0.15 * (1 - amount)                     # never divide by tiny transmissions (noise, blotchy sky)
+    for y0 in range(0, h, 256):
+        y1 = min(h, y0 + 256)
+        x = arr[y0:y1].astype(np.float32) / 255
+        t = np.clip(a[y0:y1] * x.mean(2) + b[y0:y1], t0, 1)[..., None]
+        j = (x - A) / t + A
+        out[y0:y1] = np.clip(j * 255 + 0.5, 0, 255).astype(np.uint8)
+    return out
+
+
+def light_conditions(a, haze_level):
+    """Name the outdoor light from the measurements: misty, overcast, harsh sun, backlit."""
+    mist = float(np.clip((haze_level - 0.28) / 0.25, 0, 1))
+    overcast = float(np.clip((0.42 - a["sat"]) / 0.2, 0, 1) * np.clip((0.72 - a["spread"]) / 0.3, 0, 1)
+                     * (1 - a["backlit"]) * (1 - 0.6 * mist))
+    harsh = float(np.clip((a["spread"] - 0.8) / 0.12, 0, 1) * np.clip(min(a["dark"], a["bright"]) / 0.08, 0, 1)
+                  * (1 - a["backlit"]))
+    return {"mist": mist, "overcast": overcast, "harsh": harsh}
+
+
+def auto_plan(arr, s, noise=None):
+    """Detect haze/mist/glare and remove it, then measure the clearer photo and tune every setting for it.
+    Returns (image to continue with, analysis, tuned settings, notes)."""
+    h, w = arr.shape[:2]
+    sc = min(1.0, 1000 / max(h, w))
+    small = cv2.resize(arr, (max(1, int(w * sc)), max(1, int(h * sc))), interpolation=cv2.INTER_AREA) if sc < 1 else arr
+    A, level, patch = haze_model(small)
+    mist = float(np.clip((level - 0.28) / 0.25, 0, 1))
+    amt = min(1.0, s.get("dehaze", 0.0) * (mist if s.get("auto") else 1.0))
+    if amt > 0.04:
+        arr = dehaze(arr, amt, A, patch)
+        if noise is not None:
+            noise = noise / max(0.45, 1 - 0.9 * amt * level)   # removing haze also lifts noise
+    a = pro_analyse(arr, noise)
+    a["haze"], a["mist"] = level, mist
+    notes = []
+    if s.get("auto"):
+        s, notes = pro_auto(a, s)
+        s["dehaze"] = amt
+        if amt > 0.04:
+            # dehazing already restores contrast and colour - don't pile the same fixes on top
+            s["contrast"] *= (1 - 0.75 * amt)
+            s["vibrance"] *= (1 - 0.8 * amt)
+            s["colour"] *= (1 - 0.6 * amt)
+            s["strength"] *= (1 - 0.4 * amt)
+            s["exposure"] *= (1 - 0.5 * amt)
+            s["shadows"] *= (1 - 0.5 * amt)
+    if amt > 0.04:
+        notes.insert(0, "mist/haze removed" if mist > 0.5 else "haze/glare cleared")
+    return arr, a, s, notes
+
+
 def _tone(rgb8, A, B, P):
     """Linear-light exposure/WB, local tone mapping, highlight roll-off, contrast and vibrance.
     Returns display-space float32 (0..1) before the final levels."""
@@ -498,7 +606,7 @@ def _tone(rgb8, A, B, P):
     nb = np.where(d < 0, mid + d * (1 - 0.5 * P["sh"]), mid + d * (1 - 0.45 * P["hl"]))
     newlog = nb + (logL - base) * (1 + P["clarity"])
     lin = lin * np.exp2(np.clip(newlog - logL, -3, 3))[..., None]
-    t = 0.75
+    t = P.get("knee", 0.75)                              # lower knee in harsh sun: softer shine on skin/kit
     lin = np.where(lin > t, t + (1 - t) * (1 - np.exp(-(lin - t) / (1 - t))), lin)
     x = _to_srgb(lin).astype(np.float32)
     k = P["k"]
@@ -520,10 +628,7 @@ def _tone(rgb8, A, B, P):
 def pro_enhance(arr, s, noise=None):
     """Full professional pipeline on an RGB uint8 image. Returns (uint8 image, tags)."""
     h, w = arr.shape[:2]
-    a = pro_analyse(arr, noise)
-    notes = []
-    if s.get("auto"):
-        s, notes = pro_auto(a, s)
+    arr, a, s, notes = auto_plan(arr, s, noise)
     S = s["strength"]
     tags = list(notes)
     flat = float(np.clip((0.75 - a["spread"]) / 0.35, 0, 1))
@@ -546,7 +651,9 @@ def pro_enhance(arr, s, noise=None):
     black = min(a["black"] * gain, 0.015 + 0.08 * flat) * S
     sh = s.get("shadows", 0.0) * (0.25 + 0.75 * max(min(1.0, (a["dark"] - 0.04) / 0.22), a["backlit"])) * (1 + 0.35 * a["backlit"])
     hl = s.get("highlights", 0.0) * (0.2 + 0.8 * min(1.0, max(0.0, (a["bright"] - 0.03) / 0.25)))
+    harsh = a.get("cond", {}).get("harsh", 0.0)
     P = {"mul": gains * gain, "black": float(black), "mid": float(np.log2(0.18)), "sh": min(sh, 1.2), "hl": min(hl, 1.0),
+         "knee": 0.75 - 0.1 * harsh,
          "clarity": s["contrast"] * 0.35 * (1 - 0.6 * min(1.0, a["noise"] / 5)), "k": s["contrast"] * 0.5,
          "vib": s["vibrance"] * 0.9}
     # ---- edge-aware base layer (fast guided filter on a small copy)
@@ -1260,7 +1367,7 @@ class App:
             im.thumbnail((1600, 1600), Image.LANCZOS)
             arr = np.asarray(im)
         if cv2 is not None:
-            t, notes = pro_auto(pro_analyse(arr, noise=file_noise(src)), base)
+            _, _, t, notes = auto_plan(arr, base, noise=file_noise(src))
         else:
             t, notes, _ = auto_settings(arr, base)
         res = {"ok": True, "vals": [round(float(t.get(x, 0.0)), 3) for x in LOOK_KEYS[:-1]], "notes": notes}
@@ -2216,7 +2323,7 @@ UI_HTML = r"""<!DOCTYPE html>
     ["strength","Overall strength",0,100], ["colour","Colour correction",0,100], ["exposure","Exposure fix",0,100],
     ["contrast","Contrast",0,100], ["vibrance","Vibrance",0,100], ["sharpen","Sharpen",0,100],
     ["shadows","Shadows (lift dark areas)",0,100], ["highlights","Highlights (recover sky)",0,100],
-    ["bright","Brightness",-100,100,true], ["warmth","Warmth",-100,100,true], ["denoise","Noise reduction",0,100],
+    ["bright","Brightness",-100,100,true], ["warmth","Warmth",-100,100,true], ["denoise","Noise reduction",0,100], ["dehaze","Mist / haze / glare",0,100],
   ];
   const globalPreset = () => document.querySelector("#presets .on").dataset.p;
   const lookVals = p => (p.look && p.look.vals) || S.presets[(p.look && p.look.preset) || globalPreset()];

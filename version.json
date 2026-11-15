@@ -1,11 +1,11 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "file": "rugby_photo_enhancer.py",
-  "sha256": "21a66ce78064dadc1e4dd8a74ebd825f8898b932d13c08ff4a73ff43d803df2c",
+  "sha256": "a4c1eba8b9fac84fd3376345436dfde7ed4058d75804323343e5da0e6d7876b8",
   "requires": [
     "pillow",
     "numpy",
     "opencv-python-headless"
   ],
-  "notes": "Always Auto: every photo tuned individually. Asks if you're happy before anything is uploaded."
+  "notes": "Outdoor light: mist/fog/haze and glare removal, overcast and harsh-sun handling."
 }

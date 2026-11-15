@@ -47,6 +47,10 @@ THE ENHANCEMENT ENGINE (v2)
    6. Vibrance that protects skin tones and doesn't turn the pitch neon.
    7. Noise reduction measured from the full-size file (high ISO / evening matches).
    8. Sharpening only on real edges - never on noise or flat sky.
+  Outdoor light is the main focus - each photo is checked for:
+   - mist, fog, haze and sun glare: removed with a dehaze step (gentle on open sky)
+   - overcast/grey days: warmed slightly, contrast and colour restored
+   - harsh sun and backlight: shadows opened up, highlights and shine held back
   It needs OpenCV (installed automatically). If OpenCV can't be installed, the app
   still works using the simpler engine.
 
