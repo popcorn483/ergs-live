@@ -13,8 +13,11 @@ const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) pro
   await A.evaluate(() => { const ev = window.__ev; ev('TW').side = 'boys'; ev('twEdit')(x => { x.title = 'Shared test team'; x.players[0] = {f:'Adam', l:'Armstrong', t:'U12', photo:''}; }, true); });
   await A.waitForTimeout(4500); let a = await cur(A);
   ok(/Every coach sees this team/.test(a.status), 'the coach who made the team is told every coach sees it: ' + a.status.replace(/\s+/g, ' ').slice(0, 110));
-  await B.nav('totw'); await B.settle(2500); let c = await cur(B);
-  ok(c.title === 'Shared test team' && c.p0 === 'Adam Armstrong' && c.draft, 'a second coach opening Team of the week sees that team, not the old draft their device held: ' + JSON.stringify({title:c.title, p0:c.p0}));
+  await B.nav('totw'); await B.settle(3000); let c = await cur(B);
+  const q = await B.evaluate(() => document.querySelector('#askModal').hidden ? '' : document.querySelector('#askH').textContent + ' | ' + document.querySelector('#askGo').textContent);
+  ok(c.title === 'Stale draft on coach two' && /Two different teams \| Use the shared team/.test(q), 'a device that already held an unpublished team of its own keeps it and is asked, not overwritten: ' + q);
+  await B.evaluate(() => document.querySelector('#askGo').click()); await B.waitForTimeout(1200); c = await cur(B);
+  ok(c.title === 'Shared test team' && c.p0 === 'Adam Armstrong' && c.draft, 'choosing the shared team shows the first coach’s team: ' + JSON.stringify({title:c.title, p0:c.p0}));
   ok(/Not published/i.test(c.status) && /last change: /i.test(c.status), 'and is told whose it is and that it isn’t published: ' + c.status.replace(/\s+/g, ' ').slice(0, 120));
   await B.evaluate(() => window.__ev('twEdit')(x => { x.players[1] = {f:'Ben', l:'Armstrong', t:'U13', photo:''}; }, true)); await B.waitForTimeout(5000);
   ok(await A.evaluate(() => { const d = window.__ev('twCur')('boys'); return d.players[1].f === 'Ben' && d.players[0].f === 'Adam'; }), 'a change by the second coach shows on the first coach’s screen without reloading');
