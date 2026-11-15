@@ -24,7 +24,7 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 APP_NAME = "Rugby Photo Enhancer"
-APP_VERSION = "2.3.0"
+APP_VERSION = "2.4.0"
 # Updates are published here (branch "photo-enhancer" of github.com/popcorn483/ergs-live)
 UPDATE_BASE = "https://raw.githubusercontent.com/popcorn483/ergs-live/photo-enhancer/"
 DEFAULT_SOURCE = r"E:\DCIM\100CANON"
@@ -33,7 +33,7 @@ DRIVE_SUBPATH = os.path.join("School Photos", "2026-27", "Rugby")
 PHOTO_EXT = (".jpg", ".jpeg", ".png")
 
 PRESETS = {
-    "Auto":     dict(strength=0.85, colour=0.70, exposure=0.75, contrast=0.50, vibrance=0.50, sharpen=0.50, shadows=0.70, highlights=0.55, bright=0.0, warmth=0.0, denoise=0.70, dehaze=0.80, auto=1.0),
+    "Auto":     dict(strength=0.85, colour=0.70, exposure=0.75, contrast=0.50, vibrance=0.50, sharpen=0.50, shadows=0.75, highlights=0.55, bright=0.0, warmth=0.0, denoise=0.70, dehaze=0.80, auto=1.0),
     "Gentle":   dict(strength=0.55, colour=0.45, exposure=0.45, contrast=0.20, vibrance=0.20, sharpen=0.25, shadows=0.45, highlights=0.35, bright=0.0, warmth=0.0, denoise=0.6, dehaze=0.6, auto=1.0),
     "Balanced": dict(strength=0.80, colour=0.60, exposure=0.65, contrast=0.35, vibrance=0.35, sharpen=0.40, shadows=0.65, highlights=0.50, bright=0.0, warmth=0.0, denoise=0.6, dehaze=0.6, auto=1.0),
     "Punchy":   dict(strength=1.00, colour=0.75, exposure=0.80, contrast=0.55, vibrance=0.60, sharpen=0.55, shadows=0.80, highlights=0.60, bright=0.0, warmth=0.0, denoise=0.6, dehaze=0.6, auto=1.0),
@@ -723,8 +723,12 @@ def _tone(rgb8, A, B, P):
     base = A.astype(np.float32) * logL + B.astype(np.float32)
     mid = P["mid"]
     d = base - mid
-    nb = np.where(d < 0, mid + d * (1 - 0.5 * P["sh"]), mid + d * (1 - 0.45 * P["hl"]))
-    newlog = nb + (logL - base) * (1 + P["clarity"])
+    # stops beyond a protected zone (1.2 stops below / 1.5 above mid-grey), with a smooth start
+    deep = np.logaddexp(0, (-d - 1.2) * 2.0) / 2.0
+    bright = np.logaddexp(0, (d - 1.5) * 2.0) / 2.0
+    nb = base + P["sh"] * 0.55 * deep - P["hl"] * 0.5 * bright
+    sh_zone = np.clip(deep / 2.0, 0, 1)
+    newlog = nb + (logL - base) * (1 + P["clarity"] + 0.35 * P["sh"] * sh_zone)   # keep texture where lifted
     lin = lin * np.exp2(np.clip(newlog - logL, -3, 3))[..., None]
     t = P.get("knee", 0.75)                              # lower knee in harsh sun: softer shine on skin/kit
     lin = np.where(lin > t, t + (1 - t) * (1 - np.exp(-(lin - t) / (1 - t))), lin)
@@ -773,7 +777,8 @@ def pro_enhance(arr, s, noise=None, meta=None):
         tags.append(f"darkened {ev:+.1f} EV")
     gain = 2.0 ** ev
     black = min(a["black"] * gain, 0.015 + 0.08 * flat) * S
-    sh = s.get("shadows", 0.0) * (0.25 + 0.75 * max(min(1.0, (a["dark"] - 0.04) / 0.22), a["backlit"])) * (1 + 0.35 * a["backlit"])
+    need_sh = max(float(np.clip((a["dark"] - 0.12) / 0.25, 0, 1)), a["backlit"])
+    sh = s.get("shadows", 0.0) * need_sh * (1 + 0.35 * a["backlit"])
     hl = s.get("highlights", 0.0) * (0.2 + 0.8 * min(1.0, max(0.0, (a["bright"] - 0.03) / 0.25)))
     harsh = a.get("cond", {}).get("harsh", 0.0)
     P = {"mul": gains * gain, "black": float(black), "mid": float(np.log2(0.18)), "sh": min(sh, 1.2), "hl": min(hl, 1.0),
@@ -787,12 +792,27 @@ def pro_enhance(arr, s, noise=None, meta=None):
     ls = np.maximum(ls - P["black"], 0) / (1 - P["black"])
     Ys = np.log2(np.maximum(0.2126 * ls[..., 0] + 0.7152 * ls[..., 1] + 0.0722 * ls[..., 2], 1e-5)).astype(np.float32)
     ca, cb = _guided_coeffs(Ys, max(2, int(max(Ys.shape) / 50)), 0.35)
-    # ---- pass 1 on the small copy: where do the blacks and whites end up? -> final auto-levels
-    xs = _tone(small, ca, cb, P)
-    Ls = 0.299 * xs[..., 0] + 0.587 * xs[..., 1] + 0.114 * xs[..., 2]
+    # ---- pass 1 on the small copy: check depth, then where blacks/whites end up -> final auto-levels
+    sm8 = small.astype(np.float32)
+    Lin = (0.299 * sm8[..., 0] + 0.587 * sm8[..., 1] + 0.114 * sm8[..., 2]) / 255
+    in_lo, in_hi = np.percentile(Lin, [2, 98])
+    for _ in range(3):
+        xs = _tone(small, ca, cb, P)
+        Ls = 0.299 * xs[..., 0] + 0.587 * xs[..., 1] + 0.114 * xs[..., 2]
+        o_lo, o_hi = np.percentile(Ls, [2, 98])
+        # depth guard: shadow/highlight recovery must not squash the photo's tonal range
+        # (washed-out photos may gain range, but never lose it)
+        if (o_hi - o_lo) >= 0.9 * (in_hi - in_lo) or (P["sh"] < 0.05 and P["hl"] < 0.05):
+            break
+        P["sh"] *= 0.6
+        P["hl"] *= 0.6
     lo, hi = np.percentile(Ls, [0.3, 99.7])
     # black point: strong for hazy/flat photos, but never re-darken shadows that were just lifted
     lo = float(np.clip(lo, 0, 0.12)) * S * (0.15 + 0.85 * flat) * (1 - 0.9 * a["backlit"])
+    # re-anchor the blacks: after lifting shadows the darkest ~1% should still be close to black (keeps depth)
+    d1, in_d1 = float(np.percentile(Ls, 1.0)), float(np.percentile(Lin, 1.0))
+    if d1 > in_d1 + 0.02 and d1 > 0.05:
+        lo = max(lo, (d1 - max(in_d1, 0.03)) * 0.85)
     hi = float(np.clip(hi, 0.8, 1.0))
     hi = 1 - (1 - hi) * S * (0.5 + 0.5 * flat) * (1 - 0.8 * a["backlit"])
     if lo > 0.01 or hi < 0.985:
@@ -809,7 +829,7 @@ def pro_enhance(arr, s, noise=None, meta=None):
     k, vib = P["k"], P["vib"]
     clarity = P["clarity"]
     sh, hl = P["sh"], P["hl"]
-    if sh > 0.15:
+    if sh > 0.1:
         tags.append("shadows lifted")
     if hl > 0.15:
         tags.append("highlights recovered")

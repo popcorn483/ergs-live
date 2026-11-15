@@ -1,11 +1,11 @@
 {
-  "version": "2.3.0",
+  "version": "2.4.0",
   "file": "rugby_photo_enhancer.py",
-  "sha256": "4834d9e7153aec8f5ac04c61fce2d0947f806ce5b8bcf9efd2fa6699409b4ecb",
+  "sha256": "68b2be6989d81c87c549c8974641869eb6d16123e5ea5aeeee6039a3e425ebf8",
   "requires": [
     "pillow",
     "numpy",
     "opencv-python-headless"
   ],
-  "notes": "Winter & sport mode: dark photos brightened properly, ISO-aware noise reduction, camera settings shown in the viewer."
+  "notes": "Shadows keep their depth: only deep shadows are lifted, blacks stay black, and a depth check stops photos going flat."
 }
