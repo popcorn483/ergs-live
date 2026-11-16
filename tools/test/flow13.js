@@ -1,0 +1,30 @@
+// Match clips: a coach attaches up to three links to a play or a drill; the squad sees a Match clips button on that card.
+const { chromium, devices } = require('playwright'); const { open } = require('./real.js');
+const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) process.exitCode = 1; };
+(async () => { const b = await chromium.launch(); const ctx = await b.newContext(Object.assign({}, devices['iPhone 14'], {viewport:{width:390, height:900}}));
+  const P = await open(b, 'coach', {ctx}); await P.goto('http://app.test/app/'); await P.settle(3000);
+  let r = await P.evaluate(() => { const ev = window.__ev, y = ev('exmYT'), u = ev('exmUrl'); return {a:y('https://youtu.be/dQw4w9WgXcQ?t=95'), b:y('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=1m5s'), c:y('https://app.veo.co/matches/abc/'), d:u('veo.co/x'), e:u('javascript:alert(1)'), f:u('nonsense')}; });
+  ok(r.a && r.a.id === 'dQw4w9WgXcQ' && r.a.t === 95 && r.b.t === 65 && r.c === null && r.d === 'https://veo.co/x' && !r.e && !r.f, 'links are read properly (YouTube id and start time, plain links, junk refused): ' + JSON.stringify(r));
+  await P.nav('library'); await P.waitForTimeout(1500);
+  r = await P.evaluate(() => { const c = [...document.querySelectorAll('#library .card')].find(x => x.querySelector('.exm-btn')); const btn = c && c.querySelector('.exm-btn'); if (!btn) return null; const t = btn.textContent; btn.click(); return {t, tk:c.dataset.tk, title:c.querySelector('h3').textContent}; });
+  ok(r && /Add match clip/.test(r.t), 'a coach sees Add match clip on a play: ' + JSON.stringify(r)); const tk = r.tk;
+  await P.waitForTimeout(400);
+  await P.evaluate(() => { const m = document.querySelector('#tagModal'); m.querySelector('#exmU0').value = 'not a link'; m.querySelector('#exmSave').click(); }); await P.waitForTimeout(300);
+  r = await P.evaluate(() => { const e = document.querySelector('#tagModal #exmErr'); return !e.hidden && e.textContent; });
+  ok(/Link 1/.test(r || ''), 'a bad link is refused with a clear message: ' + r);
+  await P.evaluate(() => { const m = document.querySelector('#tagModal'); m.querySelector('#exmU0').value = 'https://youtu.be/dQw4w9WgXcQ?t=30'; m.querySelector('#exmT0').value = '1XV v Portora'; m.querySelector('#exmU2').value = 'app.veo.co/matches/xyz'; m.querySelector('#exmSave').click(); }); await P.waitForTimeout(1500);
+  r = await P.evaluate(tk => { const c = document.querySelector(`#library .card[data-tk="${CSS.escape(tk)}"]`), btn = c && c.querySelector('.exm-btn'); const t = btn && btn.textContent; btn && btn.click(); return {t, doc:window.__ev('exmDoc')()}; }, tk);
+  ok(/Match clips \(2\)/.test(r.t || '') && r.doc.m['p:' + tk].length === 2, 'saved: the card now says ' + r.t + ' ' + JSON.stringify(r.doc.m));
+  await P.waitForTimeout(400); await P.screenshot({path:process.argv[2] + '/ui/exm-view.png', scale:'css'});
+  r = await P.evaluate(() => { const m = document.querySelector('#tagModal'); const out = {items:m.querySelectorAll('.exm-item').length, play:m.querySelectorAll('.exm-play').length, links:[...m.querySelectorAll('.exm-h a')].map(a => a.textContent.trim() + ' ' + a.href)}; m.querySelector('.exm-play').click(); out.frame = (m.querySelector('.exm-vid iframe') || {}).src; return out; });
+  ok(r.items === 2 && r.play === 1 && /embed\/dQw4w9WgXcQ\?autoplay=1&start=30/.test(r.frame || '') && /veo/.test(r.links[1]), 'the clips open: YouTube plays in place from 0:30, the VEO one is a link: ' + JSON.stringify(r).slice(0, 300));
+  await P.evaluate(() => window.__ev('tagModalClose')()); await P.nav('drills'); await P.waitForTimeout(2000);
+  r = await P.evaluate(() => { const c = document.querySelector('#drills .dr-card, .dr-card'); const btn = c && c.querySelector('.exm-btn'); return btn ? {t:btn.textContent, inMore:!!btn.closest('.dr-extra')} : null; });
+  ok(r && /Add match clip/.test(r.t), 'drills have it too (for a coach, under More until there is one): ' + JSON.stringify(r));
+  // a player: nothing where there are no clips, the button where there are
+  const ctx2 = await b.newContext(Object.assign({}, devices['iPhone 14'])); const Q = await open(b, 'player', {ctx:ctx2}); await Q.goto('http://app.test/app/'); await Q.settle(3000); await Q.nav('library'); await Q.waitForTimeout(1500);
+  r = await Q.evaluate(() => { const ev = window.__ev, n0 = document.querySelectorAll('#library .exm-btn').length, c = document.querySelector('#library .card[data-tk]'), tk = c.dataset.tk;
+    ev('Cloud').docs['team/examples'] = {m:{['p:' + tk]:[{u:'https://youtu.be/dQw4w9WgXcQ'}]}}; ev('renderLibrary')(); const bs = [...document.querySelectorAll('#library .exm-btn')]; bs[0] && bs[0].click();
+    return {n0, n1:bs.length, t:bs[0] && bs[0].textContent, edit:!!document.querySelector('#tagModal #exmEdit'), play:!!document.querySelector('#tagModal .exm-play')}; });
+  ok(r.n0 === 0 && r.n1 === 1 && /Match clips \(1\)/.test(r.t) && !r.edit && r.play, 'a player sees only plays that have clips, and cannot change them: ' + JSON.stringify(r));
+  console.log('     errors', P.errs.concat(Q.errs).slice(0, 4)); await b.close(); })();
