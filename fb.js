@@ -81,6 +81,9 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     // opposition notes: private coach notes against each school (stored with Team of the Week, which only coaches can read)
     onOppNotes(cb){ return listen(doc(db, 'totw', 'oppnotes'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(v.bySchool || {}); }, () => cb({})); },
     setOppNote(key, note){ const r = doc(db, 'totw', 'oppnotes'); return runTransaction(db, async tx => { const s = await tx.get(r); let v = {bySchool:{}}; if (s.exists()){ try { v = JSON.parse(s.data().j) || v; } catch(e){} } v.bySchool = v.bySchool || {}; if (note && note.text) v.bySchool[key] = note; else delete v.bySchool[key]; v.updated = Date.now(); tx.set(r, {j:JSON.stringify(v), u:Date.now()}); }); },
+    // coach notes on one match (totw/matchnotes, coaches only): written on the match page here or beside the match video in the team app
+    onMatchNotes(cb){ return listen(doc(db, 'totw', 'matchnotes'), s => { let v = {}; if (s.exists()){ try { v = JSON.parse(s.data().j) || {}; } catch(e){} } cb(v.byMatch || {}); }, () => cb({})); },
+    setMatchNote(id, note){ const r = doc(db, 'totw', 'matchnotes'); return runTransaction(db, async tx => { const s = await tx.get(r); let v = {byMatch:{}}; if (s.exists()){ try { v = JSON.parse(s.data().j) || v; } catch(e){} } v.byMatch = v.byMatch || {}; if (note && note.text) v.byMatch[id] = note; else delete v.byMatch[id]; v.updated = Date.now(); tx.set(r, {j:JSON.stringify(v), u:Date.now()}); }); },
     // headshots shown in the score animations: small public copies, made when a coach records a score
     async face(key){ try { const s = await getDoc(doc(db, 'faces', key)); return s.exists() ? (s.data().d || '') : ''; } catch(e){ return ''; } },
     setFace(key, d){ return setDoc(doc(db, 'faces', key), {d, u:Date.now()}); },

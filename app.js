@@ -1748,7 +1748,7 @@ function coachPanel(m){
     ${live ? `<div class="box coach"><h3>Score</h3><div class="pad">${pad}</div></div>
     <div class="box coach"><h3>Commentary</h3><form class="inline" id="noteForm"><input class="input" id="noteIn" maxlength="140" placeholder="Big turnover at the breakdown" aria-label="Commentary line"><button class="btn" type="submit">Post</button></form></div>` : ''}
     ${m.status === 'FT' && usOf(m) ? afterBox(m) : ''}
-    ${notes}${settings}`;
+    ${mNoteBox(m)}${notes}${settings}`;
 }
 /* coaches after full time: one card, three jobs */
 const ARR = '<svg class="aft-go" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
@@ -1902,6 +1902,8 @@ function render(){
   $$('[data-ev]').forEach(b => b.onclick = () => openEv(m, b.dataset.ev, b.dataset.side));
   $$('[data-rm]').forEach(b => b.onclick = () => { const e = m.events.find(x => x.id === b.dataset.rm); ask('Remove this entry?', `${label(e)} at ${e.m}′ will come off the timeline and the score for everyone.`, 'Remove', () => save(d => { const x = d.matches.find(y => y.id === m.id); x.events = x.events.filter(y => y.id !== e.id); }, m.id)); });
   const nf = $('#noteForm'); if (nf) nf.onsubmit = ev => { ev.preventDefault(); const t = $('#noteIn').value.trim(); if (!t) return; save(d => { const x = d.matches.find(y => y.id === m.id); x.events.push({id:uid(), k:'note', s:'', p:t.slice(0, 140), m:minuteNow(m), at:Math.round(elapsed(m)), ts:Date.now()}); }, m.id); };
+  const mnf = $('#mNoteForm'); if (mnf) mnf.onsubmit = async ev => { ev.preventDefault(); const t = $('#mNoteIn').value.trim();
+    try { await FB.setMatchNote(m.id, t ? {text:t.slice(0, 4000), u:Date.now(), by:EMAIL} : null); toast(t ? 'Coach notes saved. Only coaches can see them.' : 'Coach notes removed.'); } catch(e){ toast(/permission/.test(e && e.code || '') ? 'The database refused the save: your account isn’t on the coaches list.' : 'That didn’t save. Try again.'); } };
   const onf = $('#oppNoteForm'); if (onf) onf.onsubmit = async ev => { ev.preventDefault(); const opp = onf.dataset.opp, k = oppKey(opp), t = $('#oppNoteIn').value.trim();
     try { await FB.setOppNote(k, t ? {name:opp, text:t.slice(0, 4000), u:Date.now(), by:EMAIL} : null); toast(t ? `Notes on ${opp} saved. Only coaches can see them.` : `Notes on ${opp} removed.`); } catch(e){ toast(/permission/.test(e && e.code || '') ? 'The database refused the save: your account isn’t on the coaches list.' : 'That didn’t save. Try again.'); } };
   vidWire(m);
@@ -1914,7 +1916,7 @@ setInterval(() => {
 }, 1000);
 
 /* ---------- saving: a transaction on the shared scoreboard; every phone gets it within a second ---------- */
-let NOMS = [], nomsUnsub = null, OPPN = {}, notesUnsub = null;
+let NOMS = [], nomsUnsub = null, OPPN = {}, notesUnsub = null, MNOTE = {}, mnoteUnsub = null;
 let saving = false, READY = false, EMAIL = '', ADMIN = false, PLAYER = false, VEO = {}, PHOTOS = {}, veoUnsub = null;
 /* VEO links are kept in a private record only coaches and players can read; older ones may still sit on the match */
 const veoOf = m => (COACH || PLAYER) ? (VEO[m.id] || m.veo || '') : '';
@@ -2757,6 +2759,8 @@ function boot(){
     else if (EMAIL && !ok && !pl){ toast(`Signed in as a supporter (${EMAIL}).`); supLoad().catch(() => {}); }
     else if (pl) toast('Signed in as a player. Match videos and photos are unlocked.');
     if (nomsUnsub){ nomsUnsub(); nomsUnsub = null; } NOMS = []; if (notesUnsub){ notesUnsub(); notesUnsub = null; } OPPN = {};
+    if (mnoteUnsub){ mnoteUnsub(); mnoteUnsub = null; } MNOTE = {};
+    if (COACH && FB.onMatchNotes) mnoteUnsub = FB.onMatchNotes(v => { MNOTE = v || {}; if (READY && !$('#mNoteIn:focus') && !$('#oppNoteIn:focus')) render(); });
     if (COACH && FB.onOppNotes) notesUnsub = FB.onOppNotes(v => { OPPN = v || {}; if (READY && !$('#oppNoteIn:focus')) render(); });
     if (COACH && FB.onNoms) nomsUnsub = FB.onNoms(l => { NOMS = l; if (READY && V.open) render(); });
     if (COACH) migrateVeo();
@@ -2844,6 +2848,14 @@ async function nomsDialog(m){
 }
 
 
+/* ---------- coach notes on one match: private to coaches; the same notes sit beside the match video in the team app (Video analysis) ---------- */
+function mNoteBox(m){
+  const n = MNOTE[m.id] || null, when = n && n.u ? new Date(n.u).toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '';
+  return `<details class="box coach dt"${n ? ' open' : ''}><summary>Coach notes on this match</summary><p class="hint" style="margin:0">Only coaches can see these. They also show beside this match’s video in the team app (Video analysis).</p>
+    <form id="mNoteForm"><textarea class="input" id="mNoteIn" rows="${n ? 5 : 3}" maxlength="4000" placeholder="What went well, what to work on, who stood out…" aria-label="Coach notes on this match">${esc(n ? n.text : '')}</textarea>
+    <div class="ctrl" style="margin-top:8px"><button class="btn" type="submit">Save notes</button>${when ? `<span class="hint">Last saved ${when}${n.by ? ' by ' + esc(n.by) : ''}</span>` : ''}</div></form></details>`;
+}
+
 /* ---------- opposition notes: private coach notes against each school, shown before the next fixture with them ---------- */
 const oppKey = n => schoolKey(canonSchool(n || '')) || String(n || '').toLowerCase().trim();
 const oppNote = n => OPPN[oppKey(n)] || null;
@@ -2887,6 +2899,7 @@ function sbFB(){
     save(fn){ SB = fn(clone(SB)); setTimeout(() => { applyData(clone(SB)); sbBar(); }); return Promise.resolve(); },
     setVeo(id, url){ VEO[id] = url; return Promise.resolve(); }, setPhotos(id, url){ PHOTOS[id] = url; return Promise.resolve(); }, setMedia(){ return Promise.resolve(); },
     setNoms(mid, list){ NOMS = NOMS.filter(x => x.mid !== mid).concat(list); setTimeout(render); return Promise.resolve(); },
+    setMatchNote(id, note){ MNOTE = Object.assign({}, MNOTE); if (note) MNOTE[id] = note; else delete MNOTE[id]; setTimeout(render); return Promise.resolve(); },
     setOppNote(k, note){ OPPN = Object.assign({}, OPPN); if (note) OPPN[k] = note; else delete OPPN[k]; setTimeout(render); return Promise.resolve(); },
     setFace(){ return Promise.resolve(); }, addCoach(){ return Promise.reject({code:'demo'}); }, removeCoach(){ return Promise.reject({code:'demo'}); },
     signOut(){ sbExit(); return Promise.resolve(); } });
