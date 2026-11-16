@@ -141,11 +141,18 @@ service cloud.firestore {
     // they are no use without the job's private key. A registration can't be pointed at a different phone once made.
     match /pushsubs/{id} {
       allow read: if true;
-      allow create, update: if id.size() < 80 && request.resource.data.keys().hasOnly(['sub', 'teams', 'at', 'coach'])
+      allow create, update: if id.size() < 80 && request.resource.data.keys().hasOnly(['sub', 'teams', 'at', 'coach', 'kinds']) && (!('kinds' in request.resource.data) || (request.resource.data.kinds is list && request.resource.data.kinds.size() <= 8))
         && request.resource.data.sub is string && request.resource.data.sub.size() < 2500 && request.resource.data.teams is list && request.resource.data.teams.size() <= 20
         && request.resource.data.at is number && (!('coach' in request.resource.data) || (request.resource.data.coach == true && isCoach()))
         && (resource == null || resource.data.sub == request.resource.data.sub);
       allow delete: if true;
+    }
+    // alerts a coach's app asks to be sent (a new photo album): a short public queue the sending job reads. No names, no emails.
+    match /pushq/{id} {
+      allow read: if true;
+      allow create: if isCoach() && id.size() < 80 && request.resource.data.keys().hasOnly(['k', 'team', 'title', 'body', 'url', 'at'])
+        && request.resource.data.title is string && request.resource.data.title.size() < 121 && request.resource.data.body is string && request.resource.data.body.size() < 241 && request.resource.data.at is number;
+      allow delete: if isCoach();
     }
     match /sponsors/{doc} { allow read, write: if isCoach(); }
     match /sheets/{doc} { allow read, write: if isCoach(); }

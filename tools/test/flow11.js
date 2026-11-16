@@ -1,0 +1,32 @@
+// For players and parents: the season page and Match alerts on the home page; alerts for more than kick-off.
+const { chromium, devices } = require('playwright'); const { open } = require('./real.js');
+const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) process.exitCode = 1; };
+(async () => { const b = await chromium.launch(); const ctx = await b.newContext({viewport:{width:430, height:1000}});
+  const P = await open(b, 'player', {ctx}); await P.goto('http://app.test/app/'); await P.settle(3000);
+  let r = await P.evaluate(() => ({ms:(document.querySelector('#msMenu .t') || {}).textContent, al:(document.querySelector('#alMenu .t') || {}).textContent, icons:!!document.querySelector('#msMenu .mi-ic svg') && !!document.querySelector('#alMenu .mi-ic svg')}));
+  ok(r.ms === 'My season' && r.al === 'Match alerts' && r.icons, 'a player’s home page has My season and Match alerts: ' + JSON.stringify(r));
+  await P.evaluate(() => document.querySelector('#msMenu button').click()); await P.settle(2500);
+  r = await P.evaluate(() => { const m = document.querySelector('#tagModal'); return {open:!m.hidden, h:(m.querySelector('h2') || {}).textContent, tiles:[...m.querySelectorAll('.ms-kpi > *')].map(x => x.innerText.replace(/\s+/g, ' '))}; });
+  ok(r.open && /season/i.test(r.h) && r.tiles.some(t => /PLAY IQ BEST/i.test(t)), 'it opens the season page, now with their Play IQ best: ' + r.tiles.join(' | '));
+  const G = await open(b, 'guardian', {ctx:await b.newContext({viewport:{width:430, height:1000}})}); await G.goto('http://app.test/app/'); await G.settle(3000);
+  r = await G.evaluate(() => ({ms:(document.querySelector('#msMenu .t') || {}).textContent, d:(document.querySelector('#msMenu .d') || {}).textContent, al:!!document.querySelector('#alMenu')}));
+  ok(r.ms === 'Season so far' && /Adam’s games/.test(r.d) && r.al, 'a parent has “Season so far” for their child, and Match alerts: ' + r.d);
+  await G.evaluate(() => document.querySelector('#msMenu button').click()); await G.settle(2500);
+  ok(await G.evaluate(() => { const m = document.querySelector('#tagModal'); return !m.hidden && /Adam’s season/i.test(m.innerText) && !/PLAY IQ BEST/i.test(m.innerText); }), 'which opens the child’s season (no Play IQ for parents)');
+  console.log('alerts');
+  const C = await open(b, 'coach', {ctx}); await C.goto('http://app.test/app/'); await C.settle(3000);
+  r = await C.evaluate(async () => { await window.__ev('alertQueue')('albTestFolder1', {k:'photos', team:'*', title:'New photos: Dungannon 14 11 26', body:'82 photos are in the ERGS app.', url:'https://popcorn483.github.io/ergs-live/#pabc'}); return window.__fs.store.get('pushq/albtestfolder1'); });
+  ok(r && r.k === 'photos' && r.at > 0, 'a coach’s app can ask for a “new photos” alert: ' + JSON.stringify(r && {k:r.k, title:r.title}));
+  r = await P.evaluate(async () => { const A = window.ERGS_AUTH; try { await A.raw.setDoc(A.raw.doc(A.raw.fs, 'pushq', 'x1'), {k:'photos', team:'*', title:'Hello', body:'x', at:Date.now()}); return 'written'; } catch(e){ return String(e.code || e.message); } });
+  ok(/permission/.test(r), 'a player can’t: ' + r);
+  const L = await open(b, 'out', {ctx:await b.newContext(Object.assign({}, devices['Pixel 7']))});
+  await L.addInitScript(() => { try { sessionStorage.setItem('ergs.liveOK', '1'); } catch(e){} window.PushManager = function(){}; window.Notification = {permission:'default', requestPermission:async () => 'denied'}; try { Object.defineProperty(navigator, 'serviceWorker', {value:{ready:Promise.resolve({pushManager:{getSubscription:async () => null}}), register:async () => ({}), addEventListener(){}}, configurable:true}); } catch(e){} });
+  await L.goto('http://app.test/?live#alerts=U14,Meds'); await L.waitForTimeout(5000);
+  r = await L.evaluate(() => { const d = document.querySelector('#dialog'); return {open:!document.querySelector('#modal').hidden, teams:[...d.querySelectorAll('[data-pt][aria-pressed="true"]')].map(x => x.dataset.pt), kinds:[...d.querySelectorAll('[data-pk]')].map(x => x.dataset.pk + ':' + x.getAttribute('aria-pressed')), hash:location.hash}; });
+  ok(r.open && r.teams.join() === 'Meds,U14' && r.kinds.length === 5 && r.kinds.every(k => /:true$/.test(k)) && !r.hash, 'the link from the team app opens ERGS Live’s alerts with that squad ticked and five kinds to choose: ' + JSON.stringify(r.teams) + ' ' + r.kinds.map(k => k.split(':')[0]).join(','));
+  await L.screenshot({path:process.argv[2] || '/tmp/alerts.png'});
+  r = await L.evaluate(async () => { const o = {}; try { await FB.pushSave('kind1', '{"endpoint":"https://push.example/k"}', ['U14'], false, ['ko', 'ft', 'chg']); o.ok = window.__fs.store.get('pushsubs/kind1').kinds.join(); } catch(e){ o.ok = String(e.code || e.message); }
+    try { await FB.pushSave('kind2', '{"endpoint":"https://push.example/j"}', ['U14'], false, new Array(9).fill('ko')); o.many = window.__fs.store.get('pushsubs/kind2').kinds ? 'kept' : 'saved without'; } catch(e){ o.many = String(e.code || e.message); } return o; });
+  ok(r.ok === 'ko,ft,chg' && r.many === 'saved without', 'a phone’s choice of what to hear about is saved with its registration (a choice the rules refuse falls back to kick-off only): ' + JSON.stringify(r));
+  console.log('     errors', P.errs.concat(G.errs, C.errs, L.errs).filter(e => !/reading 'set'/.test(e)).slice(0, 5));
+  await b.close(); })();

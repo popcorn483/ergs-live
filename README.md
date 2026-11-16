@@ -11,11 +11,12 @@ Live scores, fixtures and results for Enniskillen Royal Grammar School rugby. Su
 - `tools/*.mjs`, `.github/workflows/`: the scheduled jobs that fetch competition fixtures and news (`comps.json`, `news.json`)
 - `tools/test/`: checks that run both apps against a stand-in for the database (see its README). Not loaded by the apps
 
-## Match alerts (notifications before kick-off)
+## Match alerts
 
 Anyone can turn these on in ERGS Live: a card offers it a few seconds after the page opens, and the bell at the bottom of the
-page is always there. About 15 minutes before a chosen team kicks off, the phone shows a notification; a signed-in coach's also
-says to open ERGS Live and press Kick off. No app needs installing on Android or a computer. On an iPhone or iPad, Apple only
+page is always there. The phone is told, for the teams and kinds of news chosen: about 15 minutes before kick-off (a signed-in coach's also says to
+open ERGS Live and press Kick off), the score at full time, a match postponed or moved, the line-up going up, and new photos
+(a coach's app leaves a note in `pushq` for that one). No app needs installing on Android or a computer. On an iPhone or iPad, Apple only
 allows it once ERGS Live has been added to the Home Screen. The notifications are sent by a job on GitHub (`.github/workflows/kickoff.yml`,
 `tools/kickoff.mjs`): one run watches the fixtures for nearly six hours and starts the next as it ends, so one is always watching. It needs one repository secret, `VAPID_PRIVATE`
 (Settings > Secrets and variables > Actions); without it the job does nothing. Phones' registrations are kept in the database

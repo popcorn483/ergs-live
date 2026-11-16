@@ -3625,18 +3625,21 @@ const pushId = async ep => [...new Uint8Array(await crypto.subtle.digest('SHA-25
 const pushTeams = () => { try { const t = JSON.parse(localStorage.getItem('ergs.pushTeams') || 'null'); if (Array.isArray(t)) return t; } catch(e){} return SUP && SUP.follow && SUP.follow.length ? SUP.follow.slice() : Object.keys(TEAM_NAMES); };
 const pushKeyBytes = () => Uint8Array.from(atob(PUSH_KEY.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
 const pushLS = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); v === null ? localStorage.removeItem(k) : localStorage.setItem(k, String(v)); } catch(e){} return null; };
+// what a phone can be told about; a phone that turned alerts on before there was a choice has kick-off only until it says otherwise
+const PUSH_KINDS = [['ko', 'Kick-off', '15 minutes before'], ['ft', 'Full-time score', 'the result as it ends'], ['chg', 'Postponed or changed', 'called off, new time, new venue'], ['team', 'Team named', 'when the line-up goes up'], ['photos', 'New photos', 'when an album is added']];
+const pushKinds = on => { try { const k = JSON.parse(localStorage.getItem('ergs.pushKinds') || 'null'); if (Array.isArray(k)) return k.filter(x => PUSH_KINDS.some(y => y[0] === x)); } catch(e){} return on ? ['ko'] : PUSH_KINDS.map(x => x[0]); };
 async function pushSub(){ if (!pushOK()) return null; try { const reg = await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); } catch(e){ return null; } }
-async function pushOn(teams){
-  const perm = await Notification.requestPermission(); if (perm !== 'granted'){ pushBlocked(teams); return false; }
+async function pushOn(teams, kinds){ kinds = kinds && kinds.length ? kinds : pushKinds(true);
+  const perm = await Notification.requestPermission(); if (perm !== 'granted'){ pushBlocked(teams, kinds); return false; }
   const reg = await navigator.serviceWorker.ready, sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({userVisibleOnly:true, applicationServerKey:pushKeyBytes()});
-  await FB.pushSave(await pushId(sub.endpoint), JSON.stringify(sub), teams, !!COACH);
-  pushLS('ergs.pushTeams', JSON.stringify(teams)); pushLS('ergs.pushAt', Date.now()); pushLS('ergs.pushCoach', COACH ? '1' : '0');
-  try { await reg.showNotification('Match alerts are on', {body:'This is what one looks like. You’ll get one about 15 minutes before kick-off.', icon:'icons/icon-192.png', tag:'ergs-test'}); } catch(e){}
+  await FB.pushSave(await pushId(sub.endpoint), JSON.stringify(sub), teams, !!COACH, kinds);
+  pushLS('ergs.pushKinds', JSON.stringify(kinds)); pushLS('ergs.pushTeams', JSON.stringify(teams)); pushLS('ergs.pushAt', Date.now()); pushLS('ergs.pushCoach', COACH ? '1' : '0');
+  try { await reg.showNotification('Match alerts are on', {body:'This is what one looks like.', icon:'icons/icon-192.png', tag:'ergs-test'}); } catch(e){}
   return true;
 }
 // The phone said no (or had already been told no). A website can't overrule that: only the phone's own "Allow" can, so say exactly where it is.
 const PUSH_IN_APP = (() => { try { if (document.referrer.startsWith('android-app://')) sessionStorage.setItem('ergs.twa', '1'); return sessionStorage.getItem('ergs.twa') === '1'; } catch(e){ return false; } })();
-function pushBlocked(teams){
+function pushBlocked(teams, kinds){
   const and = /Android/i.test(navigator.userAgent), ios = pushIOS(), alone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   const steps = and && PUSH_IN_APP ? ['Press and hold the <b>ERGS Live</b> icon on your home screen and tap <b>App info</b> (the ⓘ).', 'Tap <b>Notifications</b> and switch on <b>Allow notifications</b>.', 'Come back here and press <b>Try again</b>.']
     : and ? ['Tap the <b>icon at the left of the address bar</b> (or <b>⋮</b> › <b>ⓘ</b>), then <b>Permissions</b>.', 'Tap <b>Notifications</b> and choose <b>Allow</b>. If Chrome itself is silenced, your phone will offer to switch that on too.', 'Press <b>Try again</b>.']
@@ -3646,33 +3649,36 @@ function pushBlocked(teams){
     <ol class="pa-steps">${steps.map(x => `<li>${x}</li>`).join('')}</ol>
     ${and && PUSH_IN_APP ? `<p class="hint">No Notifications switch there, or it won’t stay on? This copy of the Android app is an older one that can’t ask. Install the latest from <b>Install &amp; share</b> in the menu, or turn alerts on in Chrome instead.</p>` : and && alone ? '<p class="hint">Installed from Chrome? The same switch is under your phone’s Settings › Apps › ERGS Live › Notifications.</p>' : ''}
     <div class="dlg-a"><span style="flex:1"></span><button type="button" class="btn ghost" data-close>Not now</button><button type="button" class="btn primary" id="pushAgain">Try again</button></div>`, d => {
-    d.querySelector('#pushAgain').onclick = async e => { e.target.disabled = true; try { if (await pushOn(teams)){ closeDialog(); toast('Match alerts are on for this phone.'); pushBtnSync(); } } catch(x){ e.target.disabled = false; toast('That didn’t work on this phone. Try again.'); } }; });
+    d.querySelector('#pushAgain').onclick = async e => { e.target.disabled = true; try { if (await pushOn(teams, kinds)){ closeDialog(); toast('Match alerts are on for this phone.'); pushBtnSync(); } } catch(x){ e.target.disabled = false; toast('That didn’t work on this phone. Try again.'); } }; });
 }
 async function pushOff(){ const sub = await pushSub(); if (sub){ try { await FB.pushDrop(await pushId(sub.endpoint)); } catch(e){} try { await sub.unsubscribe(); } catch(e){} } pushLS('ergs.pushAt', null); }
 const PUSH_BELL = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M12 22a2.4 2.4 0 0 0 2.35-2h-4.7A2.4 2.4 0 0 0 12 22Zm7-6.2V11a7 7 0 0 0-5.2-6.77V3.5a1.8 1.8 0 0 0-3.6 0v.73A7 7 0 0 0 5 11v4.8l-1.7 1.7a.6.6 0 0 0 .42 1h16.56a.6.6 0 0 0 .42-1Z"/></svg>';
-async function pushDialog(){
-  pushPopHide();
+async function pushDialog(pre){
+  pushPopHide(); pre = Array.isArray(pre) ? pre.filter(k => TEAM_NAMES[k]) : null;
   if (!pushOK()){ openDialog(`<div class="pa-head"><span class="pa-ic">${PUSH_BELL}</span><div><h2>Match alerts</h2><p>${pushIOS() ? 'One step first on an iPhone or iPad.' : 'This browser can’t show notifications from ERGS Live.'}</p></div></div>
       ${pushIOS() ? '<ol class="pa-steps"><li>Open ERGS Live in <b>Safari</b>.</li><li>Press <b>Share</b>, then <b>Add to Home Screen</b>.</li><li>Open ERGS Live from the new icon and press the bell again.</li></ol>' : '<p class="hint">On Android, use Chrome or the ERGS Live app. On a computer, use Chrome, Edge or Firefox.</p>'}
       <div class="dlg-a"><span style="flex:1"></span><button type="button" class="btn primary" data-close>OK</button></div>`); return; }
-  const sub = await pushSub(), on = !!sub && Notification.permission === 'granted', mine = new Set(pushTeams()), codes = Object.keys(TEAM_NAMES);
-  openDialog(`<div class="pa-head"><span class="pa-ic${on ? ' on' : ''}">${PUSH_BELL}</span><div><h2>Match alerts</h2><p>${on ? 'Alerts are <b>on</b> for this phone.' : COACH ? 'A notification on this phone about 15 minutes before kick-off, so you can open ERGS Live, press Kick off and keep the score.' : 'A notification on this phone about 15 minutes before kick-off, so you never miss a match.'}</p></div></div>
+  const sub = await pushSub(), on = !!sub && Notification.permission === 'granted', mine = new Set(!on && pre && pre.length ? pre : pushTeams()), codes = Object.keys(TEAM_NAMES), kd = new Set(pushKinds(on));
+  openDialog(`<div class="pa-head"><span class="pa-ic${on ? ' on' : ''}">${PUSH_BELL}</span><div><h2>Match alerts</h2><p>${on ? 'Alerts are <b>on</b> for this phone.' : COACH ? 'Notifications on this phone: before kick-off, so you can open ERGS Live, press Kick off and keep the score, and whatever else you tick.' : 'Notifications on this phone for the teams you follow. Tick what you want to hear about.'}</p></div></div>
     <div class="pa-lab"><b>Which teams?</b><button type="button" class="pa-all" id="pushAll">All teams</button></div>
     <div class="pa-teams" role="group" aria-label="Teams">${codes.map(k => `<button type="button" class="pa-chip" data-pt="${k}" aria-pressed="${mine.has(k)}">${esc(TEAM_NAMES[k])}</button>`).join('')}</div>
-    <p class="hint">Free, and you can turn it off here at any time. It can arrive a few minutes early or late. Matches with no kick-off time set don’t get one.</p>
+    <div class="pa-lab" style="margin-top:16px"><b>Tell me about</b></div>
+    <div class="pa-kinds" role="group" aria-label="What to be told about">${PUSH_KINDS.map(([k, t, ds]) => `<button type="button" class="pa-kind" data-pk="${k}" aria-pressed="${kd.has(k)}"><span class="pa-tick" aria-hidden="true"></span><span><b>${t}</b><small>${ds}</small></span></button>`).join('')}</div>
+    <p class="hint">Free, and you can turn it off here at any time. A notification can arrive a few minutes after the event.</p>
     <div class="dlg-a">${on ? '<button type="button" class="btn ghost" id="pushNo">Turn off</button>' : ''}<span style="flex:1"></span><button type="button" class="btn ghost" data-close>${on ? 'Close' : 'Not now'}</button><button type="button" class="btn primary" id="pushGo">${on ? 'Save' : 'Turn on'}</button></div>`, d => {
     const chips = [...d.querySelectorAll('[data-pt]')], picked = () => chips.filter(c => c.getAttribute('aria-pressed') === 'true').map(c => c.dataset.pt);
     chips.forEach(c => c.onclick = () => c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') !== 'true'));
     d.querySelector('#pushAll').onclick = () => { const all = picked().length === chips.length; chips.forEach(c => c.setAttribute('aria-pressed', !all)); };
-    d.querySelector('#pushGo').onclick = async e => { const teams = picked(); if (!teams.length){ toast('Pick at least one team.'); return; } e.target.disabled = true;
-      try { if (await pushOn(teams)){ closeDialog(); toast(on ? 'Saved.' : 'Match alerts are on for this phone.'); pushBtnSync(); } else e.target.disabled = false; }
+    const kb = [...d.querySelectorAll('[data-pk]')]; kb.forEach(c => c.onclick = () => c.setAttribute('aria-pressed', c.getAttribute('aria-pressed') !== 'true'));
+    d.querySelector('#pushGo').onclick = async e => { const teams = picked(), kinds = kb.filter(c => c.getAttribute('aria-pressed') === 'true').map(c => c.dataset.pk); if (!teams.length){ toast('Pick at least one team.'); return; } if (!kinds.length){ toast('Tick at least one thing to be told about.'); return; } e.target.disabled = true;
+      try { if (await pushOn(teams, kinds)){ closeDialog(); toast(on ? 'Saved.' : 'Match alerts are on for this phone.'); pushBtnSync(); } else e.target.disabled = false; }
       catch(x){ console.error(x); e.target.disabled = false; toast(/permission/.test(String(x && (x.code || x.message))) ? 'Match alerts aren’t switched on yet. Try again later.' : 'That didn’t work on this phone. Try again.'); } };
     const no = d.querySelector('#pushNo'); if (no) no.onclick = async () => { await pushOff(); closeDialog(); toast('Match alerts are off for this phone.'); pushBtnSync(); }; });
 }
 const pushBtn = document.createElement('button'); pushBtn.type = 'button'; pushBtn.className = 'share-btn'; pushBtn.hidden = true; pushBtn.textContent = '🔔 Match alerts'; pushBtn.onclick = pushDialog;
 async function pushBtnSync(){ pushBtn.hidden = !!SANDBOX; if (pushBtn.hidden) return; const sub = await pushSub(), on = !!sub && Notification.permission === 'granted'; pushBtn.textContent = on ? '🔔 Alerts on' : '🔔 Match alerts';
   // keep the registration fresh (the job drops ones not seen for four months), and tell it when this phone turns out to be a coach's
-  if (on){ const at = +pushLS('ergs.pushAt') || 0, was = pushLS('ergs.pushCoach') === '1'; if (Date.now() - at > 14*864e5 || (COACH && !was)){ try { await FB.pushSave(await pushId(sub.endpoint), JSON.stringify(sub), pushTeams(), !!COACH); pushLS('ergs.pushAt', Date.now()); pushLS('ergs.pushCoach', COACH ? '1' : '0'); } catch(e){} } } }
+  if (on){ const at = +pushLS('ergs.pushAt') || 0, was = pushLS('ergs.pushCoach') === '1'; if (Date.now() - at > 14*864e5 || (COACH && !was)){ try { await FB.pushSave(await pushId(sub.endpoint), JSON.stringify(sub), pushTeams(), !!COACH, pushKinds(true)); pushLS('ergs.pushAt', Date.now()); pushLS('ergs.pushCoach', COACH ? '1' : '0'); } catch(e){} } } }
 { let was = null; setInterval(() => { const now = (COACH ? 'c' : 'p') + (SANDBOX ? 's' : ''); if (now !== was){ was = now; pushBtnSync(); } }, 1500); }
 /* the offer: a card that slides up once, a little after the page opens. "Not now" puts it away for a month. */
 const pushPop = document.createElement('div'); pushPop.className = 'push-pop'; pushPop.setAttribute('role', 'dialog'); pushPop.setAttribute('aria-label', 'Match alerts'); pushPop.hidden = true;
@@ -3682,12 +3688,14 @@ async function pushPopMaybe(){
   const ios = !pushOK() && pushIOS(); if (!pushOK() && !ios) return;
   if (pushOK()){ if (Notification.permission !== 'default') return; if (await pushSub()) return; }
   pushPop.innerHTML = `<button type="button" class="pp-x" aria-label="Not now">×</button><span class="pp-ic">${PUSH_BELL}</span>
-    <div class="pp-t"><b>Never miss kick-off</b><span>${ios ? 'Add ERGS Live to your Home Screen to get a notification before each match.' : COACH ? 'Get a notification 15 minutes before your matches, ready to press Kick off.' : 'Get a notification on this phone 15 minutes before ERGS matches start.'}</span></div>
+    <div class="pp-t"><b>Never miss kick-off</b><span>${ios ? 'Add ERGS Live to your Home Screen to get a notification before each match.' : COACH ? 'Get a notification 15 minutes before your matches, ready to press Kick off.' : 'Kick-off, full-time scores, postponements and team news on this phone, for the teams you follow.'}</span></div>
     <div class="pp-a"><button type="button" class="btn ghost" data-pp="no">Not now</button><button type="button" class="btn primary" data-pp="go">${ios ? 'Show me how' : 'Turn on'}</button></div>`;
   pushPop.querySelector('.pp-x').onclick = pushPop.querySelector('[data-pp="no"]').onclick = () => pushPopHide(true);
   pushPop.querySelector('[data-pp="go"]').onclick = () => { pushPopHide(true); pushDialog(); };
   if (!pushPop.parentElement) document.body.appendChild(pushPop); pushPop.hidden = false; requestAnimationFrame(() => requestAnimationFrame(() => pushPop.classList.add('on')));
 }
+// the team app's "Match alerts" row lands here: #alerts, or #alerts=U14,Meds to start with those teams ticked
+if (/^#alerts(=|$)/.test(location.hash)){ const pre = (location.hash.split('=')[1] || '').split(',').filter(Boolean); try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} pushLS('ergs.pushAsk', Date.now()); setTimeout(() => pushDialog(pre), 1500); }
 setTimeout(pushPopMaybe, 7000);
 { const st = document.createElement('style'); st.textContent = `
 .push-pop{position:fixed;left:50%;bottom:calc(14px + env(safe-area-inset-bottom,0px));transform:translate(-50%,140%);z-index:80;width:min(520px,calc(100vw - 24px));display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:center;padding:16px 16px 14px;border-radius:16px;background:linear-gradient(160deg,var(--raise),var(--panel));border:1px solid var(--gold);box-shadow:0 18px 50px rgba(0,0,0,.55);transition:transform .35s cubic-bezier(.2,.8,.2,1)}
@@ -3706,6 +3714,11 @@ setTimeout(pushPopMaybe, 7000);
 .pa-chip{min-height:38px;padding:6px 14px;border-radius:999px;border:1px solid var(--rule);background:transparent;color:var(--mute);font-family:var(--f-cond);font-weight:700;font-size:15px;letter-spacing:.04em;cursor:pointer}
 .pa-chip[aria-pressed="true"]{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
 .pa-steps{margin:0 0 6px;padding-left:22px;line-height:1.7}
+.pa-kinds{display:grid;gap:6px}.pa-kind{display:flex;align-items:center;gap:12px;min-height:46px;padding:6px 12px;border-radius:12px;border:1px solid var(--rule);background:transparent;color:var(--chalk);text-align:left;cursor:pointer;font:inherit}
+.pa-kind b{display:block;font-size:15px}.pa-kind small{display:block;color:var(--mute);font-size:12.5px}
+.pa-tick{flex:none;width:22px;height:22px;border-radius:6px;border:1.5px solid var(--mute);display:grid;place-items:center}
+.pa-kind[aria-pressed="true"]{border-color:var(--gold)}.pa-kind[aria-pressed="true"] .pa-tick{background:var(--gold);border-color:var(--gold)}
+.pa-kind[aria-pressed="true"] .pa-tick::after{content:"";width:10px;height:6px;border-left:2.5px solid var(--gold-ink);border-bottom:2.5px solid var(--gold-ink);transform:rotate(-45deg) translate(1px,-1px)}
 @media (prefers-reduced-motion:reduce){.push-pop{transition:none}.push-pop.on .pp-ic svg{animation:none}}`; document.head.appendChild(st); }
 
 /* ---------- "watching now" check-ins left behind by phones that closed without saying so: a coach's device clears a finished match's ---------- */

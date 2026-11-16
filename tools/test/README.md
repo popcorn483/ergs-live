@@ -20,6 +20,8 @@ Needs Node and Playwright (`require('playwright')`). From this folder:
     STUB3=1 node flow8.js             # Team of the week: the team being worked on is shared between coaches
     STUB3=1 node flow9.js             # a waiting sign-in can be added to a login the player already has
     STUB3=1 node flow10.js            # who is asking for access: the choice is required, and shown to the coaches
+    STUB3=1 node flow11.js            # players and parents: My season and Match alerts on the home page; kinds of alert
+    node kick.test.mjs                # the alert job: what counts as news (full time, postponed, new time, team named)
     STUB3=1 node walk.js admin        # presses every control it can find on every screen (add "phone" for a phone)
     node walklive.js out              # the same on ERGS Live
     node syn.js ../../app/index.html  # syntax of the page's scripts

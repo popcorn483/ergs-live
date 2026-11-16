@@ -1,6 +1,11 @@
-// Match alerts (ERGS Live): a notification before kick-off, for anyone who asked; coaches are also told to start the match. Run by .github/workflows/kickoff.yml through the day.
-// Every few minutes it reads the public fixture list; when one of our matches is about 15 minutes from kick-off and hasn't
-// been started, it sends a notification to each phone that asked for that team (the bell in ERGS Live).
+// Match alerts (ERGS Live). Run by .github/workflows/kickoff.yml, which keeps one copy of this watching all day.
+// Every few minutes it reads the public fixture list and compares it with what it saw last time. A phone that asked (the bell
+// in ERGS Live) is told, for the teams and the kinds of news it chose:
+//   ko      about 15 minutes before kick-off (a coach's also says to open ERGS Live and press Kick off)
+//   ft      the score at full time
+//   chg     a match postponed, cancelled, back on, or moved to a new time or venue
+//   team    the line-up for a coming match going up
+//   photos  anything a coach's app puts in the short public queue (pushq): today, a new photo album
 // It needs one secret, VAPID_PRIVATE, which proves the notifications come from ERGS Live. Without it the job does nothing.
 import fs from 'node:fs';
 const PUB = 'BA9NLSI-WJiIH_vQ5UxTKmkbeZem57vXJKMfRFdzzpY0FQd7aumvKuCmg3lqPlyUdhJI23L2oUupCeGSZxEvz9U';
@@ -37,35 +42,68 @@ export function message(m, now, coach){
   return {title:(m.team ? m.team + ' ' : '') + (ours === 'A' ? '@ ' : 'v ') + (opp || 'opposition') + (mins > 1 ? ': kick-off in ' + mins + ' min' : ': kick-off time'),
     body:coach ? 'Open ERGS Live and press Kick off when the match starts (' + t + '), then keep the score.' : 'Kick-off ' + t + where + '. Follow the score live on ERGS Live.', tag:'ko-' + m.id, url:SITE + '#m.' + m.id};
 }
+const ourSide = m => m.us || (/enniskillen|ergs/i.test(m.away || '') && !/enniskillen|ergs/i.test(m.home || '') ? 'A' : 'H');
+const label = m => (m.team ? m.team + ' ' : '') + (ourSide(m) === 'A' ? '@ ' : 'v ') + ((ourSide(m) === 'A' ? m.home : m.away) || 'opposition');
+const whenTxt = ko => { const t = ukTime(ko); return t ? new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/London', weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit', hourCycle:'h23'}).format(new Date(t)) : 'time to be confirmed'; };
+const PTS = {try:5, con:2, pen:3, dg:3, pt:7};
+export function score(m){ let h = 0, a = 0, any = false; for (const e of m.events || []){ const p = e.miss ? 0 : (PTS[e.k] || 0); if (p) any = true; if (e.s === 'H') h += p; else if (e.s === 'A') a += p; } return Array.isArray(m.final) && (m.finalSet || !any) ? [+m.final[0] || 0, +m.final[1] || 0] : [h, a]; }
+const shot = m => ({st:m.status || '', ko:m.koTbc ? '' : (m.ko || ''), off:m.off || '', v:m.venue || '', np:(m.players || []).length});
+
+// What is new since the last look. snap: what each match looked like then ({} the very first time, when nothing is sent).
+export function news(matches, snap, now, first){
+  const out = [], next = {};
+  for (const m of matches || []){ if (!m || !m.id) continue; const was = snap[m.id], is = shot(m), t = ukTime(m.ko), url = SITE + '#m.' + m.id, code = teamCode(m.team); next[m.id] = is;
+    if (first || !was) continue;   // a match seen for the first time is only noted: a result typed in afterwards must not ping anyone
+    if (was.st !== 'FT' && is.st === 'FT' && t && Math.abs(now - t) < 8*3600e3){ const [h, a] = score(m), us = ourSide(m) === 'A' ? a : h, them = ourSide(m) === 'A' ? h : a;
+      out.push({kind:'ft', code, tag:'ft-' + m.id, url, title:'Full time: ' + label(m), body:'ERGS ' + us + '–' + them + (us > them ? '. A win.' : us < them ? '.' : '. A draw.')}); }
+    if (is.st === 'pre' && (!t || (t > now - 3600e3 && t - now < 21*864e5))){
+      if (!was.off && is.off) out.push({kind:'chg', code, tag:'chg-' + m.id, url, title:(is.off === 'cancelled' ? 'Cancelled: ' : 'Postponed: ') + label(m), body:'Was ' + whenTxt(was.ko || m.ko) + '.'});
+      else if (was.off && !is.off) out.push({kind:'chg', code, tag:'chg-' + m.id, url, title:'Back on: ' + label(m), body:whenTxt(m.ko) + (m.venue ? ' at ' + m.venue : '') + '.'});
+      else if (!is.off && was.ko && is.ko && was.ko !== is.ko) out.push({kind:'chg', code, tag:'chg-' + m.id, url, title:'New time: ' + label(m), body:'Now ' + whenTxt(m.ko) + ' (was ' + whenTxt(was.ko) + ').'});
+      else if (!is.off && is.v && was.v !== is.v && (was.v || is.v)) out.push({kind:'chg', code, tag:'chg-' + m.id, url, title:'Venue changed: ' + label(m), body:'Now at ' + is.v + (was.v ? ' (was ' + was.v + ')' : '') + '.'});
+      if (!is.off && was.np < 10 && is.np >= 10) out.push({kind:'team', code, tag:'team-' + m.id, url, title:'Team named: ' + label(m), body:whenTxt(m.ko) + '. Tap to see the line-up.'});
+    } }
+  return {out, next};
+}
 const get = async u => { const r = await fetch(u, {signal:AbortSignal.timeout(20000)}); if (!r.ok) throw new Error(r.status + ' ' + u); return r.json(); };
 async function fixtures(){ const d = await get(BASE + 'live/state'); return (JSON.parse(d.fields.json.stringValue).matches) || []; }
+const str = v => (v && (v.stringValue || '')) || '', num = v => v ? +(v.integerValue || v.doubleValue || 0) : 0;
 async function phones(){ const out = []; let tok = '';
   do { const d = await get(BASE + 'pushsubs?pageSize=300' + (tok ? '&pageToken=' + encodeURIComponent(tok) : ''));
-    for (const x of d.documents || []){ try { const f = x.fields || {}; out.push({id:x.name.split('/').pop(), sub:JSON.parse(f.sub.stringValue), teams:((f.teams.arrayValue || {}).values || []).map(v => v.stringValue), at:+(f.at.integerValue || f.at.doubleValue || 0), coach:!!(f.coach && f.coach.booleanValue)}); } catch(e){} }
+    for (const x of d.documents || []){ try { const f = x.fields || {}; out.push({id:x.name.split('/').pop(), sub:JSON.parse(f.sub.stringValue), teams:((f.teams.arrayValue || {}).values || []).map(v => v.stringValue), at:num(f.at), coach:!!(f.coach && f.coach.booleanValue),
+        kinds:f.kinds ? ((f.kinds.arrayValue || {}).values || []).map(v => v.stringValue) : ['ko']}); } catch(e){} }   // a phone registered before there was a choice asked for kick-off only
     tok = d.nextPageToken || ''; } while (tok);
   return out.filter(p => Date.now() - p.at < 120*864e5).slice(0, 5000); }
+// the short public queue a coach's app writes to (a new photo album, for one)
+async function queue(){ const d = await get(BASE + 'pushq?pageSize=50'); return (d.documents || []).map(x => { const f = x.fields || {}; return {id:x.name.split('/').pop(), kind:str(f.k) || 'photos', code:str(f.team), title:str(f.title).slice(0, 120), body:str(f.body).slice(0, 240), url:str(f.url), at:num(f.at)}; }); }
+export const wants = (p, n) => p.kinds.includes(n.kind) && (!n.code || n.code === '*' || p.teams.includes(n.code) || (n.code === 'Other' && p.teams.length));
 
 async function main(){
-  if (!PRIV && !DRY){ console.log('No VAPID_PRIVATE secret yet: kick-off reminders are not switched on. Nothing sent.'); return; }
+  if (!PRIV && !DRY){ console.log('No VAPID_PRIVATE secret yet: match alerts are not switched on. Nothing sent.'); return; }
   let webpush = null; if (!DRY){ webpush = (await import('web-push')).default; webpush.setVapidDetails(SITE, PUB, PRIV); }
-  let sent = {}; try { sent = JSON.parse(fs.readFileSync(SENT_FILE, 'utf8')); } catch(e){}
-  const end = Date.now() + RUN_MIN*60e3;
+  let S = {}; try { S = JSON.parse(fs.readFileSync(SENT_FILE, 'utf8')); } catch(e){}
+  if (!S.sent){ S = {sent:S && typeof S === 'object' && !S.snap ? S : {}, snap:null, q:{}}; }   // (an older file held only the kick-off list)
+  S.q = S.q || {};
+  const save = () => { try { fs.writeFileSync(SENT_FILE, JSON.stringify(S)); } catch(e){} };
+  const end = Date.now() + RUN_MIN*60e3; let lap = 0;
   for (;;){
     const now = Date.now(), hr = +new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/London', hourCycle:'h23', hour:'2-digit'}).format(new Date(now));
     if (hr >= 6 && hr < 21) try {   // overnight the watch idles: no matches, no reading of the database
-      const list = (await fixtures()).filter(m => due(m, now) && !sent[m.id + '|' + m.ko]);
-      if (list.length){
+      const all = await fixtures(), todo = [];
+      for (const m of all.filter(m => due(m, now) && !S.sent[m.id + '|' + m.ko])){ const a = message(m, now, false), c = message(m, now, true); todo.push({kind:'ko', code:teamCode(m.team), title:a.title, body:a.body, coachBody:c.body, tag:a.tag, url:a.url, ttl:1200, mark:() => { S.sent[m.id + '|' + m.ko] = now; }}); }
+      const nw = news(all, S.snap || {}, now, !S.snap); S.snap = nw.next; nw.out.forEach(n => todo.push(Object.assign({ttl:6*3600}, n)));
+      if (lap % 2 === 0){ try { for (const q of await queue()){ if (S.q[q.id] || !q.title) continue; S.q[q.id] = now; if (now - q.at < 3*3600e3) todo.push(Object.assign({ttl:12*3600, tag:'q-' + q.id}, q, {url:/^https:\/\/popcorn483\.github\.io\//.test(q.url) ? q.url : SITE})); } } catch(e){ console.log('queue not read: ' + e.message); } }
+      if (todo.length){
         const ph = await phones();
-        for (const m of list){
-          const code = teamCode(m.team), to = ph.filter(p => p.teams.includes(code) || (code === 'Other' && p.teams.length)), msg = message(m, now, false), msgC = message(m, now, true); let ok = 0, bad = 0;
-          for (const p of to){ if (DRY){ ok++; continue; } try { await webpush.sendNotification(p.sub, JSON.stringify(p.coach ? msgC : msg), {TTL:1200, urgency:'high'}); ok++; } catch(e){ bad++; console.log('  not delivered to ' + p.id.slice(0, 6) + ': ' + (e.statusCode || e.message)); } }
-          console.log(new Date(now).toISOString() + ' ' + msg.title + ' -> ' + ok + ' phone(s)' + (bad ? ', ' + bad + ' failed' : ''));
-          sent[m.id + '|' + m.ko] = now;
-        }
-        for (const k of Object.keys(sent)) if (now - sent[k] > 3*864e5) delete sent[k];
-        fs.writeFileSync(SENT_FILE, JSON.stringify(sent));
+        for (const n of todo){ const to = ph.filter(p => wants(p, n)); let ok = 0, bad = 0;
+          for (const p of to){ if (DRY){ ok++; continue; } try { await webpush.sendNotification(p.sub, JSON.stringify({title:n.title, body:p.coach && n.coachBody ? n.coachBody : n.body, tag:n.tag, url:n.url}), {TTL:n.ttl, urgency:n.kind === 'ko' ? 'high' : 'normal'}); ok++; } catch(e){ bad++; console.log('  not delivered to ' + p.id.slice(0, 6) + ': ' + (e.statusCode || e.message)); } }
+          console.log(new Date(now).toISOString() + ' [' + n.kind + '] ' + n.title + ' -> ' + ok + ' phone(s)' + (bad ? ', ' + bad + ' failed' : '')); if (n.mark) n.mark(); }
       }
+      for (const k of Object.keys(S.sent)) if (now - S.sent[k] > 3*864e5) delete S.sent[k];
+      for (const k of Object.keys(S.q)) if (now - S.q[k] > 5*864e5) delete S.q[k];
+      save();
     } catch(e){ console.log('check failed: ' + e.message); }
+    lap++;
     if (Date.now() + EVERY_S*1000 > end) break;
     await new Promise(r => setTimeout(r, EVERY_S*1000));
   }

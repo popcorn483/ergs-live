@@ -47,7 +47,8 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     // a finished match's check-ins, all of them (phones that closed without checking out leave theirs behind)
     async viewSweep(mid){ const s = await getDocs(collection(db, 'viewers', mid, 's')); if (s.metadata && s.metadata.fromCache) throw new Error('offline'); let n = 0; for (const d of s.docs){ try { await deleteDoc(d.ref); n++; } catch(e){} } return n; },
     // match alerts: this phone's registration with its notification service, and the teams it wants reminding about
-    pushSave(id, sub, teams, coach){ const d = {sub, teams, at:Date.now()}; if (coach) d.coach = true; return setDoc(doc(db, 'pushsubs', id), d); },
+    async pushSave(id, sub, teams, coach, kinds){ const d = {sub, teams, at:Date.now()}; if (coach) d.coach = true; if (kinds && kinds.length) d.kinds = kinds;
+      try { await setDoc(doc(db, 'pushsubs', id), d); } catch(e){ if (!d.kinds || !/permission/.test(String(e && e.code))) throw e; delete d.kinds; await setDoc(doc(db, 'pushsubs', id), d); } },   // (rules from before there was a choice: save it as kick-off only)
     pushDrop(id){ return deleteDoc(doc(db, 'pushsubs', id)); },
     get name(){ return (auth.currentUser && auth.currentUser.displayName) || ''; },
     async viewCount(mid, sinceMs){ const q = query(collection(db, 'viewers', mid, 's'), where('at', '>', Timestamp.fromMillis(Date.now() - sinceMs))); return (await getCountFromServer(q)).data().count; },
