@@ -9,7 +9,7 @@ const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) pro
   const ids = r.ids; console.log('     seeded', JSON.stringify(r));
   await P.nav('anl'); await P.waitForTimeout(2500);
   let v = await P.evaluate(() => { const b = document.querySelector('#mvBox'); return b ? {cards:b.querySelectorAll('.mv-card').length, first:b.querySelector('.mv-card').innerText.replace(/\s+/g, ' ').slice(0, 170), seasons:[...b.querySelectorAll('#mvSeason option')].map(o => o.textContent), teams:[...b.querySelectorAll('#mvTeam option')].map(o => o.textContent), n:b.querySelector('.mv-n').textContent} : null; });
-  ok(v && v.cards >= 1 && /v .+ (Home|Away)/.test(v.first) && /(Won|Lost|Drew) \d+–\d+|Not played/.test(v.first) && /Watch on (VEO|YouTube)/i.test(v.first), 'coach sees the match videos with opposition and result: ' + JSON.stringify(v).slice(0, 420));
+  ok(v && v.cards >= 1 && /v .+ (Home|Away)/.test(v.first) && /(Won|Lost|Drew) \d+–\d+|Not played/.test(v.first) && /(Watch|Analyse) on (VEO|YouTube)/i.test(v.first), 'coach sees the match videos with opposition and result: ' + JSON.stringify(v).slice(0, 420));
   r = await P.evaluate(() => { const s = document.querySelector('#mvSeason'); s.value = 'all'; s.onchange({target:s}); const all = document.querySelectorAll('#mvBox .mv-card').length; const t = document.querySelector('#mvTeam'), pick = t.options[1].value; t.value = pick; t.onchange({target:t});
     const cards = [...document.querySelectorAll('#mvBox .mv-card')]; return {all, pick, n:cards.length, ok:cards.every(c => c.querySelector('.mv-t small').textContent.includes(pick))}; });
   ok(r.all === 6 && r.n >= 1 && r.n <= r.all && r.ok, 'filters: all seasons shows every video, picking a team shows only that team: ' + JSON.stringify(r));
