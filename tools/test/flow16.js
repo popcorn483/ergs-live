@@ -7,7 +7,7 @@ const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) pro
     await C.set('team/veo', {byMatch:{[ft[0].id]:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', [ft[1].id]:'https://app.veo.co/matches/x/'}, updated:Date.now()}); return ft.map(m => m.id); });
   await P.nav('anl'); await P.waitForTimeout(2500);
   let r = await P.evaluate(() => [...document.querySelectorAll('#mvBox .mv-card')].map(c => [...c.querySelectorAll('.mv-a > *')].map(x => x.textContent.trim() + (x.classList.contains('mv-yt') ? ' (red)' : '')).join(' | ')));
-  ok(r.length === 2 && r.some(x => /^Analyse on VEO/i.test(x)) && r.some(x => /^Analyse \(red\) \| Notes/i.test(x)) && !r.some(x => /Watch on/i.test(x)), 'YouTube: a red Analyse (no Watch on YouTube); VEO: Analyse on VEO: ' + JSON.stringify(r));
+  ok(r.length === 2 && r.some(x => /^Analyse\s*VEO \| Notes/i.test(x)) && r.some(x => /^Analyse\s*YouTube \(red\) \| Notes/i.test(x)) && !r.some(x => /Watch on/i.test(x)), 'YouTube: a red Analyse (no Watch on YouTube); VEO: Analyse on VEO: ' + JSON.stringify(r));
   const n0 = await P.evaluate(() => window.__van.list.length);
   await P.evaluate(() => document.querySelector('#mvBox [data-mvan]').click()); await P.waitForTimeout(2000);
   r = await P.evaluate(() => { const V = window.__van, a = V.cur; return a ? {view:V.view, title:a.title, mid:a.mid, src:a.src, team:a.team, date:a.date, n:V.list.length, saved:!!window.__fs.store.get('analysis/' + a.id)} : null; });
@@ -27,6 +27,6 @@ const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) pro
   await P.waitForTimeout(1500); await P.nav('anl'); await P.waitForTimeout(500); await P.evaluate(() => { window.__van.view = 'list'; window.__ev('anUI')(); }); await P.waitForTimeout(1500);
   r = await P.evaluate(() => ({btn:(document.querySelector('#mvBox [data-mvan]') || {}).textContent, n:window.__van.list.length})); await P.evaluate(() => document.querySelector('#mvBox [data-mvan]').click()); await P.waitForTimeout(1000);
   const r2 = await P.evaluate(() => ({n:window.__van.list.length, tags:(window.__van.cur.tags || []).length}));
-  ok(/^Analyse$/i.test(r.btn || '') && r2.n === r.n && r2.tags === 2, 'next time the button says Open analysis and reopens the same one, moments kept: ' + JSON.stringify(r) + JSON.stringify(r2));
+  ok(/^Analyse/i.test(r.btn || '') && r2.n === r.n && r2.tags === 2, 'next time the button says Open analysis and reopens the same one, moments kept: ' + JSON.stringify(r) + JSON.stringify(r2));
   await P.evaluate(() => { const V = window.__van; V.V = V.V && V.V.time ? V.V : null; window.__ev('anSideUI')('tags'); }); await P.screenshot({path:process.argv[2] + '/an-clips.png', scale:'css'});
   console.log('     errors', P.errs.filter(e => !/reading 'set'/.test(e)).slice(0, 4)); await b.close(); })();
