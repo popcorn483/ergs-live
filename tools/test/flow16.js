@@ -6,8 +6,8 @@ const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) pro
   const ids = await P.evaluate(async () => { const ev = window.__ev, C = ev('Cloud'), us = ev('usOf'), ft = C.matches.filter(m => us(m) && m.status === 'FT').slice(0, 2);
     await C.set('team/veo', {byMatch:{[ft[0].id]:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', [ft[1].id]:'https://app.veo.co/matches/x/'}, updated:Date.now()}); return ft.map(m => m.id); });
   await P.nav('anl'); await P.waitForTimeout(2500);
-  let r = await P.evaluate(() => [...document.querySelectorAll('#mvBox .mv-card')].map(c => [...c.querySelectorAll('.mv-a:last-child > *')].map(x => x.textContent.trim()).join(' | ')));
-  ok(r.length === 2 && r.filter(x => /Analyse \|/i.test(x)).length === 1 && r.some(x => /^Analyse on VEO/i.test(x)) && r.some(x => /^Analyse \| Watch on YouTube/i.test(x)), 'only the YouTube match gets Analyse: ' + JSON.stringify(r));
+  let r = await P.evaluate(() => [...document.querySelectorAll('#mvBox .mv-card')].map(c => [...c.querySelectorAll('.mv-a > *')].map(x => x.textContent.trim() + (x.classList.contains('mv-yt') ? ' (red)' : '')).join(' | ')));
+  ok(r.length === 2 && r.some(x => /^Analyse on VEO/i.test(x)) && r.some(x => /^Analyse \(red\) \| Notes/i.test(x)) && !r.some(x => /Watch on/i.test(x)), 'YouTube: a red Analyse (no Watch on YouTube); VEO: Analyse on VEO: ' + JSON.stringify(r));
   const n0 = await P.evaluate(() => window.__van.list.length);
   await P.evaluate(() => document.querySelector('#mvBox [data-mvan]').click()); await P.waitForTimeout(2000);
   r = await P.evaluate(() => { const V = window.__van, a = V.cur; return a ? {view:V.view, title:a.title, mid:a.mid, src:a.src, team:a.team, date:a.date, n:V.list.length, saved:!!window.__fs.store.get('analysis/' + a.id)} : null; });
