@@ -51,8 +51,8 @@ async function main(){
   let sent = {}; try { sent = JSON.parse(fs.readFileSync(SENT_FILE, 'utf8')); } catch(e){}
   const end = Date.now() + RUN_MIN*60e3;
   for (;;){
-    const now = Date.now();
-    try {
+    const now = Date.now(), hr = +new Intl.DateTimeFormat('en-GB', {timeZone:'Europe/London', hourCycle:'h23', hour:'2-digit'}).format(new Date(now));
+    if (hr >= 6 && hr < 21) try {   // overnight the watch idles: no matches, no reading of the database
       const list = (await fixtures()).filter(m => due(m, now) && !sent[m.id + '|' + m.ko]);
       if (list.length){
         const ph = await phones();

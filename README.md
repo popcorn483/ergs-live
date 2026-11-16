@@ -16,8 +16,8 @@ Live scores, fixtures and results for Enniskillen Royal Grammar School rugby. Su
 Anyone can turn these on in ERGS Live: a card offers it a few seconds after the page opens, and the bell at the bottom of the
 page is always there. About 15 minutes before a chosen team kicks off, the phone shows a notification; a signed-in coach's also
 says to open ERGS Live and press Kick off. No app needs installing on Android or a computer. On an iPhone or iPad, Apple only
-allows it once ERGS Live has been added to the Home Screen. The notifications are sent by a job that runs on GitHub through
-the day (`.github/workflows/kickoff.yml`, `tools/kickoff.mjs`). It needs one repository secret, `VAPID_PRIVATE`
+allows it once ERGS Live has been added to the Home Screen. The notifications are sent by a job on GitHub (`.github/workflows/kickoff.yml`,
+`tools/kickoff.mjs`): one run watches the fixtures for nearly six hours and starts the next as it ends, so one is always watching. It needs one repository secret, `VAPID_PRIVATE`
 (Settings > Secrets and variables > Actions); without it the job does nothing. Phones' registrations are kept in the database
 under `pushsubs` (see `firestore.rules`).
 

@@ -1,15 +1,18 @@
 name: Match alerts
 
 # Sends a phone notification about 15 minutes before kick-off to everyone who asked for one (ERGS Live: Match alerts).
-# Starts every half hour through the day and then keeps watch for the next half hour, checking the fixtures every few minutes.
+# One run keeps watch for nearly six hours (checking the fixtures every few minutes from 6am to 9pm UK time, idle overnight) and
+# starts the next run as it finishes, so there is always one watching. GitHub's own timer is only the safety net that restarts
+# the chain if a run is ever lost: on its own it proved hours late, far too slow for a reminder 15 minutes before kick-off.
 # Needs the secret VAPID_PRIVATE (Settings > Secrets and variables > Actions). Without it, it does nothing.
 on:
   schedule:
-    - cron: '7,37 6-20 * * *'
+    - cron: '7,37 * * * *'
   workflow_dispatch:
 
 permissions:
   contents: read
+  actions: write
 
 concurrency:
   group: kickoff
@@ -18,8 +21,9 @@ concurrency:
 jobs:
   watch:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 355
     steps:
+      - run: echo "T0=$(date +%s)" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -34,9 +38,18 @@ jobs:
       - run: node tools/kickoff.mjs .kickoff-sent.json
         env:
           VAPID_PRIVATE: ${{ secrets.VAPID_PRIVATE }}
+          RUN_MIN: 340
       - name: Remember what was sent
         if: always() && hashFiles('.kickoff-sent.json') != ''
         uses: actions/cache/save@v4
         with:
           path: .kickoff-sent.json
           key: kickoff-sent-${{ github.run_id }}
+      - name: Start the next watch
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HAS_KEY: ${{ secrets.VAPID_PRIVATE != '' }}
+        # only after a full watch: a run that ended early (no secret, or something broke) must not start another straight away
+        run: |
+          if [ "$HAS_KEY" = "true" ] && [ $(( $(date +%s) - T0 )) -gt 3600 ]; then gh workflow run kickoff.yml --ref main -R "$GITHUB_REPOSITORY"; else echo "Not starting another: this run ended early."; fi
