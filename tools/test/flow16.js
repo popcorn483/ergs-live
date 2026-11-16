@@ -1,0 +1,32 @@
+// Analyse a YouTube match video from the Match videos list; typed time stamps and clips in the Moments tab.
+const { chromium } = require('playwright'); const { open } = require('./real.js');
+const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) process.exitCode = 1; };
+(async () => { const b = await chromium.launch(); const ctx = await b.newContext({viewport:{width:1300, height:1000}});
+  const P = await open(b, 'coach', {ctx}); await P.goto('http://app.test/app/'); await P.settle(3000);
+  const ids = await P.evaluate(async () => { const ev = window.__ev, C = ev('Cloud'), us = ev('usOf'), ft = C.matches.filter(m => us(m) && m.status === 'FT').slice(0, 2);
+    await C.set('team/veo', {byMatch:{[ft[0].id]:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', [ft[1].id]:'https://app.veo.co/matches/x/'}, updated:Date.now()}); return ft.map(m => m.id); });
+  await P.nav('anl'); await P.waitForTimeout(2500);
+  let r = await P.evaluate(() => [...document.querySelectorAll('#mvBox .mv-card')].map(c => [...c.querySelectorAll('.mv-a:last-child > *')].map(x => x.textContent.trim()).join(' | ')));
+  ok(r.length === 2 && r.filter(x => /Analyse/i.test(x)).length === 1 && r.some(x => /veo/i.test(x) && !/Analyse/i.test(x)), 'only the YouTube match gets Analyse: ' + JSON.stringify(r));
+  const n0 = await P.evaluate(() => window.__van.list.length);
+  await P.evaluate(() => document.querySelector('#mvBox [data-mvan]').click()); await P.waitForTimeout(2000);
+  r = await P.evaluate(() => { const V = window.__van, a = V.cur; return a ? {view:V.view, title:a.title, mid:a.mid, src:a.src, team:a.team, date:a.date, n:V.list.length, saved:!!window.__fs.store.get('analysis/' + a.id)} : null; });
+  ok(r && r.view === 'edit' && r.mid === ids[0] && r.src.kind === 'youtube' && r.src.yt === 'dQw4w9WgXcQ' && r.saved && r.n === n0 + 1, 'Analyse opens the YouTube video in the analysis tool, linked to the match: ' + JSON.stringify(r));
+  // a stand-in player (YouTube itself isn't reachable in the checks)
+  await P.evaluate(() => { const V = window.__van; window.__t = 0; window.__paused = true; V.V = {time:() => window.__t, seek:t => { window.__t = t; }, play:() => { window.__paused = false; }, pause:() => { window.__paused = true; }, paused:() => window.__paused, dur:() => 3600, ratio:() => 16/9}; window.__van.addOpen = true; window.__ev('anSideUI')('tags'); });
+  r = await P.evaluate(() => { const f = document.querySelector('#anAddF'), q = k => f.querySelector(k); if (!f) return null; q('#anAddS').value = '12:34'; q('#anAddK').value = 'try'; q('#anAddN').value = 'Great line from 12'; f.requestSubmit();
+    const f2 = document.querySelector('#anAddF'), q2 = k => f2.querySelector(k); q2('#anAddS').value = '20:00'; q2('#anAddE').value = '20:25'; q2('#anAddK').value = 'break'; f2.requestSubmit();
+    const f3 = document.querySelector('#anAddF'); f3.querySelector('#anAddS').value = '5:00'; f3.querySelector('#anAddE').value = '4:00'; f3.requestSubmit();
+    return {tags:window.__van.cur.tags, rows:[...document.querySelectorAll('#anSide .an-ti')].map(e => e.innerText.replace(/\s+/g, ' ').trim())}; });
+  ok(r && r.tags.length === 2 && r.tags[0].t === 754 && r.tags[0].note && r.tags[1].t === 1200 && r.tags[1].e === 1225 && /20:00–20:25/.test(r.rows[1]) && /12:34/.test(r.rows[0]), 'a typed time stamp and a clip are added (an end before the start is refused): ' + JSON.stringify(r).slice(0, 330));
+  r = await P.evaluate(() => { const rows = document.querySelectorAll('#anSide .an-ti .an-tj'), tick = window.__ev('anTick'), out = {};
+    rows[1].click(); out.clipStart = window.__t; out.playing = !window.__paused; window.__t = 1210; tick(1210); out.mid = !window.__paused; window.__t = 1225.2; tick(1225.2); out.stopped = window.__paused;
+    rows[0].click(); out.momentStart = window.__t;
+    document.querySelector('#anPlayAll').click(); out.allStart = window.__t; window.__t = 759; tick(759); out.next = window.__t; window.__t = 1226; tick(1226); out.end = window.__paused; return out; });
+  ok(r.clipStart === 1200 && r.playing && r.mid && r.stopped && r.momentStart === 748 && r.allStart === 748 && r.next === 1200 && r.end, 'a clip plays only its stretch and stops; a moment starts 6 s early; Play all steps through both: ' + JSON.stringify(r));
+  await P.waitForTimeout(1500); await P.nav('anl'); await P.waitForTimeout(500); await P.evaluate(() => { window.__van.view = 'list'; window.__ev('anUI')(); }); await P.waitForTimeout(1500);
+  r = await P.evaluate(() => ({btn:(document.querySelector('#mvBox [data-mvan]') || {}).textContent, n:window.__van.list.length})); await P.evaluate(() => document.querySelector('#mvBox [data-mvan]').click()); await P.waitForTimeout(1000);
+  const r2 = await P.evaluate(() => ({n:window.__van.list.length, tags:(window.__van.cur.tags || []).length}));
+  ok(/Open analysis/i.test(r.btn || '') && r2.n === r.n && r2.tags === 2, 'next time the button says Open analysis and reopens the same one, moments kept: ' + JSON.stringify(r) + JSON.stringify(r2));
+  await P.evaluate(() => { const V = window.__van; V.V = V.V && V.V.time ? V.V : null; window.__ev('anSideUI')('tags'); }); await P.screenshot({path:process.argv[2] + '/an-clips.png', scale:'css'});
+  console.log('     errors', P.errs.filter(e => !/reading 'set'/.test(e)).slice(0, 4)); await b.close(); })();
