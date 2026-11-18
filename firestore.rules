@@ -49,11 +49,14 @@ service cloud.firestore {
       function pwAskOK() { return request.resource.data.get('pw', false) == true && request.resource.data.get('kind', '') == '' && request.resource.data.get('iam', 'player') == 'player' && !('coachOf' in request.resource.data) && !('child' in request.resource.data) && !('follow' in request.resource.data); }
       function asker() { return (proved() && mine(email)) || (pwAsk() && pwAskOK()); }
       allow read: if (proved() && (own(email) || mine(email))) || pwAsk() || isCoach();
-      allow delete: if (proved() && (own(email) || mine(email))) || isCoach();   // a supporter can remove themselves
+      // rejected by a coach (18 November 2026): the request stays, marked rejected, so it can't simply be sent again. Whoever
+      // it belongs to can no longer change or remove it; a coach can remove it to let them ask again.
+      function notRej() { return resource.data.get('rejected', false) != true; }
+      allow delete: if (proved() && (own(email) || mine(email)) && notRej()) || isCoach();   // a supporter can remove themselves
       allow create, update: if isCoach();   // a coach can reset the one-hour wait, mark someone as a supporter, or put someone on the list from Access
       allow create: if asker() && reqOK();
       // sending again: once an hour, or straight away after a coach resets it; other updates (photo, last seen) don't touch 'sent'
-      allow update: if asker() && reqOK() && (!('sent' in resource.data) || request.resource.data.get('sent', 0) == resource.data.sent || resource.data.get('resend', false) == true || request.time.toMillis() - resource.data.sent > 3600000);
+      allow update: if asker() && notRej() && reqOK() && (!('sent' in resource.data) || request.resource.data.get('sent', 0) == resource.data.sent || resource.data.get('resend', false) == true || request.time.toMillis() - resource.data.sent > 3600000);
     }
     // a player sends their own headshot (once a season, unless a coach opens it again); coaches approve it
     match /headshots/{email} {

@@ -60,7 +60,8 @@ function canWrite(path, cur, next){ W.__col = path.split('/')[0]; const parts = 
   switch (col){
     case 'live': return !del && U.coach && isStr(next.json) && next.json.length < 900000;
     case 'viewers': return del || (parts[1].length < 80 && parts[3].length < 40 && only(next, ['at', 'exp']));
-    case 'requests': if (del) return (!U.pwo && (U.own(id) || U.mine(id))) || U.coach; if (U.coach) return true; if (!U.mine(id) || !reqOK(next)) return false;
+    case 'requests': if (del) return (!U.pwo && (U.own(id) || U.mine(id)) && !(cur && cur.rejected === true)) || U.coach; if (U.coach) return true; if (!U.mine(id) || !reqOK(next)) return false;
+      if (cur && cur.rejected === true) return false;   // rejected by a coach: closed to its owner
       if (U.pwo && !(next.pw === true && !next.kind && (next.iam || 'player') === 'player' && !('coachOf' in next) && !('child' in next) && !('follow' in next))) return false;   // pwAskOK
       return create || !('sent' in cur) || (next.sent || 0) === cur.sent || cur.resend === true || Date.now() - cur.sent > 3600000;
     case 'headshots': if (del) return U.coach; if (update && U.coach) return true; if (!(U.player && U.mine(id))) return false;

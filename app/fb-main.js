@@ -114,7 +114,7 @@ window.__ergsErr = e => err(e);
 
 let ALIAS = '', ALIAS_REL = '', ALIAS_NAME = '';   // signed in with a player's second email (EMAIL is then their main one)
 let USER = null, EMAIL = '', ROLE = 'public', PLAYER = null, COACH = null, CO_ALIAS = '', ACCESS_ERR = '';   // ACCESS_ERR: the access check itself was refused (usually old Firebase rules)   // COACH: this coach's record (name, scope: admin / all / a squad)   // PLAYER: this player's access (team, what they can see)
-let WAIT_ON = false;
+let WAIT_ON = false, REJECTED = false;
 const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth, async u => {
   if (first){ await linkDone; if ((auth.currentUser || null) !== (u || null)) return; }   // a sign-in link being opened: let it finish, then go with the account it signed in
   USER = u; EMAIL = u && u.email ? u.email.toLowerCase() : ''; ROLE = 'public'; ACCESS_ERR = ''; CO_ALIAS = '';
@@ -140,7 +140,8 @@ const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth
   // Not when the check itself didn't get an answer (no connection, or the database's daily allowance is used up): they may well be
   // on a list, and a request would put a coach or player among the people waiting for access.
   if (EMAIL && ROLE === 'public' && (!pwOnly(u) || C2K(EMAIL)) && (!ACCESS_ERR || /permission/.test(ACCESS_ERR))){ try { let had = null; try { const r0 = await getDoc(doc(fs, 'requests', EMAIL)); had = r0.exists() ? r0.data() : null; } catch(x){}   // keep the name, squad and position they told us
-    await setDoc(doc(fs, 'requests', EMAIL), Object.assign({photo:(USER.photoURL || '').slice(0, 500), at:Date.now()}, pwOnly(u) ? {pw:true} : {}, had && had.sent ? {} : {name:(USER.displayName || '').slice(0, 100)}), {merge:true}); } catch(e){} }
+    REJECTED = !!(had && had.rejected);   // a coach rejected this request: it isn't sent again (the rules refuse it too)
+    if (!REJECTED) await setDoc(doc(fs, 'requests', EMAIL), Object.assign({photo:(USER.photoURL || '').slice(0, 500), at:Date.now()}, pwOnly(u) ? {pw:true} : {}, had && had.sent ? {} : {name:(USER.displayName || '').slice(0, 100)}), {merge:true}); } catch(e){} }
   if (ROLE === 'public' && !ACCESS_ERR) wipeCache();   // nothing of the team's is kept on a device whose owner has no access (any more); not when the check simply failed
   // waiting for a coach to let them in: watch their own place on the two lists, and the moment they are added the app opens
   // for them by itself (no refreshing). Two small listeners, only while they wait.
@@ -452,7 +453,7 @@ window.ERGS_AUTH = {
   async setAccess(kind, email, data){ oneDrop(kind, email); try { await setDoc(doc(fs, kind, email.toLowerCase()), data, {merge:true}); } catch(e){ throw err(e); } try { window.__afterSet && window.__afterSet(kind, email.toLowerCase(), data); } catch(e){} }, get admin(){ return EMAIL && EMAIL === ADMIN; }, adminEmail:ADMIN,
   async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
   async signOut(){ await wipeCache(); return signOut(auth); },
-  pwIn, staffIn, pwReset, pwSet, pwMsg, get pwNo(){ try { return localStorage.getItem('ergs.pwNo') === '1'; } catch(e){ return false; } }, setPwNo(){ try { localStorage.setItem('ergs.pwNo', '1'); } catch(e){} }, get unproved(){ return pwOnly(auth.currentUser); }, get hasPw(){ const u = auth.currentUser; return !!u && (u.providerData || []).some(p => p.providerId === 'password'); }, get askPw(){ try { return sessionStorage.getItem('ergs.askPw') === '1'; } catch(e){ return false; } }, noAskPw(){ try { sessionStorage.removeItem('ergs.askPw'); } catch(e){} },
+  pwIn, staffIn, pwReset, pwSet, pwMsg, get pwNo(){ try { return localStorage.getItem('ergs.pwNo') === '1'; } catch(e){ return false; } }, setPwNo(){ try { localStorage.setItem('ergs.pwNo', '1'); } catch(e){} }, get rejected(){ return REJECTED; }, get unproved(){ return pwOnly(auth.currentUser); }, get hasPw(){ const u = auth.currentUser; return !!u && (u.providerData || []).some(p => p.providerId === 'password'); }, get askPw(){ try { return sessionStorage.getItem('ergs.askPw') === '1'; } catch(e){ return false; } }, noAskPw(){ try { sessionStorage.removeItem('ergs.askPw'); } catch(e){} },
   sendLink, linkMsg, get linkErr(){ return LINK_ERR; }, get linkEmail(){ try { return localStorage.getItem(LINK_KEY) || ''; } catch(e){ return ''; } },
   async getOne(kind, id){ return getOneDoc(kind, id); },
   async list(kind){ return (await liveList(kind)).docs.map(d => d.id); },
