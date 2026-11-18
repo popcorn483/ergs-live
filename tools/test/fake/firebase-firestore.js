@@ -124,7 +124,8 @@ const desc = q => q.path + (q.cons && q.cons.length ? ' [' + q.cons.map(c => c.c
 
 /* ---------- reads ---------- */
 const later = ms => new Promise(r => setTimeout(r, ms || 2));
-export async function getDoc(ref){ if (NET.off){ await later(OFFD()); if (NET.off) throw offErr('get ' + ref.path); } await later(); if (W.__quotaRead) throw usedUp(); const a = allow(ref.path, false); if (!a.ok) throw denied('get ' + ref.path); note('read', 'get ' + ref.path, 1, a.cost); return dsnap(ref, store.get(ref.path)); }
+export async function getDoc(ref){ if (W.__hangGet && W.__hangGet.test(ref.path)) await new Promise(() => {});   // a look-up that never gets an answer (a very poor connection)
+  if (NET.off){ await later(OFFD()); if (NET.off) throw offErr('get ' + ref.path); } await later(); if (W.__quotaRead) throw usedUp(); const a = allow(ref.path, false); if (!a.ok) throw denied('get ' + ref.path); note('read', 'get ' + ref.path, 1, a.cost); return dsnap(ref, store.get(ref.path)); }
 export const getDocFromServer = getDoc;
 export async function getDocs(q){ if (NET.off){ await later(OFFD()); if (NET.off){ note('offline', 'list (answered from the device: empty) ' + desc(q), 0, 0); return qsnap(q, [], META(true)); } }
   await later(); if (W.__quotaRead) throw usedUp(); const a = allow(q.path, false, true); if (!a.ok) throw denied('list ' + q.path); const rows = run(q); note('read', 'list ' + desc(q), Math.max(1, rows.length), a.cost); return qsnap(q, rows); }
@@ -193,7 +194,8 @@ function doSet(ref, data, opt){ const col = ref.path.split('/')[0], next = merge
   applySet(ref.path, data, opt && opt.merge); note('write', 'set ' + ref.path, 1, wcost(col)); }
 function doDelete(ref){ const col = ref.path.split('/')[0]; if (!canWrite(ref.path, store.get(ref.path), null)) throw denied('delete ' + ref.path); applyDel(ref.path); note('delete', 'delete ' + ref.path, 1, wcost(col)); }
 const queued = (ref, data, opt, del) => new Promise((res, rej) => { NET.queue.push({ref, data, opt, del, res, rej}); note('offline', (del ? 'delete' : 'set') + ' waiting for a connection ' + ref.path, 0, 0); });
-export async function setDoc(ref, data, opt){ if (NET.off) return queued(ref, data, opt, false); try { doSet(ref, data, opt); } catch(e){ await later(); throw e; } await later(6); }
+export async function setDoc(ref, data, opt){ if (W.__hangSet && W.__hangSet.test(ref.path)){ try { doSet(ref, data, opt); } catch(e){} await new Promise(() => {}); }   // written on the device, never confirmed
+  if (NET.off) return queued(ref, data, opt, false); try { doSet(ref, data, opt); } catch(e){ await later(); throw e; } await later(6); }
 export async function deleteDoc(ref){ if (NET.off) return queued(ref, null, null, true); try { doDelete(ref); } catch(e){ await later(); throw e; } await later(6); }
 export async function runTransaction(fs, fn){ if (NET.off){ await later(OFFD()); if (NET.off) throw offErr('transaction'); } await later(); const writes = [];
   const tx = { async get(ref){ const a = allow(ref.path, false); if (!a.ok) throw denied('tx get ' + ref.path); note('read', 'tx get ' + ref.path, 1, a.cost); return dsnap(ref, store.get(ref.path)); },

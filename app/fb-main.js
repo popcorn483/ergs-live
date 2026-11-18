@@ -115,6 +115,11 @@ window.__ergsErr = e => err(e);
 let ALIAS = '', ALIAS_REL = '', ALIAS_NAME = '';   // signed in with a player's second email (EMAIL is then their main one)
 let USER = null, EMAIL = '', ROLE = 'public', PLAYER = null, COACH = null, CO_ALIAS = '', ACCESS_ERR = '';   // ACCESS_ERR: the access check itself was refused (usually old Firebase rules)   // COACH: this coach's record (name, scope: admin / all / a squad)   // PLAYER: this player's access (team, what they can see)
 let WAIT_ON = false, REJECTED = false;
+// The look-ups at sign-in each get ten seconds (18 November 2026). On a poor connection one of them could go unanswered for a very
+// long time, and the app sat on "can't reach its database" with nothing to press. Now the first one that gets no answer ends the
+// check, and the person sees "We couldn't check your access" with Try again.
+const SLOW_MS = window.__slowMs || 10000;
+const slow = p => new Promise((res, rej) => { const t = setTimeout(() => rej({code:'unavailable'}), SLOW_MS); p.then(v => { clearTimeout(t); res(v); }, e => { clearTimeout(t); rej(e); }); });
 const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth, async u => {
   if (first){ await linkDone; if ((auth.currentUser || null) !== (u || null)) return; }   // a sign-in link being opened: let it finish, then go with the account it signed in
   USER = u; EMAIL = u && u.email ? u.email.toLowerCase() : ''; ROLE = 'public'; ACCESS_ERR = ''; CO_ALIAS = '';
@@ -123,14 +128,15 @@ const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth
     if (EMAIL === ADMIN && !PWO) ROLE = 'coach';
     // C2k accounts: @c2ken.net and @c2kni.net are the same person, so a login added under either address works for both
     const twin = /@c2ken\.net$/.test(EMAIL) ? EMAIL.replace(/@c2ken\.net$/, '@c2kni.net') : /@c2kni\.net$/.test(EMAIL) ? EMAIL.replace(/@c2kni\.net$/, '@c2ken.net') : '';
-    const look = async col => { for (const e of [EMAIL, twin].filter(Boolean)){ try { const s = await getDoc(doc(fs, col, e)); if (s.exists()){ EMAIL = e; return s.data() || {}; } } catch(err){ const c = String(err && err.code || err); if (e === EMAIL || !/permission/.test(c)) ACCESS_ERR = c; } } return null; };
+    const down = () => /unavailable/.test(ACCESS_ERR);   // no answer: don't keep asking
+    const look = async col => { for (const e of [EMAIL, twin].filter(Boolean)){ if (down()) break; try { const s = await slow(getDoc(doc(fs, col, e))); if (s.exists()){ EMAIL = e; return s.data() || {}; } } catch(err){ const c = String(err && err.code || err); if (e === EMAIL || !/permission/.test(c)) ACCESS_ERR = c; } } return null; };
     if (ROLE !== 'coach' && !PWO){ let c = await look('coaches');
       // a coach's other email: coaches/<other> just points at their main record, and they are that coach whichever email they use
-      if (c && c.aliasOf){ const main = String(c.aliasOf).toLowerCase(); try { const s = await getDoc(doc(fs, 'coaches', main)); if (s.exists() || main === ADMIN){ CO_ALIAS = EMAIL; EMAIL = main; c = s.exists() ? s.data() || {} : {}; } } catch(e){} }
+      if (c && c.aliasOf){ const main = String(c.aliasOf).toLowerCase(); try { const s = await slow(getDoc(doc(fs, 'coaches', main))); if (s.exists() || main === ADMIN){ CO_ALIAS = EMAIL; EMAIL = main; c = s.exists() ? s.data() || {} : {}; } } catch(e){} }
       if (c){ ROLE = 'coach'; COACH = c; } }
-    if (ROLE !== 'coach'){ let p = await look('players');
+    if (ROLE !== 'coach' && !down()){ let p = await look('players');
       // a second sign-in email: players/<second> just points at the player's main record, and they act as that player
-      if (p && p.aliasOf){ const main = String(p.aliasOf).toLowerCase(); ALIAS_REL = p.rel === 'guardian' ? 'guardian' : 'self'; ALIAS_NAME = String(p.gname || ''); p = null; try { const s = await getDoc(doc(fs, 'players', main)); if (s.exists()){ ALIAS = EMAIL; EMAIL = main; p = s.data() || {}; } } catch(e){ ACCESS_ERR = String(e && e.code || e); } }
+      if (p && p.aliasOf){ const main = String(p.aliasOf).toLowerCase(); ALIAS_REL = p.rel === 'guardian' ? 'guardian' : 'self'; ALIAS_NAME = String(p.gname || ''); p = null; try { const s = await slow(getDoc(doc(fs, 'players', main))); if (s.exists()){ ALIAS = EMAIL; EMAIL = main; p = s.data() || {}; } } catch(e){ ACCESS_ERR = String(e && e.code || e); } }
       // a parent signed in before their child, so their email is the main one: a coach marks it (mainRel) and they get the parent's view
       if (p && !ALIAS && p.mainRel === 'guardian'){ ALIAS = EMAIL; ALIAS_REL = 'guardian'; ALIAS_NAME = String(p.gname || ''); }
       if (p){ ROLE = 'player'; PLAYER = p; } }
@@ -139,9 +145,10 @@ const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth
   // not on a list yet: leave a request so the coaches see them waiting (needs the requests rule in Firebase).
   // Not when the check itself didn't get an answer (no connection, or the database's daily allowance is used up): they may well be
   // on a list, and a request would put a coach or player among the people waiting for access.
-  if (EMAIL && ROLE === 'public' && (!pwOnly(u) || C2K(EMAIL)) && (!ACCESS_ERR || /permission/.test(ACCESS_ERR))){ try { let had = null; try { const r0 = await getDoc(doc(fs, 'requests', EMAIL)); had = r0.exists() ? r0.data() : null; } catch(x){}   // keep the name, squad and position they told us
+  if (EMAIL && ROLE === 'public' && (!pwOnly(u) || C2K(EMAIL)) && (!ACCESS_ERR || /permission/.test(ACCESS_ERR))){ try { let had = null; let hadErr = false; try { const r0 = await slow(getDoc(doc(fs, 'requests', EMAIL))); had = r0.exists() ? r0.data() : null; } catch(x){ hadErr = /unavailable/.test(String(x && x.code || '')); }   // keep the name, squad and position they told us
     REJECTED = !!(had && had.rejected);   // a coach rejected this request: it isn't sent again (the rules refuse it too)
-    if (!REJECTED) await setDoc(doc(fs, 'requests', EMAIL), Object.assign({photo:(USER.photoURL || '').slice(0, 500), at:Date.now()}, pwOnly(u) ? {pw:true} : {}, had && had.sent ? {} : {name:(USER.displayName || '').slice(0, 100)}), {merge:true}); } catch(e){} }
+    // (not waited for: a write is only confirmed when the server answers, and with no signal that held up the whole app)
+    if (!REJECTED && !hadErr) setDoc(doc(fs, 'requests', EMAIL), Object.assign({photo:(USER.photoURL || '').slice(0, 500), at:Date.now()}, pwOnly(u) ? {pw:true} : {}, had && had.sent ? {} : {name:(USER.displayName || '').slice(0, 100)}), {merge:true}).catch(() => {}); } catch(e){} }
   if (ROLE === 'public' && !ACCESS_ERR) wipeCache();   // nothing of the team's is kept on a device whose owner has no access (any more); not when the check simply failed
   // waiting for a coach to let them in: watch their own place on the two lists, and the moment they are added the app opens
   // for them by itself (no refreshing). Two small listeners, only while they wait.
