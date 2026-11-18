@@ -55,4 +55,12 @@ const role = p => p.evaluate(() => window.__int && window.__int.Cloud.role);
   // 5. a player is not offered one unless they came in by a link (unchanged)
   { const p3 = await open(b, 'player', {ctx:await b.newContext({viewport:{width:420, height:900}})});
     await p3.goto('http://app.test/app/'); await p3.waitForTimeout(4000); ok(!(await p3.$('.pwset')), 'player with Google: not offered (unchanged)'); }
+  // 6. ERGS Live's Sign in button: always "Who are you?", whatever was picked before
+  for (const was of ['supporter', 'coach']){ const p4 = await open(b, 'out', {ctx:await b.newContext({viewport:{width:420, height:900}})});
+    await p4.addInitScript(w => { sessionStorage.setItem('fakeSignedOut', '1'); if (!localStorage.getItem('ergs.joinAs')) localStorage.setItem('ergs.joinAs', w); }, was);
+    await p4.goto('http://app.test/?live'); await p4.waitForTimeout(3500);
+    await p4.evaluate(() => document.querySelector('.signin-btn').click()); await p4.waitForTimeout(3500);
+    ok(/\/app\/$/.test(new URL(p4.url()).pathname) && await p4.$('[data-join="coach"]') && await p4.$('.jn-tile.sup') && !(await p4.$('#jnSpF')), 'picked ' + was + ' before, Sign in on ERGS Live: "Who are you?" (' + p4.url() + ')');
+    ok(await p4.evaluate(() => localStorage.getItem('ergs.joinAs')) === was, '…and the earlier choice is kept');
+    ok(!(await p4.$('.dlg #lkGoogle, #lkGoogle')), '…no separate sign-in box'); }
   await b.close(); console.log(fails ? fails + ' FAILED' : 'all passed'); process.exit(fails ? 1 : 0); })();
