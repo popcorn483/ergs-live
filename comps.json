@@ -679,6 +679,27 @@
     "table": [],
     "games": [
      {
+      "date": "",
+      "time": "14:00",
+      "h": "Limavady GS",
+      "a": "Cambridge House GS",
+      "venue": "Limavady GS"
+     },
+     {
+      "date": "2026-11-25",
+      "time": "14:45",
+      "h": "Portadown College",
+      "a": "Craigavon SHS",
+      "venue": "Portadown College"
+     },
+     {
+      "date": "2026-11-26",
+      "time": "11:30",
+      "h": "Omagh Academy",
+      "a": "Drumglass High School",
+      "venue": "Omagh Academy"
+     },
+     {
       "date": "2026-11-16",
       "time": "12:00",
       "h": "Lurgan College",
@@ -4173,5 +4194,5 @@
    }
   ]
  },
- "updated": "2026-11-17T13:41:03.632Z"
+ "updated": "2026-11-18T17:23:23.269Z"
 }
