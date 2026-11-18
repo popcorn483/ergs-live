@@ -2,7 +2,7 @@
 // The app asks for "db", "user", "assets" and "downloads"; this module answers with Firebase-backed versions.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getFirestore, doc, getDoc, getDocs, getAggregateFromServer, count, sum, where, documentId, setDoc, deleteDoc, deleteField, onSnapshot, collection, runTransaction, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updatePassword } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const CFG = window.ERGS_CONFIG || {};
 const app = initializeApp(CFG.firebase), fs = getFirestore(app), auth = getAuth(app);
@@ -22,7 +22,7 @@ const linkDone = (async () => {
   // tidy the address bar first, so the reload after signing in doesn't reuse the link
   try { const u = new URL(href); ['apiKey', 'oobCode', 'mode', 'continueUrl', 'lang', 'tenantId', 'le', 'inv'].forEach(k => u.searchParams.delete(k)); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch(e){}
   if (!email) { LINK_ERR = 'Sign-in wasn’t finished: no email address was given. Ask for a new link.'; return; }
-  try { await signInWithEmailLink(auth, email.toLowerCase(), href); try { localStorage.removeItem(LINK_KEY); } catch(e){} }
+  try { await signInWithEmailLink(auth, email.toLowerCase(), href); try { localStorage.removeItem(LINK_KEY); sessionStorage.setItem('ergs.askPw', '1'); } catch(e){} }
   catch(e){ const c = String(e && e.code || ''); LINK_ERR = /invalid-action-code|expired/.test(c) ? 'That sign-in link has expired or was already used. Ask for a new one.' : /invalid-email/.test(c) ? 'That email address doesn’t match the one the link was sent to. Ask for a new link.' : 'Signing in with the link didn’t work. Ask for a new one.'; }
 })();
 async function sendLink(email, back, invite){
@@ -36,6 +36,56 @@ async function sendLink(email, back, invite){
 const linkMsg = e => { const c = String(e && e.code || ''); return /operation-not-allowed|admin-restricted/.test(c) ? 'Email-link sign-in isn’t switched on yet. A coach needs to turn it on in Firebase (Authentication › Sign-in method › Email/Password › Email link).'
   : /invalid-email/.test(c) ? 'Enter your full email address.' : /quota|too-many/.test(c) ? 'Today’s sign-in emails have run out: the app’s free Firebase plan can only send 5 a day for everyone. If this is a Gmail or other Google account, use Sign in with Google instead. Otherwise try again tomorrow.' : /unauthorized-continue-uri|unauthorized-domain/.test(c) ? 'This site isn’t on Firebase’s authorised domains list yet. A coach needs to add it in Firebase › Authentication › Settings.' : 'The link couldn’t be sent. Check your connection and try again.'; };
 
+/* C2k password sign-in (decision of 18 November 2026): a player whose C2k address is already on a player profile types it,
+   sets a password the first time, and is straight in; after that it's the address and that password. No email is needed.
+   Only for player profiles: an unproved password account never gets coach access (here or in the Firebase rules), and one
+   whose address isn't on a player profile is removed again at once. "Forgot password" sends a reset email to their inbox,
+   which also gives the address back to its owner if someone else set a password on it first. */
+const C2K = e => /@c2k(en|ni)\.net$/i.test(String(e || ''));
+const pwOnly = u => !!u && !u.emailVerified && (u.providerData || []).some(p => p.providerId === 'password');   // signed in with a password nobody has proved
+let PW_HOLD = false;   // creating an account: hold the reload until the profile check has been made
+const PW_ERR = (c, x) => { const e = new Error(x || c); e.code = c; return e; };
+async function pwProfile(email){
+  const twin = /@c2ken\.net$/.test(email) ? email.replace(/@c2ken\.net$/, '@c2kni.net') : email.replace(/@c2kni\.net$/, '@c2ken.net');
+  for (const e of [email, twin]){ try { if ((await getDoc(doc(fs, 'players', e))).exists()) return true; } catch(x){ const c = String(x && x.code || x); if (!/permission/.test(c)) throw PW_ERR('check-failed'); } }
+  return false; }
+async function pwIn(email, pw, confirm){
+  email = String(email || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw PW_ERR('auth/invalid-email');
+  if (!C2K(email)) throw PW_ERR('not-c2k');
+  if (String(pw || '').length < 6) throw PW_ERR('auth/weak-password');
+  if (!confirm){
+    try { await signInWithEmailAndPassword(auth, email, pw); return 'in'; }
+    catch(e){ const c = String(e && e.code || ''); if (/invalid-credential|user-not-found|wrong-password|invalid-login/.test(c)) throw PW_ERR('pw-unknown'); throw e; } }
+  if (confirm !== pw) throw PW_ERR('pw-mismatch');
+  PW_HOLD = true;
+  let cred; try { cred = await createUserWithEmailAndPassword(auth, email, pw); }
+  catch(e){ PW_HOLD = false; const c = String(e && e.code || ''); if (/email-already-in-use/.test(c)) throw PW_ERR('pw-taken'); throw e; }
+  let ok = false, bad = null; try { ok = await pwProfile(email); } catch(e){ bad = e; }
+  if (!ok){ try { await cred.user.delete(); } catch(e){ try { await signOut(auth); } catch(x){} }
+    setTimeout(() => { PW_HOLD = false; }, 800);   // let the signed-out state settle without a reload
+    throw bad || PW_ERR('not-on-profile'); }
+  try { localStorage.setItem(LINK_KEY, email); } catch(e){}
+  PW_HOLD = false; location.reload(); return 'new'; }
+async function pwReset(email){ email = String(email || '').trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw PW_ERR('auth/invalid-email');
+  await sendPasswordResetEmail(auth, email, {url:location.origin + location.pathname}); return email; }
+async function pwSet(pw){ const u = auth.currentUser; if (!u) throw PW_ERR('signed-out'); if (String(pw || '').length < 6) throw PW_ERR('auth/weak-password'); await updatePassword(u, pw); try { sessionStorage.removeItem('ergs.askPw'); } catch(e){} }
+const pwMsg = e => { const c = String(e && e.code || '');
+  return c === 'not-c2k' ? 'Passwords are for school C2k addresses (ending @c2ken.net). For any other email, use Google or a sign-in link.'
+    : c === 'pw-unknown' ? 'First time here? Type the same password again below to set it. (Been here before? That password didn’t match.)'
+    : c === 'pw-mismatch' ? 'The two passwords aren’t the same. Type them again.'
+    : c === 'pw-taken' ? 'This address already has an account, and that isn’t its password. Never set one, or forgotten it? Tap “Forgot password”.'
+    : c === 'not-on-profile' ? 'That email isn’t on a player profile yet. Ask your coach to add it, or get a sign-in link and tell the coaches who you are.'
+    : c === 'check-failed' ? 'Your profile couldn’t be checked just now. Check your signal and try again.'
+    : /weak-password/.test(c) ? 'Use at least 6 characters for your password.'
+    : /invalid-email/.test(c) ? 'Enter your full school email address.'
+    : /too-many-requests/.test(c) ? 'Too many tries. Wait a few minutes, or tap “Forgot password”.'
+    : /operation-not-allowed/.test(c) ? 'Password sign-in isn’t switched on yet. A coach needs to turn on Email/Password in Firebase (Authentication › Sign-in method).'
+    : /requires-recent-login/.test(c) ? 'For safety, sign in again (with a link) and then set your password straight away.'
+    : /network/.test(c) ? 'No connection. Check your signal and try again.'
+    : /quota|exceeded/.test(c) ? 'Today’s emails from the app have run out. Try again tomorrow.'
+    : 'That didn’t work. Try again.'; };
+
 const enc = d => ({j: JSON.stringify(d === undefined ? null : d), u: Date.now()});
 const dec = s => { if (!s.exists()) return null; const v = s.data(); if (typeof v.j === 'string'){ try { return JSON.parse(v.j); } catch(e){ return null; } } return v; };
 const err = e => { const c = String(e && e.code || ''); const x = new Error(e && e.message || c); x.code = /permission/.test(c) ? 'not_granted' : /unavailable|network/.test(c) ? 'unavailable' : /resource-exhausted/.test(c) ? 'quota_exceeded' : 'invalid_argument'; return x; };
@@ -48,11 +98,12 @@ const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth
   if (first){ await linkDone; if ((auth.currentUser || null) !== (u || null)) return; }   // a sign-in link being opened: let it finish, then go with the account it signed in
   USER = u; EMAIL = u && u.email ? u.email.toLowerCase() : ''; ROLE = 'public'; ACCESS_ERR = ''; CO_ALIAS = '';
   if (EMAIL){
-    if (EMAIL === ADMIN) ROLE = 'coach';
+    const PWO = pwOnly(u);   // an unproved password sign-in: player profiles only (never coach, never a request)
+    if (EMAIL === ADMIN && !PWO) ROLE = 'coach';
     // C2k accounts: @c2ken.net and @c2kni.net are the same person, so a login added under either address works for both
     const twin = /@c2ken\.net$/.test(EMAIL) ? EMAIL.replace(/@c2ken\.net$/, '@c2kni.net') : /@c2kni\.net$/.test(EMAIL) ? EMAIL.replace(/@c2kni\.net$/, '@c2ken.net') : '';
     const look = async col => { for (const e of [EMAIL, twin].filter(Boolean)){ try { const s = await getDoc(doc(fs, col, e)); if (s.exists()){ EMAIL = e; return s.data() || {}; } } catch(err){ const c = String(err && err.code || err); if (e === EMAIL || !/permission/.test(c)) ACCESS_ERR = c; } } return null; };
-    if (ROLE !== 'coach'){ let c = await look('coaches');
+    if (ROLE !== 'coach' && !PWO){ let c = await look('coaches');
       // a coach's other email: coaches/<other> just points at their main record, and they are that coach whichever email they use
       if (c && c.aliasOf){ const main = String(c.aliasOf).toLowerCase(); try { const s = await getDoc(doc(fs, 'coaches', main)); if (s.exists() || main === ADMIN){ CO_ALIAS = EMAIL; EMAIL = main; c = s.exists() ? s.data() || {} : {}; } } catch(e){} }
       if (c){ ROLE = 'coach'; COACH = c; } }
@@ -67,15 +118,15 @@ const authReady = new Promise(res => { let first = true; onAuthStateChanged(auth
   // not on a list yet: leave a request so the coaches see them waiting (needs the requests rule in Firebase).
   // Not when the check itself didn't get an answer (no connection, or the database's daily allowance is used up): they may well be
   // on a list, and a request would put a coach or player among the people waiting for access.
-  if (EMAIL && ROLE === 'public' && (!ACCESS_ERR || /permission/.test(ACCESS_ERR))){ try { let had = null; try { const r0 = await getDoc(doc(fs, 'requests', EMAIL)); had = r0.exists() ? r0.data() : null; } catch(x){}   // keep the name, squad and position they told us
+  if (EMAIL && ROLE === 'public' && !pwOnly(u) && (!ACCESS_ERR || /permission/.test(ACCESS_ERR))){ try { let had = null; try { const r0 = await getDoc(doc(fs, 'requests', EMAIL)); had = r0.exists() ? r0.data() : null; } catch(x){}   // keep the name, squad and position they told us
     await setDoc(doc(fs, 'requests', EMAIL), Object.assign({photo:(USER.photoURL || '').slice(0, 500), at:Date.now()}, had && had.sent ? {} : {name:(USER.displayName || '').slice(0, 100)}), {merge:true}); } catch(e){} }
   if (ROLE === 'public' && !ACCESS_ERR) wipeCache();   // nothing of the team's is kept on a device whose owner has no access (any more); not when the check simply failed
   // waiting for a coach to let them in: watch their own place on the two lists, and the moment they are added the app opens
   // for them by itself (no refreshing). Two small listeners, only while they wait.
-  if (EMAIL && ROLE === 'public' && !WAIT_ON){ WAIT_ON = true; const me = EMAIL, tw = /@c2ken\.net$/.test(me) ? me.replace(/@c2ken\.net$/, '@c2kni.net') : /@c2kni\.net$/.test(me) ? me.replace(/@c2kni\.net$/, '@c2ken.net') : '';
+  if (EMAIL && ROLE === 'public' && !WAIT_ON && !pwOnly(u)){ WAIT_ON = true; const me = EMAIL, tw = /@c2ken\.net$/.test(me) ? me.replace(/@c2ken\.net$/, '@c2kni.net') : /@c2kni\.net$/.test(me) ? me.replace(/@c2kni\.net$/, '@c2ken.net') : '';
     const inNow = kind => { try { const t = +sessionStorage.getItem('ergs.justInAt') || 0; if (Date.now() - t < 60000) return; sessionStorage.setItem('ergs.justInAt', Date.now()); sessionStorage.setItem('ergs.justIn', kind); } catch(e){} location.reload(); };
     setTimeout(() => { for (const e of [me, tw].filter(Boolean)) for (const kind of ['coaches', 'players']){ try { onSnapshot(doc(fs, kind, e), s => { if (s.exists() && auth.currentUser && (auth.currentUser.email || '').toLowerCase() === me) inNow(kind); }, () => {}); } catch(x){} } }, 1500); }
-  if (first){ first = false; res(); } else location.reload();
+  if (first){ first = false; res(); } else if (!PW_HOLD) location.reload();
 }); });
 getRedirectResult(auth).catch(() => {});
 
@@ -380,6 +431,7 @@ window.ERGS_AUTH = {
   async setAccess(kind, email, data){ oneDrop(kind, email); try { await setDoc(doc(fs, kind, email.toLowerCase()), data, {merge:true}); } catch(e){ throw err(e); } try { window.__afterSet && window.__afterSet(kind, email.toLowerCase(), data); } catch(e){} }, get admin(){ return EMAIL && EMAIL === ADMIN; }, adminEmail:ADMIN,
   async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
   async signOut(){ await wipeCache(); return signOut(auth); },
+  pwIn, pwReset, pwSet, pwMsg, get hasPw(){ const u = auth.currentUser; return !!u && (u.providerData || []).some(p => p.providerId === 'password'); }, get askPw(){ try { return sessionStorage.getItem('ergs.askPw') === '1'; } catch(e){ return false; } }, noAskPw(){ try { sessionStorage.removeItem('ergs.askPw'); } catch(e){} },
   sendLink, linkMsg, get linkErr(){ return LINK_ERR; }, get linkEmail(){ try { return localStorage.getItem(LINK_KEY) || ''; } catch(e){ return ''; } },
   async getOne(kind, id){ return getOneDoc(kind, id); },
   async list(kind){ return (await liveList(kind)).docs.map(d => d.id); },

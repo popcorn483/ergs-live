@@ -22,10 +22,11 @@ const note = (kind, what, n, rules) => { if (kind === 'read') M.reads += n; else
 /* ---------- who is asking, and what the rules allow ---------- */
 const me = () => { const u = W.__fakeUser; return u && u.email ? u.email.toLowerCase() : ''; }, uidOf = () => (W.__fakeUser && W.__fakeUser.uid) || '';
 const twins = e => [...new Set([e, e.replace(/@c2ken\.net$/, '@c2kni.net'), e.replace(/@c2kni\.net$/, '@c2ken.net')])];
-const who = () => { const e = me(), admin = e === ADMIN, onList = col => !!e && twins(e).some(x => store.has(col + '/' + x)), coach = admin || onList('coaches'), player = onList('players');
+const who = () => { const e0 = me(), fu = W.__fakeUser || {}, pwo = !!fu.pwOnly, e = pwo && !/@c2k(en|ni)\.net$/.test(e0) ? '' : e0;   // a C2k password sign-in nobody has proved: player profiles only (firestore.rules: pwC2k)
+  const admin = !pwo && e === ADMIN, onList = col => !!e && twins(e).some(x => store.has(col + '/' + x)), coach = !pwo && (admin || onList('coaches')), player = onList('players');
   const p = e ? store.get('players/' + e) : null, alias = p && p.aliasOf ? String(p.aliasOf).toLowerCase() : '';
   const own = id => !!e && !!id && twins(e).includes(id), mine = id => own(id) || (!!e && !!id && id === alias);
-  return {e, admin, coach, player, squad:coach || player, signedIn:!!e, own, mine,
+  return {e, admin, coach, player, squad:coach || player, signedIn:!!e && !pwo, own:id => (!pwo || !/^(coaches|requests)$/.test(W.__col || '')) && own(id), mine:id => (!pwo || !/^(coaches|requests)$/.test(W.__col || '')) && mine(id), pwo,
     costCoach:admin || !e ? 0 : 1,
     // the rules as published now try "coach" first; the reordered rules (window.__rules2) try the free checks and "player" first
     costSquad:admin || !e ? 0 : W.__rules2 ? (player ? 1 : 2) : (coach ? 1 : 2),
@@ -33,7 +34,7 @@ const who = () => { const e = me(), admin = e === ADMIN, onList = col => !!e && 
 // who may read: "own" = the person the document belongs to, or a coach (a whole collection of those: coaches only)
 const RD = {pushsubs:'all', pushq:'all', live:'all', viewers:'all', coaches:'own', requests:'own', headshots:'own', avail:'own', players:'own', team:'squad', plays:'squad', images:'squad', totw:'coach', drills:'squad', analysis:'squad', faces:'all',
   piq:'squad', notify:'signed', posts:'squad', reads:'own', pstats:'own', likes:'squad', phtags:'squad', audit:'admin', sponsors:'coach', sheets:'coach', members:'coach'};
-function allow(path, write, isCol){ const parts = path.split('/'), col = parts[0], id = isCol ? null : parts[1], U = who(), r = RD[col] || 'coach';
+function allow(path, write, isCol){ W.__col = path.split('/')[0]; const parts = path.split('/'), col = parts[0], id = isCol ? null : parts[1], U = who(), r = RD[col] || 'coach';
   if ((W.__deny || []).includes(col)) return {ok:false, cost:0};
   switch (r){
     case 'all': return {ok:true, cost:0};
@@ -50,7 +51,7 @@ const changed = (a, b) => [...new Set(Object.keys(a || {}).concat(Object.keys(b 
 const reqOK = d => only(d, ['name', 'photo', 'at', 'squad', 'pos', 'sent', 'resend', 'kind', 'follow', 'child', 'coachOf', 'iam']) && (!('iam' in d) || ['player', 'guardian', 'coach', 'supporter'].includes(d.iam)) && (!('follow' in d) || (Array.isArray(d.follow) && d.follow.length <= 12)) && (!('kind' in d) || ['', 'supporter', 'guardian', 'coach'].includes(d.kind))
   && (!('coachOf' in d) || (Array.isArray(d.coachOf) && d.coachOf.length <= 8)) && (!('child' in d) || (isStr(d.child) && d.child.length < 80)) && (!('squad' in d) || (isStr(d.squad) && d.squad.length < 20)) && (!('pos' in d) || (isStr(d.pos) && d.pos.length < 4)) && isStr(d.name) && d.name.length < 120;
 const COACH_W = ['coaches', 'players', 'team', 'plays', 'images', 'totw', 'drills', 'analysis', 'notify', 'sponsors', 'sheets'];
-function canWrite(path, cur, next){ const parts = path.split('/'), col = parts[0], id = parts[1], U = who(), del = next === null, create = cur === undefined && !del, update = cur !== undefined && !del;
+function canWrite(path, cur, next){ W.__col = path.split('/')[0]; const parts = path.split('/'), col = parts[0], id = parts[1], U = who(), del = next === null, create = cur === undefined && !del, update = cur !== undefined && !del;
   if ((W.__deny || []).includes(col)) return false;
   if (COACH_W.includes(col)) return U.coach;
   if (create && U.coach && ['headshots', 'avail', 'piq', 'reads', 'pstats', 'likes'].includes(col)) return true;   // a coach moving a record to a new email

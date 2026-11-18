@@ -60,7 +60,8 @@ if (cfg && cfg.apiKey && !/PASTE/.test(cfg.apiKey)){
     signOut(){ return signOut(auth); },
     // the coach's record: scope (admin, all or a squad) and the squads they look after
     async coachInfo(email){ for (const e of [email, c2kTwin(email)].filter(Boolean)){ try { const s = await getDoc(doc(db, 'coaches', e)); if (s.exists()) return s.data() || {}; } catch(x){} } return null; },
-    async isCoach(email){ let s = await getDoc(doc(db, 'coaches', email)); if (!s.exists() && c2kTwin(email)) s = await getDoc(doc(db, 'coaches', c2kTwin(email))); if (!s.exists()) return false; return true; },   // every coach can kick off and score
+    async isCoach(email){ const u = auth.currentUser; if (u && !u.emailVerified && (u.providerData || []).some(p => p.providerId === 'password')) return false;   // a C2k password sign-in: player profiles only
+      let s = await getDoc(doc(db, 'coaches', email)); if (!s.exists() && c2kTwin(email)) s = await getDoc(doc(db, 'coaches', c2kTwin(email))); if (!s.exists()) return false; return true; },   // every coach can kick off and score
     // someone signed in who isn't a coach or player: note them as a supporter so the coaches see them (a request they already made is left alone)
     async noteSupporter(){ const u = auth.currentUser; if (!u || !u.email) return; const id = u.email.toLowerCase(), ref = doc(db, 'requests', id);
       try { const s = await getDoc(ref); if (!s.exists()) await setDoc(ref, {name:(u.displayName || id.split('@')[0]).slice(0, 100), photo:(u.photoURL || '').slice(0, 500), at:Date.now(), kind:'supporter'});

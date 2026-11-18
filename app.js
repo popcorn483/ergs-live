@@ -2729,6 +2729,7 @@ signLink.onclick = () => { let saved = ''; try { saved = localStorage.getItem('e
       try { const em = await FB.sendLink(d.querySelector('#lkEmail').value); msg.classList.add('ok'); msg.innerHTML = `Link sent to <b>${esc(em)}</b>. Open that email on this phone or computer and tap <b>Sign in</b>. It comes from <b>noreply@ergs-live.firebaseapp.com</b> and can take a minute or two, so check Junk or Other too.`; go.textContent = 'Send again'; }
       catch(err){ msg.classList.add('bad'); msg.textContent = FB.linkMsg ? FB.linkMsg(err) : 'The link couldn’t be sent. Try again.'; }
       go.disabled = false; }; }); };
+let BOOT_SEEN = false;   // the first answer about who is signed in has come
 function boot(){
   const FB = window.FB;
   if (!FB){ $('#view').innerHTML = '<div class="empty">The scoreboard isn’t connected yet. (Setup: add the Firebase details to config.js.)</div>'; return; }
@@ -2748,6 +2749,11 @@ function boot(){
     { let go = false, stay = false; try { go = sessionStorage.getItem('ergs.toApp') === '1'; if (EMAIL) sessionStorage.removeItem('ergs.toApp');
         stay = sessionStorage.getItem('ergs.liveOK') === '1' || /\/app\//.test(document.referrer || '') || /^#m\./.test(location.hash) || /[?&]live\b/.test(location.search); } catch(e){}
       if ((ok || pl) && !SANDBOX && (go || !stay)){ location.replace(new URL('app/', location.href).href); return; }
+      // the installed app opened signed out: it starts on "Who are you?" in the team app, unless they picked Supporter there.
+      // Only the installed app (a plain link from Facebook etc. still opens the scoreboard for everyone), and only on opening.
+      if (!EMAIL && !SANDBOX && !stay && !BOOT_SEEN){ let who = '', inst = false; try { who = localStorage.getItem('ergs.joinAs') || ''; inst = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || /^android-app:/.test(document.referrer || ''); } catch(e){}
+        if (inst && who !== 'supporter'){ location.replace(new URL('app/', location.href).href); return; } }
+      BOOT_SEEN = true;
       try { if (EMAIL) sessionStorage.setItem('ergs.liveOK', '1'); } catch(e){} }
     COACH = ok; PLAYER = pl; if (COACH) loadTeams(true); nomScope(); signLink.hidden = !!EMAIL; outLink.hidden = !EMAIL;
     if (veoUnsub){ veoUnsub(); veoUnsub = null; } VEO = {}; PHOTOS = {};
