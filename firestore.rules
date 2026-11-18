@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     // signed in with a verified email; Google sign-ins always own their address (some school accounts don't mark it verified)
-    function proved() { return request.auth != null && request.auth.token.email is string && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com'); }
+    function proved() { return request.auth != null && request.auth.token.email is string && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com' || 'google.com' in request.auth.token.firebase.identities); }   // …or the account has Google on it (a coach who added a password to their Google sign-in)
     // a school C2k address signed in with a password it set itself (18 November 2026): enough for a PLAYER profile, never for a
     // coach. Its address isn't proved, so it gets nothing that isn't already on a player profile under that address.
     function pwC2k() { return request.auth != null && request.auth.token.email is string && request.auth.token.firebase.sign_in_provider == 'password' && request.auth.token.email.lower().matches('.*@c2k(en|ni)[.]net$'); }

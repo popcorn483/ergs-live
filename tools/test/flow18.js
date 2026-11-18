@@ -63,4 +63,9 @@ const role = p => p.evaluate(() => window.__int && window.__int.Cloud.role);
     ok(/\/app\/$/.test(new URL(p4.url()).pathname) && await p4.$('[data-join="coach"]') && await p4.$('.jn-tile.sup') && !(await p4.$('#jnSpF')), 'picked ' + was + ' before, Sign in on ERGS Live: "Who are you?" (' + p4.url() + ')');
     ok(await p4.evaluate(() => localStorage.getItem('ergs.joinAs')) === was, '…and the earlier choice is kept');
     ok(!(await p4.$('.dlg #lkGoogle, #lkGoogle')), '…no separate sign-in box'); }
+  // 7. a Google account with a password added that Firebase doesn't mark verified (the head coach, 18 November 2026): still a coach
+  { const p5 = await open(b, 'coach', {ctx:await b.newContext({viewport:{width:420, height:900}})});
+    await p5.addInitScript(() => { const u = window.__fakeUser; if (u){ u.emailVerified = false; u.providerData = [{providerId:'google.com'}, {providerId:'password'}]; } });
+    await p5.goto('http://app.test/app/'); await p5.waitForTimeout(4500);
+    ok(await role(p5) === 'coach' && !(await p5.$('#rqForm')), 'Google + password, not marked verified: still a coach (' + await role(p5) + ')'); }
   await b.close(); console.log(fails ? fails + ' FAILED' : 'all passed'); process.exit(fails ? 1 : 0); })();

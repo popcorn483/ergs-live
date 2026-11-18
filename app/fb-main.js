@@ -42,7 +42,8 @@ const linkMsg = e => { const c = String(e && e.code || ''); return /operation-no
    whose address isn't on a player profile is removed again at once. "Forgot password" sends a reset email to their inbox,
    which also gives the address back to its owner if someone else set a password on it first. */
 const C2K = e => /@c2k(en|ni)\.net$/i.test(String(e || ''));
-const pwOnly = u => !!u && !u.emailVerified && (u.providerData || []).some(p => p.providerId === 'password');   // signed in with a password nobody has proved
+// (an account that also has Google on it belongs to whoever owns the address: Firebase doesn't always mark those verified)
+const pwOnly = u => !!u && !u.emailVerified && (u.providerData || []).some(p => p.providerId === 'password') && !(u.providerData || []).some(p => p.providerId === 'google.com');   // signed in with a password nobody has proved
 let PW_HOLD = false;   // creating an account: hold the reload until the profile check has been made
 const PW_ERR = (c, x) => { const e = new Error(x || c); e.code = c; return e; };
 async function pwProfile(email){
