@@ -26,7 +26,7 @@ const who = () => { const e0 = me(), fu = W.__fakeUser || {}, pwo = !!fu.pwOnly,
   const admin = !pwo && e === ADMIN, onList = col => !!e && twins(e).some(x => store.has(col + '/' + x)), coach = !pwo && (admin || onList('coaches')), player = onList('players');
   const p = e ? store.get('players/' + e) : null, alias = p && p.aliasOf ? String(p.aliasOf).toLowerCase() : '';
   const own = id => !!e && !!id && twins(e).includes(id), mine = id => own(id) || (!!e && !!id && id === alias);
-  return {e, admin, coach, player, squad:coach || player, signedIn:!!e && !pwo, own:id => (!pwo || !/^(coaches|requests)$/.test(W.__col || '')) && own(id), mine:id => (!pwo || !/^(coaches|requests)$/.test(W.__col || '')) && mine(id), pwo,
+  return {e, admin, coach, player, squad:coach || player, signedIn:!!e && !pwo, own:id => (!pwo || !/^(coaches)$/.test(W.__col || '')) && own(id), mine:id => (!pwo || !/^(coaches)$/.test(W.__col || '')) && (pwo && W.__col === 'requests' ? own(id) : mine(id)), pwo,
     costCoach:admin || !e ? 0 : 1,
     // the rules as published now try "coach" first; the reordered rules (window.__rules2) try the free checks and "player" first
     costSquad:admin || !e ? 0 : W.__rules2 ? (player ? 1 : 2) : (coach ? 1 : 2),
@@ -38,7 +38,7 @@ function allow(path, write, isCol){ W.__col = path.split('/')[0]; const parts = 
   if ((W.__deny || []).includes(col)) return {ok:false, cost:0};
   switch (r){
     case 'all': return {ok:true, cost:0};
-    case 'signed': return {ok:U.signedIn, cost:0};
+    case 'signed': return {ok:U.signedIn || (U.pwo && !!U.e), cost:0};
     case 'admin': return {ok:U.admin, cost:0};
     case 'coach': return {ok:U.coach, cost:U.costCoach};
     case 'squad': return {ok:U.squad, cost:U.costSquad};
@@ -48,7 +48,7 @@ function allow(path, write, isCol){ W.__col = path.split('/')[0]; const parts = 
 const isStr = x => typeof x === 'string', isNum = x => typeof x === 'number', isMapV = x => !!x && typeof x === 'object' && !Array.isArray(x) && !('__ts' in x);
 const only = (o, list) => Object.keys(o).every(k => list.includes(k)), size = x => isStr(x) || Array.isArray(x) ? x.length : isMapV(x) ? Object.keys(x).length : 0;
 const changed = (a, b) => [...new Set(Object.keys(a || {}).concat(Object.keys(b || {})))].filter(k => JSON.stringify((a || {})[k]) !== JSON.stringify((b || {})[k]));
-const reqOK = d => only(d, ['name', 'photo', 'at', 'squad', 'pos', 'sent', 'resend', 'kind', 'follow', 'child', 'coachOf', 'iam']) && (!('iam' in d) || ['player', 'guardian', 'coach', 'supporter'].includes(d.iam)) && (!('follow' in d) || (Array.isArray(d.follow) && d.follow.length <= 12)) && (!('kind' in d) || ['', 'supporter', 'guardian', 'coach'].includes(d.kind))
+const reqOK = d => only(d, ['name', 'photo', 'at', 'squad', 'pos', 'sent', 'resend', 'kind', 'follow', 'child', 'coachOf', 'iam', 'pw']) && (!('iam' in d) || ['player', 'guardian', 'coach', 'supporter'].includes(d.iam)) && (!('follow' in d) || (Array.isArray(d.follow) && d.follow.length <= 12)) && (!('kind' in d) || ['', 'supporter', 'guardian', 'coach'].includes(d.kind))
   && (!('coachOf' in d) || (Array.isArray(d.coachOf) && d.coachOf.length <= 8)) && (!('child' in d) || (isStr(d.child) && d.child.length < 80)) && (!('squad' in d) || (isStr(d.squad) && d.squad.length < 20)) && (!('pos' in d) || (isStr(d.pos) && d.pos.length < 4)) && isStr(d.name) && d.name.length < 120;
 const COACH_W = ['coaches', 'players', 'team', 'plays', 'images', 'totw', 'drills', 'analysis', 'notify', 'sponsors', 'sheets'];
 function canWrite(path, cur, next){ W.__col = path.split('/')[0]; const parts = path.split('/'), col = parts[0], id = parts[1], U = who(), del = next === null, create = cur === undefined && !del, update = cur !== undefined && !del;
@@ -60,7 +60,8 @@ function canWrite(path, cur, next){ W.__col = path.split('/')[0]; const parts = 
   switch (col){
     case 'live': return !del && U.coach && isStr(next.json) && next.json.length < 900000;
     case 'viewers': return del || (parts[1].length < 80 && parts[3].length < 40 && only(next, ['at', 'exp']));
-    case 'requests': if (del) return U.own(id) || U.coach || U.mine(id); if (U.coach) return true; if (!U.mine(id) || !reqOK(next)) return false;
+    case 'requests': if (del) return (!U.pwo && (U.own(id) || U.mine(id))) || U.coach; if (U.coach) return true; if (!U.mine(id) || !reqOK(next)) return false;
+      if (U.pwo && !(next.pw === true && !next.kind && (next.iam || 'player') === 'player' && !('coachOf' in next) && !('child' in next) && !('follow' in next))) return false;   // pwAskOK
       return create || !('sent' in cur) || (next.sent || 0) === cur.sent || cur.resend === true || Date.now() - cur.sent > 3600000;
     case 'headshots': if (del) return U.coach; if (update && U.coach) return true; if (!(U.player && U.mine(id))) return false;
       if (next.status === 'pending' && isStr(next.photo) && next.photo.length < 950000 && isStr(next.season) && (cur === undefined || cur.status === 'open' || cur.season !== next.season)) return true;

@@ -2,6 +2,7 @@
 // usage: STUB3=1 node flow17.js
 const { chromium } = require('playwright'); const { open } = require('./real.js');
 let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) fails++; };
+const roleOf = p => p.evaluate(() => window.__int && window.__int.Cloud.role);
 (async () => { const b = await chromium.launch(); const ctx = await b.newContext({viewport:{width:420, height:900}});
   // a pupil on a profile: players/pupil1@c2ken.net
   await ctx.addInitScript(() => { window.__fsSeed = window.__fsSeed || {}; });
@@ -19,8 +20,21 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
   await p.fill('#jnPwE', 'nobody9@c2ken.net'); await p.fill('#jnPwP', 'secret1'); await p.click('#jnPwGo'); await p.waitForTimeout(500);
   ok(!(await p.$eval('#jnPwC', e => e.hidden)), 'unknown address: asks for the password again (first time)');
   await p.fill('#jnPwC', 'secret1'); await p.click('#jnPwGo'); await p.waitForTimeout(1500);
-  ok(/hasn’t been added to a player profile/.test(await p.$eval('#jnPwM', e => e.textContent)), 'not on a profile: refused, ' + await p.$eval('#jnPwM', e => e.textContent));
-  ok(!(await p.evaluate(() => JSON.parse(localStorage.getItem('fakePwAccounts') || '{}')['nobody9@c2ken.net'])), 'not on a profile: the account was removed again');
+  await p.waitForTimeout(3500);
+  // not on a profile (18 November 2026): the account stays, and the app asks for their name and squad
+  ok(await p.evaluate(() => JSON.parse(localStorage.getItem('fakePwAccounts') || '{}')['nobody9@c2ken.net']), 'not on a profile: the password is kept');
+  ok(await roleOf(p) === 'public' && /don’t know this email yet/.test(await p.$eval('#rqForm h2', e => e.textContent)), 'not on a profile: "' + await p.$eval('#rqForm h2', e => e.textContent) + '"');
+  ok(await p.$('#rqfN') && await p.$('#rqfS') && !(await p.$('#rqForm .jn-sw')), '…asks for name and squad, with no Coach / Parent switch');
+  await p.fill('#rqfN', 'Noel Body'); await p.selectOption('#rqfS', {index:1}); await p.click('#rqForm button[type=submit]'); await p.waitForTimeout(1500);
+  { const r = await p.evaluate(() => window.ERGS_AUTH.getOne('requests', 'nobody9@c2ken.net'));
+    ok(r && r.name === 'Noel Body' && r.sent && r.pw === true && !r.kind, 'request sent to the coaches, marked as an unchecked address ' + JSON.stringify(r && {name:r.name, squad:r.squad, pw:r.pw, iam:r.iam}));
+    ok(/Thanks/.test(await p.$eval('#rqForm h2', e => e.textContent)), '…then the waiting screen'); }
+  { const bad = await p.evaluate(async () => { const out = []; for (const d of [{kind:'coach', coachOf:['U14']}, {kind:'guardian', child:'x'}, {pw:false}]){ try { await window.ERGS_AUTH.setAccess('requests', 'nobody9@c2ken.net', d); out.push('allowed'); } catch(e){ out.push('refused'); } }
+      try { await window.ERGS_AUTH.setAccess('requests', 'pupil1@c2ken.net', {name:'X Y', pw:true}); out.push('allowed'); } catch(e){ out.push('refused'); } return out.join(','); });
+    ok(bad === 'refused,refused,refused,refused', 'it cannot ask to be a coach or parent, drop the mark, or write someone else’s request (' + bad + ')'); }
+  ok(await roleOf(p) === 'public', '…and still has no access until a coach lets them in');
+  await p.evaluate(() => window.ERGS_AUTH.signOut()); await p.waitForTimeout(1500); await p.goto('http://app.test/app/'); await p.waitForTimeout(2500);
+  if (await p.$('[data-join="player"]')){ await p.click('[data-join="player"]'); await p.waitForTimeout(300); }
   // a coach's C2k address that is also a player: player only
   // mismatch
   await p.fill('#jnPwE', 'pupil1@c2ken.net'); await p.fill('#jnPwP', 'secret1'); await p.click('#jnPwGo'); await p.waitForTimeout(500);

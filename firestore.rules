@@ -42,13 +42,18 @@ service cloud.firestore {
     }
     // someone who signed in but isn't on a list yet leaves a request; coaches see it and add them as a player or coach
     match /requests/{email} {
-      function reqOK() { return request.resource.data.keys().hasOnly(['name', 'photo', 'at', 'squad', 'pos', 'sent', 'resend', 'kind', 'follow', 'child', 'coachOf', 'iam']) && (!('iam' in request.resource.data) || request.resource.data.iam in ['player', 'guardian', 'coach', 'supporter']) && (!('follow' in request.resource.data) || (request.resource.data.follow is list && request.resource.data.follow.size() <= 12)) && (!('kind' in request.resource.data) || request.resource.data.kind in ['', 'supporter', 'guardian', 'coach']) && (!('coachOf' in request.resource.data) || (request.resource.data.coachOf is list && request.resource.data.coachOf.size() <= 8)) && (!('child' in request.resource.data) || (request.resource.data.child is string && request.resource.data.child.size() < 80)) && (!('squad' in request.resource.data) || (request.resource.data.squad is string && request.resource.data.squad.size() < 20)) && (!('pos' in request.resource.data) || (request.resource.data.pos is string && request.resource.data.pos.size() < 4)) && request.resource.data.name is string && request.resource.data.name.size() < 120; }
-      allow read: if (proved() && (own(email) || mine(email))) || isCoach();
+      function reqOK() { return request.resource.data.keys().hasOnly(['name', 'photo', 'at', 'squad', 'pos', 'sent', 'resend', 'kind', 'follow', 'child', 'coachOf', 'iam', 'pw']) && (!('iam' in request.resource.data) || request.resource.data.iam in ['player', 'guardian', 'coach', 'supporter']) && (!('follow' in request.resource.data) || (request.resource.data.follow is list && request.resource.data.follow.size() <= 12)) && (!('kind' in request.resource.data) || request.resource.data.kind in ['', 'supporter', 'guardian', 'coach']) && (!('coachOf' in request.resource.data) || (request.resource.data.coachOf is list && request.resource.data.coachOf.size() <= 8)) && (!('child' in request.resource.data) || (request.resource.data.child is string && request.resource.data.child.size() < 80)) && (!('squad' in request.resource.data) || (request.resource.data.squad is string && request.resource.data.squad.size() < 20)) && (!('pos' in request.resource.data) || (request.resource.data.pos is string && request.resource.data.pos.size() < 4)) && request.resource.data.name is string && request.resource.data.name.size() < 120; }
+      // a C2k address that set its own password and isn't on a player profile yet (18 November 2026): it may ask to be let in as a
+      // PLAYER, under its own address only. The request is marked pw (the address hasn't been proved), so the coach sees that.
+      function pwAsk() { return pwC2k() && own(email); }
+      function pwAskOK() { return request.resource.data.get('pw', false) == true && request.resource.data.get('kind', '') == '' && request.resource.data.get('iam', 'player') == 'player' && !('coachOf' in request.resource.data) && !('child' in request.resource.data) && !('follow' in request.resource.data); }
+      function asker() { return (proved() && mine(email)) || (pwAsk() && pwAskOK()); }
+      allow read: if (proved() && (own(email) || mine(email))) || pwAsk() || isCoach();
       allow delete: if (proved() && (own(email) || mine(email))) || isCoach();   // a supporter can remove themselves
       allow create, update: if isCoach();   // a coach can reset the one-hour wait, mark someone as a supporter, or put someone on the list from Access
-      allow create: if proved() && mine(email) && reqOK();
+      allow create: if asker() && reqOK();
       // sending again: once an hour, or straight away after a coach resets it; other updates (photo, last seen) don't touch 'sent'
-      allow update: if proved() && mine(email) && reqOK() && (!('sent' in resource.data) || request.resource.data.get('sent', 0) == resource.data.sent || resource.data.get('resend', false) == true || request.time.toMillis() - resource.data.sent > 3600000);
+      allow update: if asker() && reqOK() && (!('sent' in resource.data) || request.resource.data.get('sent', 0) == resource.data.sent || resource.data.get('resend', false) == true || request.time.toMillis() - resource.data.sent > 3600000);
     }
     // a player sends their own headshot (once a season, unless a coach opens it again); coaches approve it
     match /headshots/{email} {
@@ -100,7 +105,7 @@ service cloud.firestore {
         && request.resource.data.sd is number && request.resource.data.sd <= 1000 && request.resource.data.sdWk is number && request.resource.data.sdWk <= 1000;
     }
     // approval emails to the head coach: anyone signed in reads the settings (so a new request can send one), only coaches change them
-    match /notify/{doc} { allow read: if proved(); allow write: if isCoach(); }
+    match /notify/{doc} { allow read: if signedIn(); allow write: if isCoach(); }   // read by whoever sends a request, so the coach is emailed
     // Team news: coaches post to a squad (or everyone); the squad reads them
     match /posts/{id} {
       allow read: if isSquad();
