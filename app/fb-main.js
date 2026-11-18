@@ -2,7 +2,7 @@
 // The app asks for "db", "user", "assets" and "downloads"; this module answers with Firebase-backed versions.
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getFirestore, doc, getDoc, getDocs, getAggregateFromServer, count, sum, where, documentId, setDoc, deleteDoc, deleteField, onSnapshot, collection, runTransaction, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updatePassword } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updatePassword, EmailAuthProvider, linkWithCredential } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const CFG = window.ERGS_CONFIG || {};
 const app = initializeApp(CFG.firebase), fs = getFirestore(app), auth = getAuth(app);
@@ -67,21 +67,37 @@ async function pwIn(email, pw, confirm){
     throw bad || PW_ERR('not-on-profile'); }
   try { localStorage.setItem(LINK_KEY, email); } catch(e){}
   PW_HOLD = false; location.reload(); return 'new'; }
+/* staff (coaches, parents) with email + password (18 November 2026). There is no first-time password here: a member of staff proves
+   their address once with Google or an emailed link, and then sets a password inside the app (pwSet). Firebase removes any
+   password nobody had proved when the link or Google sign-in completes, so the only password left on the account is the one they
+   chose. Their account is then verified, so the rules give them their usual access with it. */
+async function staffIn(email, pw){
+  email = String(email || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw PW_ERR('auth/invalid-email');
+  if (!pw) throw PW_ERR('staff-nopw');
+  try { await signInWithEmailAndPassword(auth, email, pw); }
+  catch(e){ const c = String(e && e.code || ''); if (/invalid-credential|user-not-found|wrong-password|invalid-login|invalid-password/.test(c)) throw PW_ERR('staff-nopw'); throw e; }
+  try { localStorage.setItem(LINK_KEY, email); } catch(e){}
+  return 'in'; }
 async function pwReset(email){ email = String(email || '').trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw PW_ERR('auth/invalid-email');
   await sendPasswordResetEmail(auth, email, {url:location.origin + location.pathname}); return email; }
-async function pwSet(pw){ const u = auth.currentUser; if (!u) throw PW_ERR('signed-out'); if (String(pw || '').length < 6) throw PW_ERR('auth/weak-password'); await updatePassword(u, pw); try { sessionStorage.removeItem('ergs.askPw'); } catch(e){} }
+async function pwSet(pw){ const u = auth.currentUser; if (!u) throw PW_ERR('signed-out'); if (String(pw || '').length < 6) throw PW_ERR('auth/weak-password');
+  // signed in with Google only: add a password to the same account; otherwise change the one it has
+  if ((u.providerData || []).some(p => p.providerId === 'password')) await updatePassword(u, pw); else await linkWithCredential(u, EmailAuthProvider.credential(u.email, pw));
+  try { localStorage.removeItem('ergs.pwNo'); } catch(e){} try { sessionStorage.removeItem('ergs.askPw'); } catch(e){} }
 const pwMsg = e => { const c = String(e && e.code || '');
   return c === 'not-c2k' ? 'Passwords are for school C2k addresses (ending @c2ken.net). For any other email, use Google or a sign-in link.'
     : c === 'pw-unknown' ? 'First time here? Type the same password again below to set it. (Been here before? That password didn’t match.)'
+    : c === 'staff-nopw' ? 'That email and password don’t match. Not set a password yet? Sign in once with Google or a sign-in link, and the app lets you choose one. Forgotten it? Tap “Forgot password”.'
+    : /requires-recent-login/.test(c) ? 'For safety, sign out, sign back in with Google or a sign-in link, and set the password straight away.'
     : c === 'pw-mismatch' ? 'The two passwords aren’t the same. Type them again.'
     : c === 'pw-taken' ? 'This address already has an account, and that isn’t its password. Never set one, or forgotten it? Tap “Forgot password”.'
     : c === 'not-on-profile' ? 'You can’t sign in yet: this email hasn’t been added to a player profile. Ask a coach to add your C2k email, then try again.'
     : c === 'check-failed' ? 'Your profile couldn’t be checked just now. Check your signal and try again.'
     : /weak-password/.test(c) ? 'Use at least 6 characters for your password.'
-    : /invalid-email/.test(c) ? 'Enter your full school email address.'
+    : /invalid-email/.test(c) ? 'Enter your full email address.'
     : /too-many-requests/.test(c) ? 'Too many tries. Wait a few minutes, or tap “Forgot password”.'
     : /operation-not-allowed/.test(c) ? 'Password sign-in isn’t switched on yet. A coach needs to turn on Email/Password in Firebase (Authentication › Sign-in method).'
-    : /requires-recent-login/.test(c) ? 'For safety, sign in again (with a link) and then set your password straight away.'
     : /network/.test(c) ? 'No connection. Check your signal and try again.'
     : /quota|exceeded/.test(c) ? 'Today’s emails from the app have run out. Try again tomorrow.'
     : 'That didn’t work. Try again.'; };
@@ -431,7 +447,7 @@ window.ERGS_AUTH = {
   async setAccess(kind, email, data){ oneDrop(kind, email); try { await setDoc(doc(fs, kind, email.toLowerCase()), data, {merge:true}); } catch(e){ throw err(e); } try { window.__afterSet && window.__afterSet(kind, email.toLowerCase(), data); } catch(e){} }, get admin(){ return EMAIL && EMAIL === ADMIN; }, adminEmail:ADMIN,
   async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
   async signOut(){ await wipeCache(); return signOut(auth); },
-  pwIn, pwReset, pwSet, pwMsg, get hasPw(){ const u = auth.currentUser; return !!u && (u.providerData || []).some(p => p.providerId === 'password'); }, get askPw(){ try { return sessionStorage.getItem('ergs.askPw') === '1'; } catch(e){ return false; } }, noAskPw(){ try { sessionStorage.removeItem('ergs.askPw'); } catch(e){} },
+  pwIn, staffIn, pwReset, pwSet, pwMsg, get pwNo(){ try { return localStorage.getItem('ergs.pwNo') === '1'; } catch(e){ return false; } }, setPwNo(){ try { localStorage.setItem('ergs.pwNo', '1'); } catch(e){} }, get hasPw(){ const u = auth.currentUser; return !!u && (u.providerData || []).some(p => p.providerId === 'password'); }, get askPw(){ try { return sessionStorage.getItem('ergs.askPw') === '1'; } catch(e){ return false; } }, noAskPw(){ try { sessionStorage.removeItem('ergs.askPw'); } catch(e){} },
   sendLink, linkMsg, get linkErr(){ return LINK_ERR; }, get linkEmail(){ try { return localStorage.getItem(LINK_KEY) || ''; } catch(e){ return ''; } },
   async getOne(kind, id){ return getOneDoc(kind, id); },
   async list(kind){ return (await liveList(kind)).docs.map(d => d.id); },

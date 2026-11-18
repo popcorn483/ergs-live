@@ -22,6 +22,7 @@ Needs Node and Playwright (`require('playwright')`). From this folder:
     STUB3=1 node flow10.js            # who is asking for access: the choice is required, and shown to the coaches
     STUB3=1 node flow11.js            # players and parents: My season and Match alerts on the home page; kinds of alert
     STUB3=1 node flow17.js            # C2k password sign-in for players; the installed app opening on the role they picked
+    STUB3=1 node flow18.js            # staff email + password: a coach sets one after a Google or link sign-in, then signs in with it
     node kick.test.mjs                # the alert job: what counts as news (full time, postponed, new time, team named)
     STUB3=1 node flow12.js <folder>   # Play IQ: the rugby laws game (every question has one right answer and no giveaway)
     STUB3=1 node walk.js admin        # presses every control it can find on every screen (add "phone" for a phone)
