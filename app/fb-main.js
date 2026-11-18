@@ -75,7 +75,7 @@ const pwMsg = e => { const c = String(e && e.code || '');
     : c === 'pw-unknown' ? 'First time here? Type the same password again below to set it. (Been here before? That password didn’t match.)'
     : c === 'pw-mismatch' ? 'The two passwords aren’t the same. Type them again.'
     : c === 'pw-taken' ? 'This address already has an account, and that isn’t its password. Never set one, or forgotten it? Tap “Forgot password”.'
-    : c === 'not-on-profile' ? 'That email isn’t on a player profile yet. Ask your coach to add it, or get a sign-in link and tell the coaches who you are.'
+    : c === 'not-on-profile' ? 'You can’t sign in yet: this email hasn’t been added to a player profile. Ask a coach to add your C2k email, then try again.'
     : c === 'check-failed' ? 'Your profile couldn’t be checked just now. Check your signal and try again.'
     : /weak-password/.test(c) ? 'Use at least 6 characters for your password.'
     : /invalid-email/.test(c) ? 'Enter your full school email address.'

@@ -19,7 +19,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
   await p.fill('#jnPwE', 'nobody9@c2ken.net'); await p.fill('#jnPwP', 'secret1'); await p.click('#jnPwGo'); await p.waitForTimeout(500);
   ok(!(await p.$eval('#jnPwC', e => e.hidden)), 'unknown address: asks for the password again (first time)');
   await p.fill('#jnPwC', 'secret1'); await p.click('#jnPwGo'); await p.waitForTimeout(1500);
-  ok(/isn’t on a player profile/.test(await p.$eval('#jnPwM', e => e.textContent)), 'not on a profile: refused, ' + await p.$eval('#jnPwM', e => e.textContent));
+  ok(/hasn’t been added to a player profile/.test(await p.$eval('#jnPwM', e => e.textContent)), 'not on a profile: refused, ' + await p.$eval('#jnPwM', e => e.textContent));
   ok(!(await p.evaluate(() => JSON.parse(localStorage.getItem('fakePwAccounts') || '{}')['nobody9@c2ken.net'])), 'not on a profile: the account was removed again');
   // a coach's C2k address that is also a player: player only
   // mismatch
