@@ -31,6 +31,14 @@ service cloud.firestore {
         && request.resource.data.last == request.time && request.resource.data.n == resource.data.n + 1
         && request.resource.data.app is bool && request.resource.data.mob is bool;
     }
+    // Tip of the day log: one doc per date, written once by the first staff device that opens the site that day (staff key token).
+    match /newsletterTipLog/{day} {
+      allow read: if true;
+      allow create: if day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') && request.resource.data.keys().hasOnly(['id','at','t'])
+        && request.resource.data.t == '0ddd4e393a7f0180e83d86fa' && request.resource.data.id is string && request.resource.data.id.size() < 120
+        && request.resource.data.at == request.time;
+      allow update, delete: if nlEditor();
+    }
     // signed in with a verified email; Google sign-ins always own their address (some school accounts don't mark it verified)
     function proved() { return request.auth != null && request.auth.token.email is string && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com' || 'google.com' in request.auth.token.firebase.identities); }   // …or the account has Google on it (a coach who added a password to their Google sign-in)
     // a school C2k address signed in with a password it set itself (18 November 2026): enough for a PLAYER profile, never for a
