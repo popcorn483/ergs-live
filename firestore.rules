@@ -1,6 +1,36 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // ---- AI in School newsletter (popcorn483.github.io/ai-newsletter/) ----
+    // Content is encrypted with the staff password, so anyone may read; only the editor may write.
+    function nlEditor() { return request.auth != null && request.auth.token.email is string && request.auth.token.email_verified == true && request.auth.token.email.lower() in ['jbutler803@c2ken.net', 'jbutler803@c2kni.net']; }
+    match /newsletter/{doc} {
+      allow read: if true;
+      allow write: if nlEditor() && request.resource.data.releases is map;
+    }
+    match /newsletterIssues/{id} {
+      allow read: if true;
+      allow write: if nlEditor() && request.resource.data.enc is string && request.resource.data.enc.size() < 400000;
+      allow delete: if nlEditor();
+    }
+    match /newsletterImgs/{id} {
+      allow read: if true;
+      allow write: if nlEditor() && request.resource.data.data is string && request.resource.data.data.size() < 1000000;
+      allow delete: if nlEditor();
+    }
+    // Anonymous staff usage: one doc per device. Only devices with the staff key (token) can write; only the editor can read.
+    match /newsletterVisits/{id} {
+      allow get: if true;               // a device can read its own (random, unguessable) record
+      allow list, delete: if nlEditor(); // only the editor sees the totals
+      allow create: if id.size() <= 40 && request.resource.data.keys().hasOnly(['t','first','last','n','app','mob'])
+        && request.resource.data.t == '0ddd4e393a7f0180e83d86fa' && request.resource.data.first == request.time
+        && request.resource.data.last == request.time && request.resource.data.n == 1
+        && request.resource.data.app is bool && request.resource.data.mob is bool;
+      allow update: if request.resource.data.keys().hasOnly(['t','first','last','n','app','mob'])
+        && request.resource.data.t == '0ddd4e393a7f0180e83d86fa' && request.resource.data.first == resource.data.first
+        && request.resource.data.last == request.time && request.resource.data.n == resource.data.n + 1
+        && request.resource.data.app is bool && request.resource.data.mob is bool;
+    }
     // signed in with a verified email; Google sign-ins always own their address (some school accounts don't mark it verified)
     function proved() { return request.auth != null && request.auth.token.email is string && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com' || 'google.com' in request.auth.token.firebase.identities); }   // …or the account has Google on it (a coach who added a password to their Google sign-in)
     // a school C2k address signed in with a password it set itself (18 November 2026): enough for a PLAYER profile, never for a
