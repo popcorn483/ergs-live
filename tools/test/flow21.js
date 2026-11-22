@@ -31,6 +31,14 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
   // every name is centred under its shirt
   { const off = await p.evaluate(() => { const T = window.__int; return (T.TW.labs || []).filter(l => Math.abs(l.dx) > 0.01).length + ':' + (T.TW.labs || []).length; });
     ok(/^0:[1-9]/.test(off), 'every name is centred under its shirt (off-centre:total ' + off + ')'); }
+  // names are one size, and the same share of the normal size whatever size the picture is drawn at (still, animation, GIF)
+  { const r = await p.evaluate(() => { const ev = window.__ev, G = ev("GA_G.find(g => g.key === 'totw')"), fx = ev("Object.keys(GA_ELEM)[0]"), c = document.createElement('canvas'), out = [];
+      const N = ['Sophie Johnston','Amber Ferguson','Lexi McElwaine','Charlotte Gould','Bethany Carty','Pippa Armstrong','Emily Balfour','Torin Sholes','Megan Stephenson','Kristen Fee','Lily Sayers','Ben Wallace','Christopher Montgomery','Al Wu','Jo Bloggs'];
+      ev("twEdit")(x => { x.adj = {}; x.players = N.map(n => ({f:n.split(' ')[0], l:n.split(' ')[1], t:'1XV'})); });
+      for (const [w, h] of [[512, 640], [720, 900], [1080, 1350]]){ c.width = w; c.height = h; ev("gaElemDraw")(G, c.getContext('2d'), w, h, fx, 0.9999); out.push([...new Set(window.__int.TW.labs.map(l => l.k.toFixed(3)))].join('/')); }
+      return out; });
+    ok(r.every(x => !/\//.test(x)), 'a full team of real names: every name the same size (' + r.join(' ') + ')');
+    ok(new Set(r).size === 1, '…and the same at GIF, animation and full size'); }
   await p.evaluate(() => document.querySelector('#twCanvas').scrollIntoView({block:'start'})); await p.locator('#twCanvas').screenshot({path:'/tmp/totw.png'});
   { const e = p.errs.filter(x => !/reading 'set'/.test(x)); ok(!e.length, 'no page errors (3D stub aside) ' + e.join(' | ')); }
   await b.close(); console.log(fails ? fails + ' FAILED' : 'all passed'); process.exit(fails ? 1 : 0); })();
