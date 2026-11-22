@@ -37,6 +37,9 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
     ok(r.every(x => !/\//.test(x)), 'a full team of real names: every name the same size (' + r.join(' ') + ')');
     const t = await p.evaluate(() => { const L = window.__int.TW.labs; return {slid:L.filter(l => l.dx).length, n:L.length, touch:window.__int.TW.labTouch}; });
     ok(t.slid <= 3, 'the pack and backs are spaced so names sit centred; only a very long one slides along (' + t.slid + ' of ' + t.n + ' slid)');
+    ok(await p.evaluate(() => window.__int.TW.labs.find(l => l.i === 8).dx === 0), 'the scrum-half’s name (Megan Stephenson) is centred under the 9 shirt');
+    { const d9 = await p.evaluate(async () => { const ev = window.__ev; ev("twEdit")(x => { x.numX = 1; }); await new Promise(r => setTimeout(r, 400)); const v = window.__int.TW.labs.find(l => l.i === 8).dx; ev("twEdit")(x => { x.numX = 0; }); return v; });
+      ok(d9 === 0, '…also when the numbers have been nudged by hand'); }
     ok(r.every(x => x === '1.000'), '…all at full size (' + r[0] + ')');
     ok(t.touch < 0.02, '…and nothing is left touching (' + t.touch + ')');
     ok(new Set(r).size === 1, '…and the same at GIF, animation and full size'); }
