@@ -43,6 +43,13 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
     ok(r.every(x => x === '1.000'), '…all at full size (' + r[0] + ')');
     ok(t.touch < 0.02, '…and nothing is left touching (' + t.touch + ')');
     ok(new Set(r).size === 1, '…and the same at GIF, animation and full size'); }
+  // a tall, thin sponsor logo stands at the height of the panel (it used to be squeezed into the short strip under the words)
+  { const r = await p.evaluate(async () => { const ev = window.__ev, mk = (w, h) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h); return c.toDataURL(); };
+      const c = document.createElement('canvas'); c.width = 1080; c.height = 1350; const g = c.getContext('2d'), out = {};
+      for (const [k, w, h] of [['tall', 200, 440], ['wide', 500, 180]]){ ev("twEdit")(x => { x.logo = mk(w, h); x.box = 'none'; x.showSp = true; x.logoScale = 1; });
+        for (let i = 0; i < 4; i++){ await new Promise(r => setTimeout(r, 300)); ev("drawTotw")(g, 1080, 1350, ev("twCur(TW.side)"), ev("TW.side"), () => {}); } out[k] = Math.round(window.__int.TW.hit.h); }
+      ev("twEdit")(x => { x.logo = ''; }); return out; });
+    ok(r.tall >= 100 && r.wide < 80, 'tall sponsor logo: ' + r.tall + 'px high in the 128px panel (a wide one: ' + r.wide + 'px, as before)'); }
   await p.evaluate(() => document.querySelector('#twCanvas').scrollIntoView({block:'start'})); await p.locator('#twCanvas').screenshot({path:'/tmp/totw.png'});
   { const e = p.errs.filter(x => !/reading 'set'/.test(x)); ok(!e.length, 'no page errors (3D stub aside) ' + e.join(' | ')); }
   await b.close(); console.log(fails ? fails + ' FAILED' : 'all passed'); process.exit(fails ? 1 : 0); })();
