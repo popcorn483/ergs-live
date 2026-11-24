@@ -1,6 +1,6 @@
 // ERGS Rugby on GitHub: connects the app's data layer to Firebase, with the same coach logins as ERGS Live.
 // The app asks for "db", "user", "assets" and "downloads"; this module answers with Firebase-backed versions.
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { initializeApp, deleteApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getFirestore, doc, getDoc, getDocs, getAggregateFromServer, count, sum, where, documentId, setDoc, deleteDoc, deleteField, onSnapshot, collection, runTransaction, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updatePassword, EmailAuthProvider, linkWithCredential } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
@@ -84,6 +84,17 @@ async function staffIn(email, pw){
   catch(e){ const c = String(e && e.code || ''); if (/invalid-credential|user-not-found|wrong-password|invalid-login|invalid-password/.test(c)) throw PW_ERR('staff-nopw'); throw e; }
   try { localStorage.setItem(LINK_KEY, email); } catch(e){}
   return 'in'; }
+/* a coach sets a player's first password for them (24 November 2026). Only for a school C2k address, the same as a player choosing
+   their own. The account is made on a second, throwaway connection, so the coach stays signed in as themselves. */
+async function pwMake(email, pw){
+  email = String(email || '').trim().toLowerCase();
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw PW_ERR('auth/invalid-email');
+  if (!C2K(email)) throw PW_ERR('not-c2k');
+  if (String(pw || '').length < 6) throw PW_ERR('auth/weak-password');
+  const app2 = initializeApp(CFG.firebase, 'mk' + Date.now());
+  try { const a2 = getAuth(app2); await createUserWithEmailAndPassword(a2, email, pw); try { await signOut(a2); } catch(e){} return 'made'; }
+  catch(e){ if (/email-already-in-use/.test(String(e && e.code || ''))) throw PW_ERR('pw-taken'); throw e; }
+  finally { try { await deleteApp(app2); } catch(e){} } }
 async function pwReset(email){ email = String(email || '').trim().toLowerCase(); if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw PW_ERR('auth/invalid-email');
   await sendPasswordResetEmail(auth, email, {url:location.origin + location.pathname}); return email; }
 async function pwSet(pw){ const u = auth.currentUser; if (!u) throw PW_ERR('signed-out'); if (String(pw || '').length < 6) throw PW_ERR('auth/weak-password');
@@ -460,7 +471,7 @@ window.ERGS_AUTH = {
   async setAccess(kind, email, data){ oneDrop(kind, email); try { await setDoc(doc(fs, kind, email.toLowerCase()), data, {merge:true}); } catch(e){ throw err(e); } try { window.__afterSet && window.__afterSet(kind, email.toLowerCase(), data); } catch(e){} }, get admin(){ return EMAIL && EMAIL === ADMIN; }, adminEmail:ADMIN,
   async signIn(){ const p = new GoogleAuthProvider(); p.setCustomParameters({prompt:'select_account'}); try { await signInWithPopup(auth, p); } catch(e){ if (/popup-blocked|operation-not-supported/.test(e.code || '')) await signInWithRedirect(auth, p); else throw e; } },
   async signOut(){ await wipeCache(); return signOut(auth); },
-  pwIn, staffIn, pwReset, pwSet, pwMsg, get pwNo(){ try { return localStorage.getItem('ergs.pwNo') === '1'; } catch(e){ return false; } }, setPwNo(){ try { localStorage.setItem('ergs.pwNo', '1'); } catch(e){} }, get rejected(){ return REJECTED; }, get unproved(){ return pwOnly(auth.currentUser); }, get hasPw(){ const u = auth.currentUser; return !!u && (u.providerData || []).some(p => p.providerId === 'password'); }, get askPw(){ try { return sessionStorage.getItem('ergs.askPw') === '1'; } catch(e){ return false; } }, noAskPw(){ try { sessionStorage.removeItem('ergs.askPw'); } catch(e){} },
+  pwIn, staffIn, pwReset, pwSet, pwMake, pwMsg, get pwNo(){ try { return localStorage.getItem('ergs.pwNo') === '1'; } catch(e){ return false; } }, setPwNo(){ try { localStorage.setItem('ergs.pwNo', '1'); } catch(e){} }, get rejected(){ return REJECTED; }, get unproved(){ return pwOnly(auth.currentUser); }, get hasPw(){ const u = auth.currentUser; return !!u && (u.providerData || []).some(p => p.providerId === 'password'); }, get askPw(){ try { return sessionStorage.getItem('ergs.askPw') === '1'; } catch(e){ return false; } }, noAskPw(){ try { sessionStorage.removeItem('ergs.askPw'); } catch(e){} },
   sendLink, linkMsg, get linkErr(){ return LINK_ERR; }, get linkEmail(){ try { return localStorage.getItem(LINK_KEY) || ''; } catch(e){ return ''; } },
   async getOne(kind, id){ return getOneDoc(kind, id); },
   async list(kind){ return (await liveList(kind)).docs.map(d => d.id); },
