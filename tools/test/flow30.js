@@ -44,6 +44,12 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
     ok(r2 && r2.rid === one.id && r2.team === one.t, 'a squad-list player added with no password is tied to their squad entry');
     ok(n2 === await p.evaluate(() => window.__ev('roster().length')) && (await p.evaluate(n => window.__ev('roster()').filter(x => (x.f + ' ' + x.l).trim() === n).length, one.n)) === 1, '…with no second copy made in the squad list'); }
   await p.fill('#afQ', ''); await p.waitForTimeout(200);
+  // nominated names join the squad list
+  const rs = await p.evaluate(() => window.__ev('roster()').filter(x => /^(Finn Maguire|Rory Elliott|Kit Nobody|Old Boy)$/.test(x.f + ' ' + x.l)).map(x => [x.f + ' ' + x.l, x.t, x.xv || ''].join('/')).sort().join(' | '));
+  ok(rs === 'Finn Maguire/U14/ | Kit Nobody// | Rory Elliott/SENIOR/2XV', 'nominated players are added to Squads under their squad, once each, not last season’s: ' + rs);
+  ok(await p.evaluate(() => window.__ev('roster()').filter(x => x.f === 'Sam' && x.l === 'Smith').length) === 1, 'someone already in Squads is not added again');
+  await p.evaluate(() => { const c = window.__int.Cloud.docs['team/roster']; return window.__int.Cloud.set('team/roster', Object.assign({}, c, {players:c.players.filter(x => (x.f + ' ' + x.l) !== 'Rory Elliott')})); }); await p.waitForTimeout(5000);
+  ok(await p.evaluate(() => !window.__ev('roster()').some(x => (x.f + ' ' + x.l) === 'Rory Elliott')), 'a nominated player removed from Squads stays removed');
   { const e = p.errs.filter(x => !/reading 'set'|sandboxed/.test(x)), den = await p.evaluate(() => window.__denied || []); ok(!e.length && !den.length, 'no page errors, nothing refused ' + e.concat(den).join(' | ')); }
   const c = await open(b, 'squadcoach', {ctx:await b.newContext({viewport:{width:420, height:900}})}); await c.addInitScript(() => localStorage.setItem('ergs.pwNo', '1')); await c.goto('http://app.test/app/'); await c.waitForTimeout(5000);
   ok(!(await c.$('#naBox')), 'a squad coach does not get the list');
