@@ -1786,7 +1786,7 @@ function viewMatch(m){
     ${kicks.length ? `<div class="box"><h3>Goal kicking</h3>${kicks.join('')}</div>` : ''}
     ${evs.some(e => e.k === 'note' && e.p) ? `<div class="box commfeed"><h3><svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0" fill="none" stroke="currentColor" stroke-width="2"/></svg>Live commentary</h3>
       ${evs.filter(e => e.k === 'note' && e.p).slice().reverse().slice(0, 12).map((e, i) => `<div class="cf${i === 0 ? ' latest' : ''}"><span class="cf-m">${e.m}′</span><p>${esc(e.p)}</p></div>`).join('')}</div>` : ''}
-    <div class="box"><h3>Match timeline</h3>${evs.length ? `<ul class="tl">${evs.slice().reverse().map(e => `<li class="${e.miss ? 'miss' : ''}${canX ? ' x' : ''}"><span class="mn">${e.m}′</span><span class="ic ${e.k}">${e.k === 'note' ? '…' : EVK[e.k][1]}</span><span class="tx"><b>${esc(label(e))}</b> <span>${e.k === 'note' ? '' : esc(dn(e.s === 'H' ? m.home : m.away))}</span></span><span class="run">${ptsOf(e) ? run.get(e) : ''}</span>${canX ? `<button type="button" class="rm" data-rm="${esc(e.id)}" aria-label="Remove this entry">×</button>` : ''}</li>`).join('')}</ul>` : `<p style="margin:0;color:var(--mute)">${m.status === 'pre' ? 'The timeline fills in once the match kicks off.' : 'Final score only.'}</p>`}</div>`;
+    <div class="box"><h3>Match timeline</h3>${evs.length ? `<ul class="tl">${evs.slice().reverse().map(e => `<li class="${e.miss ? 'miss' : ''}${canX ? ' x' : ''}"><span class="mn">${e.m}′</span><span class="ic ${e.k}">${e.k === 'note' ? '…' : EVK[e.k][1]}</span><span class="tx"><b>${esc(label(e))}</b> <span>${e.k === 'note' ? '' : esc(dn(e.s === 'H' ? m.home : m.away))}</span></span><span class="run">${ptsOf(e) ? run.get(e) : ''}</span>${canX ? `<button type="button" class="rm ed" data-edev="${esc(e.id)}" aria-label="Change this entry: ${esc(label(e))}"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button><button type="button" class="rm" data-rm="${esc(e.id)}" aria-label="Remove this entry">×</button>` : ''}</li>`).join('')}</ul>` : `<p style="margin:0;color:var(--mute)">${m.status === 'pre' ? 'The timeline fills in once the match kicks off.' : 'Final score only.'}</p>`}</div>`;
 }
 /* supporters: anyone signed in who isn't a coach or player follows every squad, or the squads they pick (saved on their sign-in record) */
 let SUP = null, LASTS;   // SUP: {follow:[team codes]} for a signed-in supporter; an empty list means every squad
@@ -1900,6 +1900,7 @@ function render(){
   $$('[data-home]').forEach(b => b.onclick = () => { V.open = null; try { history.replaceState(null, '', location.pathname + location.search); } catch(e){} render(); });
   $$('[data-act]').forEach(b => b.onclick = () => act(b.dataset.act, m));
   $$('[data-ev]').forEach(b => b.onclick = () => openEv(m, b.dataset.ev, b.dataset.side));
+  $$('[data-edev]').forEach(b => b.onclick = () => editEv(m, b.dataset.edev));
   $$('[data-rm]').forEach(b => b.onclick = () => { const e = m.events.find(x => x.id === b.dataset.rm); ask('Remove this entry?', `${label(e)} at ${e.m}′ will come off the timeline and the score for everyone.`, 'Remove', () => save(d => { const x = d.matches.find(y => y.id === m.id); x.events = x.events.filter(y => y.id !== e.id); }, m.id)); });
   const nf = $('#noteForm'); if (nf) nf.onsubmit = ev => { ev.preventDefault(); const t = $('#noteIn').value.trim(); if (!t) return; save(d => { const x = d.matches.find(y => y.id === m.id); x.events.push({id:uid(), k:'note', s:'', p:t.slice(0, 140), m:minuteNow(m), at:Math.round(elapsed(m)), ts:Date.now()}); }, m.id); };
   const mnf = $('#mNoteForm'); if (mnf) mnf.onsubmit = async ev => { ev.preventDefault(); const t = $('#mNoteIn').value.trim();
@@ -2114,6 +2115,39 @@ function openEv(m, k, s, pending){
       closeDialog();
       if (k === 'try') openEv(m, 'con', s, [ev]);
       else commit((pending || []).concat([ev]));
+    };
+  });
+}
+/* CHANGING AN ENTRY (24 November 2026): the pencil on a timeline row. A coach can put right who scored, the minute, or whether a
+   kick went over, during the match or any time after it, without reopening the match or removing and re-adding the score. The
+   entry keeps its id, so nobody watching gets the animation again; the score, the scorers list and the full-time graphic follow. */
+function editEv(m, id){
+  const e0 = (m.events || []).find(x => x.id === id); if (!e0) return;
+  const note = e0.k === 'note', s = e0.s, team = s === 'H' ? m.home : m.away, kick = ['con', 'pen', 'dg'].includes(e0.k), ours = usOf(m) === s;
+  let players = !note && ours && Array.isArray(m.players) && m.players.length ? m.players : [];
+  if (!note && ours && !players.length && COACH){
+    if (!TEAMS_CACHE){ loadTeams().then(() => editEv(m, id)); return; }
+    const x = (m.sheetId && TEAMS_CACHE.sheets.find(y => y.id === m.sheetId)) || sheetFor(m); if (x) players = sheetPlayers(x);
+  }
+  const used = new Set(); sorted(m).forEach(e => { if (e.s === s && e.p && e.k !== 'note') used.add(e.p); });
+  openDialog(`<h2>Change this entry</h2><p>${note ? 'Commentary' : esc(EVK[e0.k][0]) + ' · ' + esc(dn(team))}</p>
+    ${kick ? `<div class="field"><span class="label">Kick</span>${seg('res', [['ok','Scored'],['miss','Missed']], e0.miss ? 'miss' : 'ok')}</div>` : ''}
+    <div class="field"><label class="label" for="edWho">${note ? 'Commentary line' : (kick ? 'Kicker' : 'Player') + (players.length ? ' (name or shirt number)' : '')}</label><input class="input" id="edWho" maxlength="${note ? 140 : 40}" list="edNames" autocomplete="off" value="${esc(e0.p || '')}"><datalist id="edNames">${players.map(p => `<option value="${esc(p.name)}" label="#${esc(p.n)}">`).join('')}${[...used].filter(n => !players.some(p => p.name === n)).map(n => `<option value="${esc(n)}">`).join('')}</datalist><span class="hint" id="edHint" aria-live="polite"></span></div>
+    <div class="field" style="max-width:140px"><label class="label" for="edMin">Minute</label><input class="input" id="edMin" type="number" min="0" max="120" value="${+e0.m || 0}"></div>
+    <div class="dlg-a"><button type="button" class="btn ghost" id="edNo">Cancel</button><button type="button" class="btn primary" id="edGo">Save</button></div>`, d => {
+    wireSegs(d);
+    const byNum = v => { const n = (String(v).trim().match(/^#?(\d{1,2})$/) || [])[1]; return n && !note ? players.find(p => +p.n === +n) : null; };
+    const who = d.querySelector('#edWho'), hint = d.querySelector('#edHint');
+    setTimeout(() => { who.focus(); who.select(); }, 30);
+    who.oninput = () => { const p = byNum(who.value); hint.textContent = p ? `#${p.n} ${p.name}` : !note && /^#?\d{1,2}$/.test(who.value.trim()) && players.length ? 'No player with that number' : ''; };
+    who.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); d.querySelector('#edGo').click(); } });
+    d.querySelector('#edNo').onclick = closeDialog;
+    d.querySelector('#edGo').onclick = () => {
+      const typed = who.value.trim(), hit = byNum(typed), name = (hit ? hit.name : typed).slice(0, note ? 140 : 40), min = Math.max(0, Math.min(120, parseInt(d.querySelector('#edMin').value, 10) || 0));
+      if (note && !name){ hint.textContent = 'Type the line, or use × on the timeline to remove it.'; return; }
+      const miss = kick && ((d.querySelector('[data-seg="res"] [aria-pressed="true"]') || {dataset:{}}).dataset.v === 'miss');
+      closeDialog(); if (name && ours && !note) publishFace(name);
+      save(dd => { const x = dd.matches.find(y => y.id === m.id), e = x && (x.events || []).find(y => y.id === id); if (!e) return; e.p = name; e.m = min; if (kick){ if (miss) e.miss = true; else delete e.miss; } }, m.id);
     };
   });
 }
