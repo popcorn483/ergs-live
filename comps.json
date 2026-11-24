@@ -178,17 +178,17 @@
      },
      {
       "date": "2026-11-28",
-      "time": "10:30",
-      "h": "Banbridge Academy",
-      "a": "Omagh Academy",
-      "venue": "Banbridge Academy"
+      "time": "10:00",
+      "h": "Bangor GS",
+      "a": "Larne GS",
+      "venue": "Bangor GS"
      },
      {
       "date": "2026-11-28",
       "time": "10:30",
-      "h": "Bangor GS",
-      "a": "Larne GS",
-      "venue": "Bangor GS"
+      "h": "Banbridge Academy",
+      "a": "Omagh Academy",
+      "venue": "Banbridge Academy"
      },
      {
       "date": "2026-12-05",
@@ -733,6 +733,13 @@
       "h": "Bangor Academy",
       "a": "Down HS",
       "venue": "Bangor Academy"
+     },
+     {
+      "date": "2026-11-28",
+      "time": "10:30",
+      "h": "Carrickfergus GS",
+      "a": "Royal School Dungannon",
+      "venue": "Carrickfergus GS"
      },
      {
       "date": "2026-11-16",
@@ -4233,5 +4240,5 @@
    }
   ]
  },
- "updated": "2026-11-23T15:02:20.230Z"
+ "updated": "2026-11-24T15:02:00.034Z"
 }
