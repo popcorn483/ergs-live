@@ -35,6 +35,7 @@ Needs Node and Playwright (`require('playwright')`). From this folder:
     STUB3=1 node flow28.js            # play library and drills: a squad's own list and the full library; starting lists; cleaner cards
     STUB3=1 node flow29.js            # a coach who is also a parent: coach access plus the parent hub for their child
     STUB3=1 node flow30.js            # Access › Players: squad-list and nominated players with no account, add email and first password
+    STUB3=1 node flow31.js            # one list of players, stage 1: a player's sign-in opens from Squads; account-holders join Squads
     node kick.test.mjs                # the alert job: what counts as news (full time, postponed, new time, team named)
     STUB3=1 node flow12.js <folder>   # Play IQ: the rugby laws game (every question has one right answer and no giveaway)
     STUB3=1 node walk.js admin        # presses every control it can find on every screen (add "phone" for a phone)
