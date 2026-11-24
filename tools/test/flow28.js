@@ -24,7 +24,7 @@ const T = (p, code) => p.evaluate(c => window.__ev(c), code);
   const all = await vis(p, 'library'); ok(all.length >= 40, 'Play library: every play (' + all.length + ')');
   const cardInfo = await p.evaluate(() => { const c = [...document.querySelectorAll('#library .card[data-tk]')].find(c => c.offsetParent); const btns = [...c.querySelectorAll('.card-a > *')].filter(x => x.offsetParent).map(x => x.textContent.trim()); return {btns, meta:!!(c.querySelector('.meta') && c.querySelector('.meta').offsetParent), tags:[...c.querySelectorAll('.tag-row .tag')].filter(x => x.offsetParent).length, tk:c.dataset.tk}; });
   ok(cardInfo.btns[0] === 'Preview' && /^\+ Add to Under 14/.test(cardInfo.btns[1]) && cardInfo.btns.length <= 3, 'a library card: ' + cardInfo.btns.join(' | '));
-  ok(!cardInfo.meta && cardInfo.tags <= 3, 'no frame counts, and at most a call system and one tag (' + cardInfo.tags + ' tags)');
+  ok(!cardInfo.meta && cardInfo.tags === 0, 'no frame counts and no tags on the card (' + cardInfo.tags + ' tags)');
   ok(await p.evaluate(() => { const g = id => { const e = document.querySelector(id); return !!e && e.offsetParent !== null; }; return !g('#callTabs') && !g('#lbChips') && g('#clnF'); }), 'call systems and tags are behind one Filters & tools button');
   await p.click('#clnF'); await p.waitForTimeout(200); ok(await p.evaluate(() => document.querySelector('#callTabs').offsetParent !== null && document.querySelector('#lbChips').offsetParent !== null), '…which opens them');
   await p.click('#clnF');
@@ -50,7 +50,7 @@ const T = (p, code) => p.evaluate(c => window.__ev(c), code);
   ok(bd.dset === true && bd.drills.length === 2 && bd.plays.length === 1, 'added “' + dName + '”: Under 14 drills are Lane passing and that one ' + JSON.stringify(bd.drills));
   await p.evaluate(() => document.querySelector('#drBookBar [data-bkd="mine"]').click()); await p.waitForTimeout(1500);
   dv = await vis(p, 'drills'); ok(dv.length === 2, 'the Under 14 drills tab shows both');
-  ok(await p.evaluate(() => { const c = document.querySelector('#drList .dr-card'); const m = [...c.querySelectorAll('.meta span')].filter(x => x.offsetParent).length, lv = [...c.querySelectorAll('.tag.call')].filter(x => x.offsetParent).length; return m <= 2 && lv === 0; }), 'drill cards: who it is for and how long; no level chips');
+  ok(await p.evaluate(() => { const c = document.querySelector('#drList .dr-card'); const m = [...c.querySelectorAll('.meta span')].filter(x => x.offsetParent).length, lv = [...c.querySelectorAll('.tag.call')].filter(x => x.offsetParent).length; return m <= 2 && lv === 0 && ![...c.querySelectorAll('.tag')].some(x => x.offsetParent); }), 'drill cards: who it is for and how long; no tags');
   { const e = p.errs.filter(x => !/reading 'set'/.test(x)), den = await p.evaluate(() => window.__denied || []); ok(!e.length && !den.length, 'coach: no page errors, nothing refused ' + e.concat(den).join(' | ')); }
   // players
   const team = await (async () => { const q = await start(b, 'player'); const t = await q.evaluate(() => window.ERGS_AUTH.player && window.ERGS_AUTH.player.team); await q.close(); return t; })();
