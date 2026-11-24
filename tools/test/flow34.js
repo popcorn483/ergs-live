@@ -26,7 +26,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
   await p.click('#nqDone'); await p.waitForTimeout(2500);
   ok(await p.evaluate(() => document.querySelector('#tagModal').hidden), 'Finish closes it');
   await p.waitForTimeout(1500); const keys = await p.evaluate(() => Object.fromEntries([...document.querySelectorAll('#sqList .sq-row')].map(r => [[...r.querySelectorAll('input')].map(i => i.value).join(' '), r.querySelector('.sq-login') ? r.querySelector('.sq-login').textContent.trim() : ''])));
-  ok(keys['Aaron Able'] === 'Sign-in' && keys['Dara Devine'] === 'Sign-in' && keys['Colm Carter'] === 'Sign-in' && keys['Bobby Baker'] === 'Add sign-in', 'back in Squads the three added show “Sign-in”; the skipped player still shows “Add sign-in”');
+  ok(keys['Aaron Able'] === 'Sign-in' && keys['Dara Devine'] === 'Sign-in' && keys['Colm Carter'] === 'Sign-in' && keys['Bobby Baker'] === 'No email', 'back in Squads the three added have a sign-in; the skipped player still shows “No email”');
   await p.click('#sqQuick'); await p.waitForTimeout(800); ok(+(await prog()).match(/of (\d+)/)[1] === total - 3 && /Bobby Baker/.test(await who()), 'starting again picks up with who is left (' + (total - 3) + ')'); await p.click('#nqDone'); await p.waitForTimeout(500);
   { const e = p.errs.filter(x => !/reading 'set'|sandboxed/.test(x)), den = await p.evaluate(() => window.__denied || []); ok(!e.length && !den.length, 'no page errors, nothing refused ' + e.concat(den).join(' | ')); }
   await b.close(); console.log(fails ? fails + ' FAILED' : 'all passed'); process.exit(fails ? 1 : 0); })();

@@ -17,5 +17,5 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
   ok(await p.evaluate(() => !window.__ev('roster()').some(x => (x.f + ' ' + x.l) === 'Rory Elliott')), 'a nominated player removed from Squads stays removed');
   { const e = p.errs.filter(x => !/reading 'set'|sandboxed/.test(x)), den = await p.evaluate(() => window.__denied || []); ok(!e.length && !den.length, 'no page errors, nothing refused ' + e.concat(den).join(' | ')); }
   await p.evaluate(() => { window.__ev("SQ.team = '*'"); window.__int.go('squads'); }); await p.waitForTimeout(3000);
-  ok(await p.evaluate(() => { const r = [...document.querySelectorAll('#sqList .sq-row')].find(r => [...r.querySelectorAll('input')].map(i => i.value).join(' ') === 'Finn Maguire'); return !!r && /Add sign-in/.test(r.querySelector('.sq-login').textContent); }), 'in Squads the nominated player has an “Add sign-in” key');
+  ok(await p.evaluate(() => { const r = [...document.querySelectorAll('#sqList .sq-row')].find(r => [...r.querySelectorAll('input')].map(i => i.value).join(' ') === 'Finn Maguire'); return !!r && /No email/.test(r.querySelector('.sq-login').textContent); }), 'in Squads the nominated player is marked “No email”');
   await b.close(); console.log(fails ? fails + ' FAILED' : 'all passed'); process.exit(fails ? 1 : 0); })();

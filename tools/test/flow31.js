@@ -13,7 +13,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
   ok(await p.evaluate(() => window.__ev('roster().length')) === n0, '…once only: nothing more is added on the next visit');
   await p.evaluate(() => { window.__ev("SQ.team = '*'"); window.__int.go('squads'); }); await p.waitForTimeout(3500);
   const st = await p.evaluate(() => { const b = [...document.querySelectorAll('#sqList .sq-login')]; return {n:b.length, on:b.filter(x => x.classList.contains('on')).length, t:[...new Set(b.map(x => x.textContent.trim()))].sort().join('|')}; });
-  ok(st.n > 100 && st.on > 0 && st.on < st.n && st.t === 'Add sign-in|Sign-in', 'Squads: every player has a key, “Sign-in” (' + st.on + ') or “Add sign-in” (' + (st.n - st.on) + ')');
+  ok(st.n > 100 && st.on > 0 && st.on < st.n && st.t === 'No email|Sign-in', 'Squads: every player has a key (' + st.on + ') or an amber “No email” (' + (st.n - st.on) + ')');
   // a player with an account: their full card, and back
   const who = await p.evaluate(() => { const r = [...document.querySelectorAll('#sqList .sq-row')].find(r => r.querySelector('.sq-login.on')); const nm = [...r.querySelectorAll('input')].map(i => i.value).join(' '); r.querySelector('.sq-login').click(); return nm; }); await p.waitForTimeout(2500);
   const v = await p.evaluate(() => { const vis = e => !!e && !!e.offsetParent; const rows = [...document.querySelectorAll('#paSec tr.pa-r')].filter(vis); return {screen:window.__int.S.screen, rows:rows.length, name:rows[0] && rows[0].querySelector('.pa-name b').textContent, card:vis(document.querySelector('#paSec .pa-x .pa-card')), bar:vis(document.querySelector('#psBar')), barT:(document.querySelector('#psBar') || {}).textContent, tabs:vis(document.querySelector('#evyTabs')), na:vis(document.querySelector('#naBox')), af:vis(document.querySelector('#afBar')), ticks:[...document.querySelectorAll('#paSec .pa-x .pa-chk')].filter(vis).length}; });
@@ -28,7 +28,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
   // a player with no account: add from Squads
   await p.evaluate(() => { window.__ev("SQ.team = '*'"); window.__int.go('squads'); }); await p.waitForTimeout(3000);
   const who2 = await p.evaluate(() => { const r = [...document.querySelectorAll('#sqList .sq-row')].find(r => r.querySelector('.sq-login:not(.on)') && [...r.querySelectorAll('input')].every(i => i.value)); const nm = [...r.querySelectorAll('input')].map(i => i.value).join(' '); r.querySelector('.sq-login').click(); return {nm, id:r.dataset.id}; }); await p.waitForTimeout(600);
-  ok(await p.$eval('#naE', e => !!e.offsetParent) && (await p.$eval('#naF', e => e.closest('dialog, .tag-modal, [role="dialog"]') ? 1 : 1)), '“Add sign-in” on ' + who2.nm + ' asks for an email, squad and first password');
+  ok(await p.$eval('#naE', e => !!e.offsetParent) && (await p.$eval('#naF', e => e.closest('dialog, .tag-modal, [role="dialog"]') ? 1 : 1)), '“No email” on ' + who2.nm + ' asks for an email, squad and first password');
   await p.fill('#naE', 'newkid77@c2ken.net'); await p.fill('#naP', 'scrum2026'); await p.click('#naGo'); await p.waitForTimeout(4000);
   const r2 = await p.evaluate(() => window.ERGS_AUTH.getOne('players', 'newkid77@c2ken.net'));
   ok(r2 && r2.rid === who2.id && r2.name === who2.nm, 'saved against that squad entry');
