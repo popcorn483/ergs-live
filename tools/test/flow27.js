@@ -16,7 +16,9 @@ const openDrill = (p, rx) => p.evaluate(async rx => { const T = window.__ev, d =
   // (the 3D stub stops the app's own draw loop in this harness, so the strip is asked for directly, as the loop does)
   const strip = pg => pg.evaluate(() => window.__ev("drillWhyStrip(S.play, S.cur)")); await strip(p);
   const s1 = await p.evaluate(() => { const el = document.querySelector('#stageWhy'); return el && !el.hidden ? el.querySelector('.sw-why span').textContent : ''; });
-  ok(s1.length > 20, 'under the pitch: "Why ' + s1.slice(0, 70) + '…"');
+  { const g = await p.evaluate(() => { const st = document.querySelector('#stage').getBoundingClientRect(), y = document.querySelector('#stageWhy'), r = y.getBoundingClientRect(); return {h:Math.round(st.height), w:Math.round(st.width), inside:y.parentElement.id === 'stage' && r.top >= st.top && r.bottom <= st.bottom + 1}; });
+    ok(g.inside && g.h > 300 && g.w > 600, 'the strip sits inside the pitch and the pitch keeps its size (' + g.w + '×' + g.h + ')'); }
+  ok(s1.length > 20, 'along the bottom of the pitch: "Why ' + s1.slice(0, 70) + '…"');
   const seq = await p.evaluate(async () => { const T = window.__ev, out = []; const n = T("S.play.frames.length"); for (let i = 0; i < Math.min(n, 5); i++){ T("selectFrame")(i); T("drillWhyStrip(S.play, S.cur)"); await new Promise(r => setTimeout(r, 100)); out.push(document.querySelector('#stageWhy .sw-why span').textContent); } return out; });
   ok(new Set(seq).size > 1 && seq.every(x => x.length > 15), 'the reason changes with the step (' + new Set(seq).size + ' different in ' + seq.length + ' steps)');
   const all = await p.evaluate(() => { const T = window.__ev, L = (window.__dl || (window.__dl = window.__ev("PRE_DRILLS().concat(PRE_DRILLS2(), PRE_DRILLS3(), PRE_DRILLS4(), PRE_DRILLS5())"))); let bad = 0, def = 0; L.forEach(d => { const w = T("drillWhy")(d); if (!w.why || !w.match || w.small.length < 3 || !(w.v >= 2 && w.v <= 5)) bad++; if (!w.tags.length) def++; }); return {n:L.length, bad, def}; });
