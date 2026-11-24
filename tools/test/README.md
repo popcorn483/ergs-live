@@ -28,6 +28,7 @@ Needs Node and Playwright (`require('playwright')`). From this folder:
     STUB3=1 node flow21.js            # Team of the Week on a phone: a finger drag moves a shirt; names centred under shirts
     node flow22.js                    # ERGS Live: full animations only on the match's own screen; none for whoever is scoring
     node flow23.js                    # ERGS Live: a coach changes who scored (and the minute, or a kick) after full time
+    STUB3=1 node flow24.js            # results graphic: a lead of more than 40 points is shown as 40
     node kick.test.mjs                # the alert job: what counts as news (full time, postponed, new time, team named)
     STUB3=1 node flow12.js <folder>   # Play IQ: the rugby laws game (every question has one right answer and no giveaway)
     STUB3=1 node walk.js admin        # presses every control it can find on every screen (add "phone" for a phone)
