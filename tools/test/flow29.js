@@ -30,14 +30,18 @@ const start = async (b, role, rid) => { const p = await open(b, role, {ctx:await
   // the head coach links and unlinks a coach in Access
   const a = await start(b, 'admin', '');
   await a.evaluate(() => window.__int.go('people')); await a.waitForTimeout(3000);
-  const has = await a.evaluate(() => { const b = [...document.querySelectorAll('.co-par')]; return {n:b.length, t:b.map(x => x.textContent)[0]}; });
-  ok(has.n >= 1 && /Also a parent\?/.test(has.t), 'Access: each coach has “Also a parent?” (' + has.n + ')');
-  const em = await a.evaluate(() => { const li = [...document.querySelectorAll('.acc-list li')].find(li => li.querySelector('.co-par') && /coach0@example\.com/.test(li.textContent)); li.querySelector('.co-par').click(); return 'coach0@example.com'; }); await a.waitForTimeout(500);
-  ok(await a.$('#cpList .cp-it') && await a.$eval('#cpGo', e => e.disabled), 'it lists the squad, and Save waits for a choice');
-  await a.fill('#cpQ', kid.l); await a.waitForTimeout(200); await a.evaluate(() => [...document.querySelectorAll('#cpList .cp-it')].find(b => !b.hidden && b.dataset.rid === 'r100').click()); await a.fill('#cpQ', ''); await a.click('#cpList .cp-it[data-rid="r101"]'); await a.click('#cpGo'); await a.waitForTimeout(1500);
-  ok(await a.evaluate(em => window.ERGS_AUTH.getOne('coaches', em).then(c => c && [].concat(c.parentOf).join()), em) === 'r100,r101', 'both children saved on the coach’s record');
-  await a.waitForTimeout(1500); ok(await a.evaluate(() => [...document.querySelectorAll('.co-par')].some(b => /^Parent of /.test(b.textContent))), 'the button now says whose parent they are');
-  await a.evaluate(() => [...document.querySelectorAll('.co-par')].find(b => /^Parent of /.test(b.textContent)).click()); await a.waitForTimeout(400); await a.click('#cpNone'); await a.waitForTimeout(1500);
-  ok(!(await a.evaluate(em => window.ERGS_AUTH.getOne('coaches', em).then(c => c && [].concat(c.parentOf || []).length), em)), '“Not a parent” takes the links off');
+  await a.evaluate(() => [...document.querySelectorAll('#people button')].find(b => b.offsetParent && /^\s*Coaches/i.test(b.textContent)).click()); await a.waitForTimeout(1500);
+  const em = 'coach0@example.com', seen = s => a.evaluate(s => { const e = document.querySelector(s); return !!e && !!e.offsetParent; }, s), rec = () => a.evaluate(em => window.ERGS_AUTH.getOne('coaches', em).then(c => c && [].concat(c.parentOf || []).join()), em);
+  await a.click(`#coSec [data-coopen="${em}"]`); await a.waitForTimeout(1500);
+  ok(await seen('#coSec .co-kids #coKidBtn') && /Add their child/.test(await a.$eval('#coKidBtn', e => e.textContent)), 'Access › Coaches: tap a coach and the card has “Also a parent” with “Add their child”, on screen');
+  await a.click('#coKidBtn'); await a.waitForTimeout(500);
+  ok(await seen('#cpList .cp-it') && await a.$eval('#cpGo', e => e.disabled), 'it lists the squad, and Save waits for a choice');
+  await a.fill('#cpQ', kid.l); await a.waitForTimeout(200); await a.evaluate(() => [...document.querySelectorAll('#cpList .cp-it')].find(b => !b.hidden && b.dataset.rid === 'r100').click()); await a.fill('#cpQ', ''); await a.click('#cpList .cp-it[data-rid="r101"]'); await a.click('#cpGo'); await a.waitForTimeout(2500);
+  ok(await rec() === 'r100,r101', 'both children saved on the coach’s record');
+  ok(/Parent of/.test(await a.$eval(`#coSec tr[data-row="${em}"] .pa-name small`, e => e.textContent)) && await a.$$eval('#coSec .co-kids li', e => e.length) === 2, 'the row says whose parent they are, and the card lists both');
+  await a.click('#coKidBtn'); await a.waitForTimeout(400); await a.click('#cpNone'); await a.waitForTimeout(2500);
+  ok(!(await rec()) && !(await a.$('#coSec .co-kids li')), '“Not a parent” takes the links off');
+  await a.click(`#coSec [data-coopen="${em}"]`); await a.waitForTimeout(800); await a.evaluate(() => document.querySelector('#coSec tr[data-row] [data-coopen]').click()); await a.waitForTimeout(1500);
+  ok(await seen('#coSec .co-kids #coKidBtn'), 'the head coach’s own row has it too');
   { const e = a.errs.filter(x => !/reading 'set'/.test(x)), den = await a.evaluate(() => window.__denied || []); ok(!e.length && !den.length, 'head coach: no page errors, nothing refused ' + e.concat(den).join(' | ')); }
   await b.close(); console.log(fails ? fails + ' FAILED' : 'all passed'); process.exit(fails ? 1 : 0); })();
