@@ -22,8 +22,9 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
   await p.click('#psBack'); await p.waitForTimeout(1500);
   ok(await p.evaluate(() => window.__int.S.screen === 'squads' && !document.querySelector('#psBar') && window.__ev('AF.q') === ''), 'Back returns to Squads');
   await p.evaluate(() => window.__int.go('people')); await p.waitForTimeout(2500);
-  const acc = await p.evaluate(() => { const vis = e => !!e && !!e.offsetParent; return {tabs:vis(document.querySelector('#evyTabs')), focus:document.querySelector('#people .page').classList.contains('ps-focus')}; });
-  ok(acc.tabs && !acc.focus, 'Access itself opens as normal afterwards');
+  const acc = await p.evaluate(() => { const vis = e => !!e && !!e.offsetParent; return {tabs:vis(document.querySelector('#evyTabs')), focus:document.querySelector('#people .page').classList.contains('ps-focus'), names:[...document.querySelectorAll('#evyTabs [data-evv]')].map(b => b.textContent.trim().replace(/\d+$/, '')), co:vis(document.querySelector('#coSec')), pa:vis(document.querySelector('#paSec')), tab:[...document.querySelectorAll('#people .sq-tabs [data-sqv="access"]')].map(b => b.textContent.trim())[0]}; });
+  ok(acc.tabs && !acc.focus && acc.co && !acc.pa, 'the old Access screen opens on Coaches afterwards, with no player list');
+  ok(acc.tab === 'Coaches' && !acc.names.includes('Players') && acc.names.includes('Coaches') && acc.names.includes('Awaiting approval'), 'its tab is now called “' + acc.tab + '”, with: ' + acc.names.join(', '));
   // a player with no account: add from Squads
   await p.evaluate(() => { window.__ev("SQ.team = '*'"); window.__int.go('squads'); }); await p.waitForTimeout(3000);
   const who2 = await p.evaluate(() => { const r = [...document.querySelectorAll('#sqList .sq-row')].find(r => r.querySelector('.sq-login:not(.on)') && [...r.querySelectorAll('input')].every(i => i.value)); const nm = [...r.querySelectorAll('input')].map(i => i.value).join(' '); r.querySelector('.sq-login').click(); return {nm, id:r.dataset.id}; }); await p.waitForTimeout(600);

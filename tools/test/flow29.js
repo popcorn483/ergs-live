@@ -30,7 +30,7 @@ const start = async (b, role, rid) => { const p = await open(b, role, {ctx:await
   // the head coach links and unlinks a coach in Access
   const a = await start(b, 'admin', '');
   await a.evaluate(() => window.__int.go('people')); await a.waitForTimeout(3000);
-  await a.evaluate(() => [...document.querySelectorAll('#people button')].find(b => b.offsetParent && /^\s*Coaches/i.test(b.textContent)).click()); await a.waitForTimeout(1500);
+  await a.click('#evyTabs [data-evv="coaches"]'); await a.waitForTimeout(1500);
   const em = 'coach0@example.com', seen = s => a.evaluate(s => { const e = document.querySelector(s); return !!e && !!e.offsetParent; }, s), rec = () => a.evaluate(em => window.ERGS_AUTH.getOne('coaches', em).then(c => c && [].concat(c.parentOf || []).join()), em);
   await a.click(`#coSec [data-coopen="${em}"]`); await a.waitForTimeout(1500);
   ok(await seen('#coSec .co-kids #coKidBtn') && /Add their child/.test(await a.$eval('#coKidBtn', e => e.textContent)), 'Access › Coaches: tap a coach and the card has “Also a parent” with “Add their child”, on screen');
