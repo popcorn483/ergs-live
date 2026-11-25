@@ -694,13 +694,6 @@
     "games": [
      {
       "date": "",
-      "time": "14:00",
-      "h": "Limavady GS",
-      "a": "Cambridge House GS",
-      "venue": "Limavady GS"
-     },
-     {
-      "date": "2026-11-25",
       "time": "14:45",
       "h": "Portadown College",
       "a": "Craigavon SHS",
@@ -740,6 +733,17 @@
       "h": "Carrickfergus GS",
       "a": "Royal School Dungannon",
       "venue": "Carrickfergus GS"
+     },
+     {
+      "date": "2026-11-24",
+      "time": "14:00",
+      "h": "Limavady GS",
+      "a": "Cambridge House GS",
+      "venue": "Limavady GS",
+      "hs": 20,
+      "as": 10,
+      "ht": 3,
+      "at": 1
      },
      {
       "date": "2026-11-16",
@@ -1108,13 +1112,6 @@
       "venue": "Ballyclare High School"
      },
      {
-      "date": "2026-11-25",
-      "time": "14:30",
-      "h": "Sullivan Upper School",
-      "a": "Campbell College",
-      "venue": "Sullivan Upper School"
-     },
-     {
       "date": "2026-11-28",
       "time": "10:30",
       "h": "Royal School Armagh",
@@ -1127,6 +1124,13 @@
       "h": "Royal School Dungannon",
       "a": "Ballyclare High School",
       "venue": "Royal School Dungannon"
+     },
+     {
+      "date": "2026-11-28",
+      "time": "10:30",
+      "h": "Sullivan Upper School",
+      "a": "Campbell College",
+      "venue": "Sullivan Upper School"
      },
      {
       "date": "2026-11-28",
@@ -4240,5 +4244,5 @@
    }
   ]
  },
- "updated": "2026-11-24T15:02:00.034Z"
+ "updated": "2026-11-25T00:55:29.784Z"
 }
