@@ -2093,16 +2093,23 @@ function openEv(m, k, s, pending){
     const x = (m.sheetId && TEAMS_CACHE.sheets.find(y => y.id === m.sheetId)) || sheetFor(m); if (x) players = sheetPlayers(x);
   }
   const used = new Set(); sorted(m).forEach(e => { if (e.s === s && e.p && e.k !== 'note') used.add(e.p); });
-  const lastKicker = kick ? sorted(m).filter(e => e.s === s && (e.k === 'con' || e.k === 'pen') && e.p).pop() : null;
+  /* the kicker rarely changes: default to whoever took this side's last place kick in this match (the latest one entered, even if
+     it was missed). With none yet in this match, our side starts with the kicker from this team's most recent earlier match. A
+     different name typed here becomes the default from then on. */
+  const kicks = x => (x.events || []).filter(e => e.p && (e.k === 'con' || e.k === 'pen')).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  let lastKicker = kick ? kicks(m).filter(e => e.s === s).pop() || null : null, kickFrom = lastKicker ? 'match' : '';
+  if (kick && !lastKicker && ours && m.team){ const prev = (DATA.matches || []).filter(x => x.id !== m.id && x.team === m.team && usOf(x) && String(x.date || '') <= String(m.date || '9999')).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || (b.ftAt || 0) - (a.ftAt || 0));
+    for (const x of prev){ const e = kicks(x).filter(e => e.s === usOf(x)).pop(); if (e){ lastKicker = e; kickFrom = 'before'; break; } } }
   openDialog(`<h2>${after ? 'Conversion attempt' : EVK[k][0]}</h2><p>${esc(team)}${PTS[k] ? ` · +${PTS[k]} if scored` : ''}</p>
     ${kick ? `<div class="field"><span class="label">Kick</span>${seg('res', [['ok','Scored'],['miss','Missed']], 'ok')}</div>` : ''}
 
-    <div class="field"><label class="label" for="evWho">${kick ? 'Kicker' : 'Player'}${players.length ? ' (name or shirt number)' : ' (optional)'}</label><input class="input" id="evWho" maxlength="40" list="evNames" autocomplete="off" value="${esc(lastKicker ? lastKicker.p : !ours && usOf(m) ? OPP_PLAYER : '')}"><datalist id="evNames">${players.map(p => `<option value="${esc(p.name)}" label="#${esc(p.n)}">`).join('')}${[...used].filter(n => !players.some(p => p.name === n)).map(n => `<option value="${esc(n)}">`).join('')}</datalist><span class="hint" id="evHint" aria-live="polite"></span></div>
+    <div class="field"><label class="label" for="evWho">${kick ? 'Kicker' : 'Player'}${players.length ? ' (name or shirt number)' : ' (optional)'}</label><input class="input" id="evWho" maxlength="40" list="evNames" autocomplete="off" value="${esc(lastKicker ? lastKicker.p : !ours && usOf(m) ? OPP_PLAYER : '')}"><datalist id="evNames">${players.map(p => `<option value="${esc(p.name)}" label="#${esc(p.n)}">`).join('')}${[...used].filter(n => !players.some(p => p.name === n)).map(n => `<option value="${esc(n)}">`).join('')}</datalist><span class="hint" id="evHint" aria-live="polite">${kickFrom === 'before' ? 'The kicker from this team’s last match. Type over it if it’s someone else today.' : kickFrom === 'match' ? 'Same kicker as the last kick. Type over it to change.' : ''}</span></div>
     <div class="field" style="max-width:140px"><label class="label" for="evMin">Minute</label><input class="input" id="evMin" type="number" min="0" max="120" value="${minuteNow(m)}"></div>
     <div class="dlg-a"><button type="button" class="btn ghost" id="evSkip">${after ? 'Skip' : 'Cancel'}</button>${kick ? '<button type="button" class="btn danger" id="evMiss">Missed</button>' : ''}<button type="button" class="btn primary" id="evGo">${k === 'try' ? 'Next: conversion' : kick ? 'Scored' : 'Add'}</button></div>`, d => {
     wireSegs(d);
     const byNum = v => { const n = (String(v).trim().match(/^#?(\d{1,2})$/) || [])[1]; return n ? players.find(p => +p.n === +n) : null; };
     const who = d.querySelector('#evWho'), hint = d.querySelector('#evHint');
+    who.addEventListener('focus', () => { if (kickFrom && who.value === lastKicker.p) who.select(); });   // typing replaces the remembered kicker
     if (!ours) setTimeout(() => { who.focus(); who.select(); }, 30);   // the default is highlighted, so typing a name replaces it
     who.oninput = () => { const p = byNum(who.value); hint.textContent = p ? `#${p.n} ${p.name}` : /^#?\d{1,2}$/.test(who.value.trim()) && players.length ? 'No player with that number' : '';
       };

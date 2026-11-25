@@ -1,0 +1,32 @@
+// ERGS Live: the kicker is remembered for the match, and carried over from the team's last match (25 November 2026)
+// usage: node flow36.js
+const { chromium } = require('playwright'); const { open } = require('./real.js');
+const lv = (p, fn, arg) => p.evaluate(src => window.__lv(src), '(' + fn.toString() + ')(' + JSON.stringify(arg === undefined ? null : arg) + ')');
+let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) fails++; };
+(async () => { const b = await chromium.launch(); const p = await open(b, 'coach', {ctx:await b.newContext({viewport:{width:420, height:900}})});
+  await p.addInitScript(() => { try { sessionStorage.setItem('ergs.liveOK', '1'); } catch(e){} }); await p.goto('http://app.test/?live'); await p.waitForTimeout(6000);
+  await lv(p, async () => { const day = n => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10), ids = ['kA', 'kOld', 'kOlder', 'kU14', 'kM'];
+    await save(d => { d.matches = d.matches.filter(m => !ids.includes(m.id));
+      d.matches.push({id:'kOlder', team:'1XV', home:'ERGS', away:'Foyle', status:'FT', date:day(14), code:'union', events:[{id:'o1', k:'con', s:'H', p:'Old Kicker', m:5, ts:1}]});
+      d.matches.push({id:'kOld', team:'1XV', home:'Dungannon', away:'ERGS', status:'FT', date:day(7), code:'union', events:[{id:'o2', k:'pen', s:'A', p:'Cal Weir', m:5, ts:1}, {id:'o3', k:'con', s:'H', p:'Their Kicker', m:9, ts:2}, {id:'o4', k:'dg', s:'A', p:'Drop Goal Man', m:20, ts:3}]});
+      d.matches.push({id:'kU14', team:'U14', home:'ERGS', away:'Omagh', status:'FT', date:day(3), code:'union', events:[{id:'u1', k:'con', s:'H', p:'Under Fourteen', m:5, ts:1}]});
+      d.matches.push({id:'kM', team:'MEDS', home:'ERGS', away:'Omagh', status:'LIVE', startAt:Date.now() - 600e3, date:day(0), code:'union', events:[]});
+      d.matches.push({id:'kA', team:'1XV', home:'ERGS', away:'Portora', status:'LIVE', startAt:Date.now() - 600e3, date:day(0), code:'union', events:[]}); }, 'kA'); V.open = 'kA'; V.openAt = Date.now(); render(); });
+  await p.waitForTimeout(1500);
+  const openK = (k, s, id) => lv(p, a => { const m = DATA.matches.find(y => y.id === a[2]); openEv(m, a[0], a[1]); }, [k, s, id || 'kA']).then(() => p.waitForTimeout(400));
+  const val = () => p.$eval('#evWho', e => e.value), hint = () => p.$eval('#evHint', e => e.textContent);
+  await openK('try', 'H'); ok(await val() === '', 'a try starts with no player filled in'); await p.fill('#evWho', 'Gus Hart'); await p.click('#evGo'); await p.waitForTimeout(500);
+  ok(await val() === 'Cal Weir' && /last match/.test(await hint()), 'first conversion of the match: the kicker from this team’s last match is filled in (' + await val() + '), and it says so');
+  await p.focus('#evWho'); ok(await p.evaluate(() => { const e = document.querySelector('#evWho'); return e.selectionStart === 0 && e.selectionEnd === e.value.length; }), '…highlighted, so typing replaces it');
+  await p.fill('#evWho', 'Dan Fox'); await p.click('#evGo'); await p.waitForTimeout(1500);
+  await openK('try', 'H'); await p.fill('#evWho', 'Gus Hart'); await p.click('#evGo'); await p.waitForTimeout(500);
+  ok(await val() === 'Dan Fox' && /Same kicker/.test(await hint()), 'a different kicker typed in becomes the default for the next conversion: ' + await val());
+  await p.click('#evMiss'); await p.waitForTimeout(1500);
+  await openK('pen', 'H'); ok(await val() === 'Dan Fox', '…and for a penalty, even after a missed kick'); await p.fill('#evWho', 'Sam New'); await p.fill('#evMin', '2'); await p.click('#evGo'); await p.waitForTimeout(1500);
+  await openK('con', 'H'); ok(await val() === 'Sam New', 'the latest kicker entered wins, even when their kick was given an earlier minute: ' + await val()); await p.click('#evSkip'); await p.waitForTimeout(300);
+  await openK('con', 'A'); ok(await val() === 'Opposition Player', 'the other side is not given our kicker'); await p.click('#evSkip'); await p.waitForTimeout(300);
+  await openK('con', 'H', 'kM'); ok(await val() === '' && await hint() === '', 'another team with no kicker yet starts empty (not the 1st XV’s or the Under 14s’)'); await p.click('#evSkip'); await p.waitForTimeout(300);
+  ok((await lv(p, () => DATA.matches.find(y => y.id === 'kA').events.map(e => e.k + ':' + e.p + (e.miss ? ':miss' : '')))).join() === 'try:Gus Hart,con:Dan Fox,try:Gus Hart,con:Dan Fox:miss,pen:Sam New', 'the match holds what was entered');
+  ok(!p.errs.length, 'no page errors ' + p.errs.join(' | '));
+  await lv(p, () => save(d => { d.matches = d.matches.filter(m => !['kA', 'kOld', 'kOlder', 'kU14', 'kM'].includes(m.id)); }));
+  await b.close(); console.log(fails ? fails + ' FAILED' : 'all passed'); process.exit(fails ? 1 : 0); })();

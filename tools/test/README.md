@@ -40,6 +40,7 @@ Needs Node and Playwright (`require('playwright')`). From this folder:
     STUB3=1 node flow33.js            # the Who's not on the app report opens from Squads and from Access
     STUB3=1 node flow34.js            # Squads › Add emails: go through players with no email one after another
     STUB3=1 node flow35.js            # Squads: short one-line rows, No email marker and filter, no Team sheets tab
+    node flow36.js                    # ERGS Live: the kicker is remembered for the match and carried over from the team's last match
     node kick.test.mjs                # the alert job: what counts as news (full time, postponed, new time, team named)
     STUB3=1 node flow12.js <folder>   # Play IQ: the rugby laws game (every question has one right answer and no giveaway)
     STUB3=1 node walk.js admin        # presses every control it can find on every screen (add "phone" for a phone)
