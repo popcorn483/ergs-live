@@ -194,6 +194,15 @@ textarea.input{resize:vertical;line-height:1.4}
 .tl .run{min-width:30px;text-align:right}
 @media (max-width:480px){ .tl li{gap:8px;padding:7px 8px;grid-template-columns:30px 26px minmax(0,1fr) auto}.tl li.x{grid-template-columns:30px 26px minmax(0,1fr) auto 30px 30px;gap:6px}
   .tl li.sA{grid-template-columns:30px minmax(0,1fr) 26px auto}.tl li.sA.x{grid-template-columns:30px minmax(0,1fr) 26px auto 30px 30px} }
+/* the popup for adding a score (25 November 2026): a picture of what is being scored, the side, the player, two buttons */
+.ev-head{display:flex;align-items:center;gap:12px;margin:0 0 14px}.ev-head h2{margin:0;line-height:1.05}
+.ev-head p{margin:3px 0 0;display:flex;align-items:center;gap:6px;color:var(--mute);font-size:14px;min-width:0}.ev-head p span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ev-head p b{flex:none;font-family:var(--f-mono);color:var(--gold)}
+.ev-head p :is(img,svg,.crest){width:20px;height:20px;flex:none}
+.ev-ico{flex:none;width:52px;height:52px;border-radius:14px;display:grid;place-items:center;background:var(--raise);color:var(--chalk,#fff)}
+.ev-head:is(.try,.pt) .ev-ico{background:var(--gold);color:var(--gold-ink)}.ev-head.yc .ev-ico{color:#F3C443}.ev-head.rc .ev-ico{color:#E5483B}
+.ev-row{display:grid;grid-template-columns:minmax(0,1fr) 72px;gap:8px;align-items:end}.ev-row .field{margin:0}.ev-min .input{text-align:center;padding-left:6px;padding-right:6px}
+.ev-row + .hint{display:block;margin:6px 0 0;min-height:0}.ev-row + .hint:empty{display:none}
+.ev-a{margin-top:16px}.ev-a .btn{flex:1 1 0;min-height:50px}.ev-a #evSkip{flex:0 0 auto}
 /* score pad: the name of the score on the left, its points on the right, never centred or wrapped; the away team's heading sits right */
 .pad .btn span{flex:1 1 auto;min-width:0;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pad .btn small{flex:none;margin-left:6px;text-align:right}
 .pad .col:last-child .side-h{flex-direction:row-reverse;text-align:right}
@@ -815,11 +824,11 @@ details.rg-cd>summary>b{display:grid;gap:3px;position:relative;padding-right:22p
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = '968accf3bf';</script>
-<script src="config.js?v=968accf3bf"></script>
-<script src="crest.js?v=968accf3bf"></script>
-<script src="app.js?v=968accf3bf"></script>
-<script src="icons.js?v=968accf3bf"></script>
-<script type="module" src="fb.js?v=968accf3bf"></script>
+<script>window.ERGS_VER = '3c957fae37';</script>
+<script src="config.js?v=3c957fae37"></script>
+<script src="crest.js?v=3c957fae37"></script>
+<script src="app.js?v=3c957fae37"></script>
+<script src="icons.js?v=3c957fae37"></script>
+<script type="module" src="fb.js?v=3c957fae37"></script>
 </body>
 </html>

@@ -2083,6 +2083,18 @@ function sheetFor(m){
   const sameOpp = T.sheets.filter(x => x.opp && canonSchool(x.opp) === opp);
   return sameOpp.find(x => x.date === day) || sameOpp.find(x => tc && teamCode(x.team) === tc) || T.sheets.find(x => tc && teamCode(x.team) === tc && x.date === day) || null;
 }
+// what is being scored, as a picture: a ball for a try, posts for a kick at goal, a card
+function evIcon(k){
+  const ball = (x, y, r) => `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r * .62}" transform="rotate(-35 ${x} ${y})" fill="currentColor"/>`;
+  const posts = '<path d="M14 6v34M34 6v34M14 26h20M24 26v16" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>';
+  const svg = inner => `<svg viewBox="0 0 48 48" width="36" height="36">${inner}</svg>`;
+  if (k === 'try') return svg(ball(24, 22, 15) + '<path d="M8 40h32" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>');
+  if (k === 'pt') return svg(posts + ball(24, 34, 6));
+  if (k === 'con' || k === 'pen') return svg(posts + ball(24, 14, 6.5));
+  if (k === 'dg') return svg(posts + ball(24, 14, 6.5) + '<path d="M38 44l4-6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>');
+  if (k === 'yc' || k === 'rc') return svg('<rect x="14" y="7" width="20" height="34" rx="3.5" fill="currentColor"/>');
+  return '';
+}
 const OPP_PLAYER = 'Opposition Player';   // we rarely know their names
 function openEv(m, k, s, pending){
   const team = s === 'H' ? m.home : m.away, kick = k === 'con' || k === 'pen' || k === 'dg', after = !!pending;
@@ -2100,12 +2112,14 @@ function openEv(m, k, s, pending){
   let lastKicker = kick ? kicks(m).filter(e => e.s === s).pop() || null : null, kickFrom = lastKicker ? 'match' : '';
   if (kick && !lastKicker && ours && m.team){ const prev = (DATA.matches || []).filter(x => x.id !== m.id && x.team === m.team && usOf(x) && String(x.date || '') <= String(m.date || '9999')).sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')) || (b.ftAt || 0) - (a.ftAt || 0));
     for (const x of prev){ const e = kicks(x).filter(e => e.s === usOf(x)).pop(); if (e){ lastKicker = e; kickFrom = 'before'; break; } } }
-  openDialog(`<h2>${after ? 'Conversion attempt' : EVK[k][0]}</h2><p>${esc(team)}${PTS[k] ? ` · +${PTS[k]} if scored` : ''}</p>
-    ${kick ? `<div class="field"><span class="label">Kick</span>${seg('res', [['ok','Scored'],['miss','Missed']], 'ok')}</div>` : ''}
-
-    <div class="field"><label class="label" for="evWho">${kick ? 'Kicker' : 'Player'}${players.length ? ' (name or shirt number)' : ' (optional)'}</label><input class="input" id="evWho" maxlength="40" list="evNames" autocomplete="off" value="${esc(lastKicker ? lastKicker.p : !ours && usOf(m) ? OPP_PLAYER : '')}"><datalist id="evNames">${players.map(p => `<option value="${esc(p.name)}" label="#${esc(p.n)}">`).join('')}${[...used].filter(n => !players.some(p => p.name === n)).map(n => `<option value="${esc(n)}">`).join('')}</datalist><span class="hint" id="evHint" aria-live="polite">${kickFrom === 'before' ? 'The kicker from this team’s last match. Type over it if it’s someone else today.' : kickFrom === 'match' ? 'Same kicker as the last kick. Type over it to change.' : ''}</span></div>
-    <div class="field" style="max-width:140px"><label class="label" for="evMin">Minute</label><input class="input" id="evMin" type="number" min="0" max="120" value="${minuteNow(m)}"></div>
-    <div class="dlg-a"><button type="button" class="btn ghost" id="evSkip">${after ? 'Skip' : 'Cancel'}</button>${kick ? '<button type="button" class="btn danger" id="evMiss">Missed</button>' : ''}<button type="button" class="btn primary" id="evGo">${k === 'try' ? 'Next: conversion' : kick ? 'Scored' : 'Add'}</button></div>`, d => {
+  /* the popup says what is being scored with a picture (ball for a try, posts for a kick, a card), whose side it is for, and asks
+     only for the player; the minute is filled in and tucked beside it. Scored / Missed are the two buttons, nothing else to set. */
+  openDialog(`<div class="ev-head ${k}"><span class="ev-ico" aria-hidden="true">${evIcon(k)}</span><div><h2>${after ? 'Conversion' : EVK[k][0]}</h2><p>${crest(team)}<span>${esc(dn(team))}</span>${PTS[k] ? `<b>+${PTS[k]}</b>` : ''}</p></div></div>
+    ${kick ? '<div data-seg="res" data-val="ok" hidden></div>' : ''}
+    <div class="ev-row"><div class="field"><label class="label" for="evWho">${kick ? 'Kicker' : 'Player'}${players.length ? ' (name or number)' : ''}</label><input class="input" id="evWho" maxlength="40" list="evNames" autocomplete="off" value="${esc(lastKicker ? lastKicker.p : !ours && usOf(m) ? OPP_PLAYER : '')}"><datalist id="evNames">${players.map(p => `<option value="${esc(p.name)}" label="#${esc(p.n)}">`).join('')}${[...used].filter(n => !players.some(p => p.name === n)).map(n => `<option value="${esc(n)}">`).join('')}</datalist></div>
+      <div class="field ev-min"><label class="label" for="evMin">Min</label><input class="input" id="evMin" type="number" inputmode="numeric" min="0" max="120" value="${minuteNow(m)}"></div></div>
+    <span class="hint" id="evHint" aria-live="polite">${kickFrom === 'before' ? 'Kicker from this team’s last match. Type over to change.' : kickFrom === 'match' ? 'Same kicker as last time. Type over to change.' : ''}</span>
+    <div class="dlg-a ev-a"><button type="button" class="btn ghost" id="evSkip">${after ? 'No kick' : 'Cancel'}</button>${kick ? '<button type="button" class="btn danger" id="evMiss">Missed</button>' : ''}<button type="button" class="btn primary" id="evGo">${k === 'try' ? 'Next: conversion' : kick ? 'Scored' : 'Add'}</button></div>`, d => {
     wireSegs(d);
     const byNum = v => { const n = (String(v).trim().match(/^#?(\d{1,2})$/) || [])[1]; return n ? players.find(p => +p.n === +n) : null; };
     const who = d.querySelector('#evWho'), hint = d.querySelector('#evHint');
