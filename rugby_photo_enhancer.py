@@ -24,7 +24,7 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 APP_NAME = "Rugby Photo Enhancer"
-APP_VERSION = "2.4.0"
+APP_VERSION = "2.5.0"
 # Updates are published here (branch "photo-enhancer" of github.com/popcorn483/ergs-live)
 UPDATE_BASE = "https://raw.githubusercontent.com/popcorn483/ergs-live/photo-enhancer/"
 DEFAULT_SOURCE = r"E:\DCIM\100CANON"
@@ -1048,12 +1048,12 @@ def safe_folder_name(name):
 # --------------------------------------------------------------------------
 DEFAULT_RUGBY_FOLDER_ID = "1qBvZ1ZBL4O0Xnu1UO1iA7YVygRbfvtw9"
 
-UPLOADER_VERSION = 2
-APPS_SCRIPT_TEMPLATE = r"""// Rugby Photo Enhancer - Drive uploader (v2). Runs in YOUR Google account.
-// It can only work with folders and photos inside the folder below.
+UPLOADER_VERSION = 3
+APPS_SCRIPT_TEMPLATE = r"""// Rugby Photo Enhancer - Drive uploader (v3). Runs in YOUR Google account.
+// Only requests carrying the secret key below are accepted. ROOT_ID is your Rugby folder (the default).
 const KEY = '%KEY%';
 const ROOT_ID = '%ROOT%';
-const VERSION = 2;
+const VERSION = 3;
 const MARK = 'Enhanced by Rugby Photo Enhancer';
 
 function doGet() { return out({ok: true, app: 'Rugby Photo Enhancer uploader', version: VERSION}); }
@@ -1068,7 +1068,6 @@ function doPost(e) {
 
     if (a === 'mkdir') {
       const parent = req.parent ? DriveApp.getFolderById(req.parent) : root;
-      if (req.parent && !isUnder(parent, root)) return out({ok: false, error: 'Not allowed'});
       const name = String(req.name || '').slice(0, 200);
       if (!name) return out({ok: false, error: 'No name'});
       const it = parent.getFoldersByName(name);
@@ -1079,7 +1078,6 @@ function doPost(e) {
 
     if (a === 'upload') {
       const folder = DriveApp.getFolderById(req.folder);
-      if (!isUnder(folder, root)) return out({ok: false, error: 'Not allowed'});
       const same = folder.getFilesByName(req.name);
       while (same.hasNext()) {            // already there (e.g. a retry) - don't duplicate
         const f = same.next();
@@ -1090,9 +1088,10 @@ function doPost(e) {
       return out({ok: true, id: f.getId()});
     }
 
-    if (a === 'folders') {                 // match folders inside Rugby
+    if (a === 'folders') {                 // sub-folders of Rugby (or of req.parent)
+      const parent = req.parent ? DriveApp.getFolderById(req.parent) : root;
       const res = [];
-      const it = root.getFolders();
+      const it = parent.getFolders();
       while (it.hasNext()) {
         const f = it.next();
         res.push({id: f.getId(), name: f.getName(), updated: f.getLastUpdated().getTime(), url: f.getUrl()});
@@ -1101,9 +1100,20 @@ function doPost(e) {
       return out({ok: true, folders: res});
     }
 
+    if (a === 'folderinfo') {              // a pasted folder link: its name and what's inside
+      const f = DriveApp.getFolderById(req.folder);
+      let photos = 0;
+      const fi = f.getFiles();
+      while (fi.hasNext()) { const m = fi.next().getMimeType(); if (m === 'image/jpeg' || m === 'image/png') photos++; }
+      const subs = [];
+      const si = f.getFolders();
+      while (si.hasNext()) { const s = si.next(); subs.push({id: s.getId(), name: s.getName(), updated: s.getLastUpdated().getTime(), url: s.getUrl()}); }
+      subs.sort((x, y) => y.updated - x.updated);
+      return out({ok: true, id: f.getId(), name: f.getName(), url: f.getUrl(), updated: f.getLastUpdated().getTime(), photos: photos, subfolders: subs});
+    }
+
     if (a === 'files') {                   // photos in one folder
       const folder = DriveApp.getFolderById(req.folder);
-      if (!isUnder(folder, root)) return out({ok: false, error: 'Not allowed'});
       const res = [];
       const it = folder.getFiles();
       while (it.hasNext()) {
@@ -1119,16 +1129,14 @@ function doPost(e) {
 
     if (a === 'thumb' || a === 'download') {
       const f = DriveApp.getFileById(req.file);
-      if (!inRoot(f, root)) return out({ok: false, error: 'Not allowed'});
       let blob = null;
       if (a === 'thumb') { try { blob = f.getThumbnail(); } catch (err) {} }
       if (!blob) blob = f.getBlob();
-      return out({ok: true, data: Utilities.base64Encode(blob.getBytes()), full: a === 'download' || !blob});
+      return out({ok: true, data: Utilities.base64Encode(blob.getBytes())});
     }
 
     if (a === 'replace') {                 // put the enhanced photo in place of the original
       const old = DriveApp.getFileById(req.file);
-      if (!inRoot(old, root)) return out({ok: false, error: 'Not allowed'});
       const parent = old.getParents().next();
       const nf = parent.createFile(Utilities.newBlob(Utilities.base64Decode(req.data), req.mime || 'image/jpeg', old.getName()));
       nf.setDescription(MARK);
@@ -1140,27 +1148,6 @@ function doPost(e) {
   } catch (err) {
     return out({ok: false, error: String(err)});
   }
-}
-
-function inRoot(file, root) {
-  const ps = file.getParents();
-  while (ps.hasNext()) if (isUnder(ps.next(), root)) return true;
-  return false;
-}
-
-function isUnder(folder, root) {
-  const rid = root.getId();
-  let level = [folder];
-  for (let d = 0; d < 5 && level.length; d++) {
-    const next = [];
-    for (const f of level) {
-      if (f.getId() === rid) return true;
-      const ps = f.getParents();
-      while (ps.hasNext()) next.push(ps.next());
-    }
-    level = next;
-  }
-  return false;
 }
 
 function out(o) {
@@ -1204,8 +1191,11 @@ class DriveUploader:
     def mkdir(self, name, parent=None):
         return self._call({"action": "mkdir", "name": name, "parent": parent}, timeout=60)
 
-    def folders(self):
-        return self._call({"action": "folders"}, timeout=60)["folders"]
+    def folders(self, parent=None):
+        return self._call({"action": "folders", "parent": parent}, timeout=60)["folders"]
+
+    def folder_info(self, folder_id):
+        return self._call({"action": "folderinfo", "folder": folder_id}, timeout=120)
 
     def files(self, folder_id):
         return self._call({"action": "files", "folder": folder_id}, timeout=120)["files"]
@@ -1385,6 +1375,7 @@ class App:
             "dest": c.get("dest") or find_drive_rugby_folder() or os.path.join(os.path.expanduser("~"), "Pictures", "Rugby Photos"),
             "localDir": c.get("local_copy_dir") or os.path.join(os.path.expanduser("~"), "Pictures", "Rugby Photos"),
             "driveLocalDir": c.get("drive_local_dir") or os.path.join(os.path.expanduser("~"), "Pictures", "Rugby Photos"),
+            "driveDestLink": c.get("drive_dest_link", ""),
             "keepLocal": c.get("keep_local", True),
             "onlyDate": c.get("only_date", True),
             "skip": c.get("skip_imported", True),
@@ -1395,7 +1386,7 @@ class App:
 
     def save_settings(self, s):
         m = {"source": "source", "mode": "mode", "dest": "dest", "localDir": "local_copy_dir", "keepLocal": "keep_local",
-             "driveLocalDir": "drive_local_dir",
+             "driveLocalDir": "drive_local_dir", "driveDestLink": "drive_dest_link",
              "onlyDate": "only_date", "skip": "skip_imported", "keepOriginals": "keep_originals",
              "preset": "preset", "quality": "quality_num"}
         with self.cfg_lock:
@@ -1531,6 +1522,30 @@ class App:
                 return {"ok": False, "error": "update"}
             return {"ok": False, "error": str(e)}
 
+    def drive_link(self, link):
+        """A pasted Drive folder link: the folder itself (if it has photos) plus its sub-folders."""
+        up = self.uploader()
+        if not up:
+            return {"ok": False, "error": "setup"}
+        fid = folder_id_from(link)
+        if not fid:
+            return {"ok": False, "error": "That doesn't look like a Google Drive folder link."}
+        try:
+            info = up.folder_info(fid)
+        except Exception as e:
+            msg = str(e)
+            if "Unknown action" in msg:
+                return {"ok": False, "error": "update"}
+            if "not found" in msg.lower() or "no item" in msg.lower() or "access" in msg.lower():
+                msg = "Your Google account can't open that folder - check the link, or ask for it to be shared with you."
+            return {"ok": False, "error": msg}
+        folders = []
+        if info.get("photos"):
+            folders.append({"id": info["id"], "name": info["name"], "url": info["url"], "updated": info["updated"], "photos": info["photos"]})
+        for sf in info.get("subfolders", []):
+            folders.append(dict(sf, parent=info["name"]))
+        return {"ok": True, "name": info["name"], "url": info["url"], "folders": folders}
+
     def drive_load(self, folders, skip_enhanced):
         up = self.uploader()
         out, photos, total, skipped = [], {}, 0, 0
@@ -1542,7 +1557,7 @@ class App:
                         skipped += 1
                         continue
                     pid = "d" + f["id"]
-                    photos[pid] = {"drive": f["id"], "folder": fo["id"], "folderName": fo["name"], "folderUrl": fo.get("url", ""),
+                    photos[pid] = {"drive": f["id"], "folder": fo["id"], "folderName": fo["name"], "folderUrl": fo.get("url") or f"https://drive.google.com/drive/folders/{fo['id']}",
                                    "name": f["name"], "key": "drive:" + f["id"] + ":" + str(f.get("modified")), "path": None, "thumb": None}
                     out.append({"id": pid, "name": f["name"], "time": "", "folder": fo["name"], "size": f["size"], "imported": False})
         except Exception as e:
@@ -1578,8 +1593,17 @@ class App:
             if source == "drive":
                 if not self.uploader():
                     return {"ok": False, "error": "setup"}
-                action = req.get("action") if req.get("action") in ("subfolder", "local") else "replace"
+                action = req.get("action") if req.get("action") in ("subfolder", "local", "newfolder") else "replace"
                 ctx["action"] = action
+                if action == "newfolder":
+                    nm = safe_folder_name(req.get("destName", ""))
+                    if not nm:
+                        return {"ok": False, "error": "Give the new folder a name"}
+                    dest_link = (req.get("destLink") or "").strip()
+                    dest_id = folder_id_from(dest_link) if dest_link else None
+                    if dest_link and not dest_id:
+                        return {"ok": False, "error": "The ‘upload into’ link isn't a Google Drive folder link"}
+                    ctx["dest_name"], ctx["dest_parent"] = nm, dest_id
                 with self.cfg_lock:
                     self.cfg["drive_action"] = action
                     save_config(self.cfg)
@@ -1695,7 +1719,8 @@ class App:
         n = job["enh"]
         if ctx["upload"] and n:
             job["review"] = True
-            where = "Google Drive" if ctx["source"] == "card" else ("Drive (replacing the originals)" if ctx["action"] == "replace" else "the ‘Enhanced’ folders in Drive")
+            where = ("Google Drive" if ctx["source"] == "card" else "Drive (replacing the originals)" if ctx["action"] == "replace"
+                     else "a new folder “%s” in Drive" % ctx["dest_name"] if ctx["action"] == "newfolder" else "the ‘Enhanced’ folders in Drive")
             failed = " (%d failed)" % job["fail"] if job["fail"] else ""
             job["message"] = "%d photo%s enhanced%s. Check them, then confirm to upload to %s." % (n, "" if n == 1 else "s", failed, where)
         else:
@@ -1754,6 +1779,21 @@ class App:
         job, ctx, lock, up = self.job, self.ctx, threading.Lock(), self.uploader()
         folder_id = sub_id = None
         sub_ids, sub_lock = {}, threading.Lock()
+        if ctx["source"] == "drive" and ctx["action"] == "newfolder":
+            try:
+                job["message"] = "Creating the Drive folder…"
+                res = up.mkdir(ctx["dest_name"], parent=ctx.get("dest_parent"))
+                folder_id, job["open"] = res["id"], res.get("url", "")
+                self._log(("Adding to existing" if res.get("existed") else "Created") + f" Drive folder “{ctx['dest_name']}”")
+                srcs = {self.photos[i]["folder"] for i in ids}
+                if len(srcs) > 1:                     # several source folders -> one sub-folder each, so they stay separate
+                    for i in ids:
+                        ph = self.photos[i]
+                        if ph["folder"] not in sub_ids:
+                            sub_ids[ph["folder"]] = up.mkdir(safe_folder_name(ph["folderName"]) or "Photos", parent=folder_id)["id"]
+            except Exception as e:
+                job.update(running=False, review=True, message=f"Couldn't create the Drive folder: {e} — check the link and try again.")
+                return
         if ctx["source"] == "card":
             try:
                 job["message"] = "Creating the Drive folder…"
@@ -1788,6 +1828,8 @@ class App:
                             op = os.path.join(od, ph["name"])
                             shutil.copy2(ph["path"], op)
                             up.upload(op, sub_id)
+                    elif ctx["action"] == "newfolder":
+                        up.upload(st["dst"], sub_ids.get(ph["folder"], folder_id))
                     elif ctx["action"] == "subfolder":
                         with sub_lock:
                             if ph["folder"] not in sub_ids:
@@ -1819,7 +1861,7 @@ class App:
         with self.cfg_lock:
             self.cfg["imported"] = self.cfg.get("imported", [])[-20000:]
             save_config(self.cfg)
-        where = ("uploaded to Google Drive" if ctx["source"] == "card"
+        where = ("uploaded to Google Drive" if ctx["source"] == "card" or ctx["action"] == "newfolder"
                  else "replaced in Google Drive" if ctx["action"] == "replace" else "saved to ‘Enhanced’ folders")
         job["message"] = (f"{job['up']} of {job['total']} photos {where}"
                           + (f" — {job['fail']} failed, run again to retry them" if job["fail"] else ""))
@@ -1994,6 +2036,8 @@ def make_handler(app):
                 return self._send(200, app.scan(body.get("source", ""), body.get("onlyDate"), body.get("date", ""), body.get("skip")))
             if p == "/api/drive/folders":
                 return self._send(200, app.drive_folders())
+            if p == "/api/drive/link":
+                return self._send(200, app.drive_link(body.get("link", "")))
             if p == "/api/drive/load":
                 return self._send(200, app.drive_load(body.get("folders", []), body.get("skipEnhanced", True)))
             if p == "/api/approve":
@@ -2293,8 +2337,11 @@ UI_HTML = r"""<!DOCTYPE html>
     <div class="tabs" id="srcTabs"><button data-s="card" class="on">Camera card</button><button data-s="drive">Google Drive</button></div>
 
     <div class="sec gone" id="driveSec">
-      <h2>Earlier uploads in Rugby</h2>
+      <h2>Folders to enhance</h2>
       <div id="driveFolders"><div class="note">Loading folders…</div></div>
+      <h2 style="margin-top:14px">Or any other Drive folder</h2>
+      <div class="path"><input type="text" id="srcLink" placeholder="Paste a Google Drive folder link" spellcheck="false"><button class="btn ghost sm" id="srcLinkAdd">Add</button></div>
+      <div class="note" id="srcLinkNote"></div>
       <label class="chk"><input type="checkbox" id="skipEnhanced"> Skip photos already enhanced</label>
       <div class="row" style="margin-top:8px"><button class="btn sm" id="driveLoad">Load photos</button><button class="btn ghost sm" id="driveAll">Select all</button></div>
       <h2 style="margin-top:16px">When enhanced</h2>
@@ -2302,6 +2349,14 @@ UI_HTML = r"""<!DOCTYPE html>
       <div class="note" style="margin-left:23px">Originals go to Drive’s Bin (restore within 30 days).</div>
       <label class="chk"><input type="radio" name="driveAction" value="subfolder"> Save to an “Enhanced” subfolder</label>
       <div class="note" style="margin-left:23px">Each photo stays with its own match folder, even when several folders are selected.</div>
+      <label class="chk"><input type="radio" name="driveAction" value="newfolder"> Upload to a new folder</label>
+      <div id="newFolderBox" style="margin-left:23px">
+        <input type="text" id="destName" placeholder="New folder name, e.g. Omagh 22 11 26" spellcheck="false" style="width:100%">
+        <div class="note" style="margin:6px 0 4px">Create it inside:</div>
+        <label class="chk" style="margin:4px 0"><input type="radio" name="destWhere" value="rugby" checked> my Rugby folder</label>
+        <label class="chk" style="margin:4px 0"><input type="radio" name="destWhere" value="link"> another Drive folder:</label>
+        <input type="text" id="destLink" placeholder="Paste the Drive folder link" spellcheck="false" style="width:100%">
+      </div>
       <label class="chk"><input type="radio" name="driveAction" value="local"> Save on this PC only</label>
       <div class="note" style="margin-left:23px">Drive isn’t changed. Each match folder is recreated inside:</div>
       <div class="path" style="margin-left:23px"><input type="text" id="driveLocalDir" spellcheck="false"><button class="btn ghost sm" data-browse="driveLocalDir" data-title="Where to save enhanced photos">Browse</button></div>
@@ -2483,6 +2538,7 @@ UI_HTML = r"""<!DOCTYPE html>
       mode: document.querySelector("input[name=mode]:checked").value,
       keepLocal: $("keepLocal").checked, localDir: $("localDir").value.trim(), dest: $("dest").value.trim(),
       keepOriginals: $("keepOriginals").checked, driveLocalDir: $("driveLocalDir").value.trim(),
+      driveDestLink: $("destLink").value.trim(),
     };
   }
   let saveT; const saveSettings = () => { clearTimeout(saveT); saveT = setTimeout(() => api("/api/settings", settings()), 400); };
@@ -2507,7 +2563,10 @@ UI_HTML = r"""<!DOCTYPE html>
     $("keepLocal").checked = st.keepLocal; $("localDir").value = st.localDir; $("dest").value = st.dest;
     $("keepOriginals").checked = st.keepOriginals; $("skipEnhanced").checked = S.drive.skipEnhanced;
     $("driveLocalDir").value = st.driveLocalDir;
-    document.querySelector(`input[name=driveAction][value=${["subfolder","local"].includes(S.drive.action) ? S.drive.action : "replace"}]`).checked = true;
+    $("destLink").value = st.driveDestLink || "";
+    if (st.driveDestLink) document.querySelector("input[name=destWhere][value=link]").checked = true;
+    document.querySelector(`input[name=driveAction][value=${["subfolder","local","newfolder"].includes(S.drive.action) ? S.drive.action : "replace"}]`).checked = true;
+    paintDriveAction();
     document.querySelector(`input[name=mode][value=${st.mode === "folder" ? "folder" : "direct"}]`).checked = true;
     $("presets").innerHTML = `<button data-p="Auto" class="on">Auto</button>`;
     const d = new Date(); $("folderName").value = [d.getDate(), d.getMonth()+1, d.getFullYear()%100].map(n => String(n).padStart(2,"0")).join(" ");
@@ -2521,7 +2580,7 @@ UI_HTML = r"""<!DOCTYPE html>
 
   /* ---------- sidebar events ---------- */
   ["source","day","onlyDate","skip"].forEach(id => $(id).addEventListener("change", () => { saveSettings(); scan(); }));
-  ["quality","keepLocal","localDir","dest","keepOriginals","driveLocalDir"].forEach(id => $(id).addEventListener("change", saveSettings));
+  ["quality","keepLocal","localDir","dest","keepOriginals","driveLocalDir","destLink"].forEach(id => $(id).addEventListener("change", saveSettings));
   $("presets").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
     document.querySelectorAll("#presets button").forEach(x => x.classList.toggle("on", x === b));
@@ -2539,7 +2598,15 @@ UI_HTML = r"""<!DOCTYPE html>
     else if (!r.ok) toast(r.error);
   }));
   $("folderName").addEventListener("input", updateGo);
-  document.querySelectorAll("input[name=driveAction]").forEach(r => r.addEventListener("change", updateGo));
+  function paintDriveAction(){
+    const act = document.querySelector("input[name=driveAction]:checked").value;
+    $("newFolderBox").style.display = act === "newfolder" ? "" : "none";
+    $("destLink").disabled = document.querySelector("input[name=destWhere]:checked").value !== "link";
+  }
+  document.querySelectorAll("input[name=driveAction]").forEach(r => r.addEventListener("change", () => { paintDriveAction(); updateGo(); }));
+  document.querySelectorAll("input[name=destWhere]").forEach(r => r.addEventListener("change", () => { paintDriveAction(); if (r.value === "link" && r.checked) $("destLink").focus(); }));
+  $("destLink").addEventListener("focus", () => { document.querySelector("input[name=destWhere][value=link]").checked = true; paintDriveAction(); });
+  $("destName").addEventListener("input", updateGo);
 
   /* ---------- source switch ---------- */
   $("srcTabs").addEventListener("click", e => {
@@ -2559,14 +2626,39 @@ UI_HTML = r"""<!DOCTYPE html>
 
   async function loadDriveFolders(){
     if (!S.drive.ok) { $("driveFolders").innerHTML = `<div class="note">Connect Google Drive first. <button class="link" onclick="">Set up…</button></div>`; $("driveFolders").querySelector("button").onclick = () => openSetup(); return; }
-    if ((S.drive.version || 1) < S.drive.needed) { needUpdate(); return; }
+    if ((S.drive.version || 1) < 2) { needUpdate(); return; }
     $("driveFolders").innerHTML = `<div class="note">Loading folders…</div>`;
     const r = await api("/api/drive/folders", {});
     if (!r.ok) { if (r.error === "update") needUpdate(); else $("driveFolders").innerHTML = `<div class="note">${esc(r.error)}</div>`; return; }
-    driveFolderList = r.folders;
-    if (!r.folders.length) { $("driveFolders").innerHTML = `<div class="note">No folders in Rugby yet.</div>`; return; }
-    $("driveFolders").innerHTML = `<div class="flist">` + r.folders.map((f, i) => `<label><input type="checkbox" data-i="${i}"><span>${esc(f.name)}</span><small>${new Date(f.updated).toLocaleDateString("en-GB")}</small></label>`).join("") + `</div>`;
+    driveFolderList = r.folders.concat(linkedFolders);
+    paintFolderList();
+    if ((S.drive.version || 1) < S.drive.needed) {
+      $("srcLinkNote").innerHTML = `To use other folder links or “Upload to a new folder”, give the uploader a 1-minute update. <button class="link" id="updNow">Update…</button>`;
+      $("updNow").onclick = () => openSetup(true);
+    }
   }
+  let linkedFolders = [];
+  function paintFolderList(){
+    const keep = new Set([...document.querySelectorAll("#driveFolders input[type=checkbox]:checked")].map(c => driveFolderList[+c.dataset.i] && driveFolderList[+c.dataset.i].id));
+    if (!driveFolderList.length) { $("driveFolders").innerHTML = `<div class="note">No folders in Rugby yet — paste a folder link below.</div>`; return; }
+    $("driveFolders").innerHTML = `<div class="flist">` + driveFolderList.map((f, i) =>
+      `<label><input type="checkbox" data-i="${i}" ${keep.has(f.id) || f.justAdded ? "checked" : ""}><span>${f.linked ? "🔗 " : ""}${esc(f.name)}</span><small>${f.linked ? (f.photos ? f.photos + (f.photos === 1 ? " photo" : " photos") : "folder") : new Date(f.updated).toLocaleDateString("en-GB")}</small></label>`).join("") + `</div>`;
+    driveFolderList.forEach(f => delete f.justAdded);
+  }
+  $("srcLinkAdd").onclick = async () => {
+    const link = $("srcLink").value.trim(); if (!link) { $("srcLink").focus(); return; }
+    if (!S.drive.ok) { openSetup(); return; }
+    if ((S.drive.version || 1) < S.drive.needed) { needUpdate(); toast("Update the uploader first (1 minute) — then paste the link again"); return; }
+    $("srcLinkNote").textContent = "Opening that folder…";
+    const r = await api("/api/drive/link", {link});
+    if (!r.ok) { if (r.error === "update") { needUpdate(); $("srcLinkNote").textContent = ""; } else $("srcLinkNote").textContent = r.error; return; }
+    if (!r.folders.length) { $("srcLinkNote").textContent = `“${r.name}” has no photos or sub-folders.`; return; }
+    const known = new Set(driveFolderList.map(f => f.id));
+    r.folders.forEach(f => { if (!known.has(f.id)) { f.linked = true; f.justAdded = true; driveFolderList.push(f); linkedFolders.push(f); } else { const ex = driveFolderList.find(x => x.id === f.id); if (ex) ex.justAdded = true; } });
+    paintFolderList();
+    $("srcLinkNote").textContent = `Added “${r.name}”` + (r.folders.length > 1 ? ` (${r.folders.length} folders)` : "") + " — now click Load photos.";
+    $("srcLink").value = "";
+  };
   function needUpdate(){
     $("driveFolders").innerHTML = `<div class="note" style="color:var(--accent2)">Your Drive uploader needs a 1-minute update to read earlier uploads.</div><button class="btn sm" id="doUpd">Update uploader…</button>`;
     $("doUpd").onclick = () => openSetup(true);
@@ -2681,7 +2773,7 @@ UI_HTML = r"""<!DOCTYPE html>
     if (!S) return;
     const n = photos.filter(p => p.include).length;
     let verb;
-    if (source === "drive") verb = document.querySelector("input[name=driveAction]:checked").value === "replace" ? "replace" : "save";
+    if (source === "drive") { const act = document.querySelector("input[name=driveAction]:checked").value; verb = act === "replace" ? "replace" : act === "newfolder" ? "upload" : "save"; }
     else verb = settings().mode === "direct" ? "upload" : "save";
     $("cancelReview").classList.toggle("gone", !reviewing);
     document.body.classList.toggle("review-on", reviewing);
@@ -2704,7 +2796,7 @@ UI_HTML = r"""<!DOCTYPE html>
     const [txt, cls] = BADGE[st] || [st, ""];
     b.className = "badge " + cls;
     const dAct = document.querySelector("input[name=driveAction]:checked").value;
-    b.textContent = st === "done" ? (source === "drive" ? (dAct === "local" ? "✓ Saved" : "✓ Improved") : settings().mode === "direct" ? "✓ In Drive" : "✓ Saved") : txt;
+    b.textContent = st === "done" ? (source === "drive" ? (dAct === "local" ? "✓ Saved" : dAct === "newfolder" ? "✓ Uploaded" : "✓ Improved") : settings().mode === "direct" ? "✓ In Drive" : "✓ Saved") : txt;
     if (st === "ready" && p.lookAtRun && lookStr(p) !== p.lookAtRun) { b.textContent = "↻ Will redo"; b.className = "badge work"; }
     if (st === "ready" && !p.include) { b.textContent = "Won't upload"; b.className = "badge"; }
     b.title = st === "error" && p.err ? p.err : "";
@@ -2717,7 +2809,18 @@ UI_HTML = r"""<!DOCTYPE html>
     const chosen = photos.filter(p => p.include);
     const looks = {}; chosen.forEach(p => { looks[p.id] = lookVals(p); p.lookAtRun = lookStr(p); });
     const body = {ids: chosen.map(p => p.id), looks, settings: settings(), source};
-    if (source === "drive") body.action = document.querySelector("input[name=driveAction]:checked").value;
+    if (source === "drive") {
+      body.action = document.querySelector("input[name=driveAction]:checked").value;
+      if (body.action === "newfolder") {
+        body.destName = $("destName").value.trim();
+        if (!body.destName) { toast("Type a name for the new folder"); $("destName").focus(); return; }
+        if (document.querySelector("input[name=destWhere]:checked").value === "link") {
+          body.destLink = $("destLink").value.trim();
+          if (!body.destLink) { toast("Paste the link of the Drive folder to upload into"); $("destLink").focus(); return; }
+        }
+        if ((S.drive.version || 1) < S.drive.needed) { needUpdate(); toast("Update the uploader first (1 minute)"); return; }
+      }
+    }
     else body.name = $("folderName").value.trim();
     const r = await api("/api/run", body);
     if (!r.ok) { if (r.error === "setup") openSetup(); else toast(r.error); return; }
@@ -2744,10 +2847,14 @@ UI_HTML = r"""<!DOCTYPE html>
   function askHappy(j){
     const n = photos.filter(p => lastStatus[p.id] === "ready").length;
     const replace = source === "drive" && document.querySelector("input[name=driveAction]:checked").value === "replace";
-    const sub = source === "drive" && !replace;
+    const act = source === "drive" ? document.querySelector("input[name=driveAction]:checked").value : "";
+    const sub = act === "subfolder";
+    const newf = act === "newfolder";
     $("happyTitle").textContent = `${n} photo${n === 1 ? "" : "s"} enhanced — are you happy with them?`;
+    const where = document.querySelector("input[name=destWhere]:checked").value === "link" ? "the Drive folder you pasted" : "your Rugby folder";
     $("happyText").textContent = (replace ? "If you say yes, they replace the photos in Google Drive (the originals go to Drive’s Bin for 30 days). "
       : sub ? "If you say yes, they're saved into an “Enhanced” folder inside each match folder. "
+      : newf ? `If you say yes, they're uploaded to a new “${$("destName").value.trim()}” folder in ${where}. The originals aren't changed. `
       : `If you say yes, they're uploaded to a new “${$("folderName").value.trim()}” folder in Rugby. `)
       + "Nothing has been uploaded yet — you can check them first, untick any, or fine-tune one (it's redone automatically)."
       + (j.fail ? ` ${j.fail} couldn't be enhanced and will be left out.` : "");

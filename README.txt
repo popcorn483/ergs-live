@@ -81,7 +81,12 @@ IMPROVING EARLIER UPLOADS
    - Replace the photos in Drive (originals go to Drive's Bin for 30 days), or
    - Save to an "Enhanced" subfolder inside each match folder.
   Photos already enhanced by the app are skipped automatically.
-  The first time, the app asks you to update your uploader script (about 1 minute):
+  Any other Drive folder works too: paste its link under "Or any other Drive folder" and
+  click Add (its sub-folders are added as well). Choose "Upload to a new folder", give it a
+  name, and pick where it goes - your Rugby folder, or another Drive folder (paste its
+  link). The originals aren't changed, and photos from different folders stay in separate
+  sub-folders. Your Google account just needs access to the folders.
+  If the app asks you to update your uploader script (about 1 minute):
   Copy new script > open your project at script.google.com > paste over the old code >
   save > Deploy > Manage deployments > Edit > Version: New version > Deploy > Test & save.
 

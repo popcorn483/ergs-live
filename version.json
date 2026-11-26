@@ -1,11 +1,11 @@
 {
-  "version": "2.4.0",
+  "version": "2.5.0",
   "file": "rugby_photo_enhancer.py",
-  "sha256": "68b2be6989d81c87c549c8974641869eb6d16123e5ea5aeeee6039a3e425ebf8",
+  "sha256": "dad6a3291a6e85a7c21e31e3bb3d1bb35765779861489d26a20d8c6ee8f353c3",
   "requires": [
     "pillow",
     "numpy",
     "opencv-python-headless"
   ],
-  "notes": "Shadows keep their depth: only deep shadows are lifted, blacks stay black, and a depth check stops photos going flat."
+  "notes": "Paste any Google Drive folder link, enhance, and upload to a new named folder (in Rugby or another Drive folder)."
 }

@@ -154,8 +154,11 @@
     <div class="tabs" id="srcTabs"><button data-s="card" class="on">Camera card</button><button data-s="drive">Google Drive</button></div>
 
     <div class="sec gone" id="driveSec">
-      <h2>Earlier uploads in Rugby</h2>
+      <h2>Folders to enhance</h2>
       <div id="driveFolders"><div class="note">Loading folders…</div></div>
+      <h2 style="margin-top:14px">Or any other Drive folder</h2>
+      <div class="path"><input type="text" id="srcLink" placeholder="Paste a Google Drive folder link" spellcheck="false"><button class="btn ghost sm" id="srcLinkAdd">Add</button></div>
+      <div class="note" id="srcLinkNote"></div>
       <label class="chk"><input type="checkbox" id="skipEnhanced"> Skip photos already enhanced</label>
       <div class="row" style="margin-top:8px"><button class="btn sm" id="driveLoad">Load photos</button><button class="btn ghost sm" id="driveAll">Select all</button></div>
       <h2 style="margin-top:16px">When enhanced</h2>
@@ -163,6 +166,14 @@
       <div class="note" style="margin-left:23px">Originals go to Drive’s Bin (restore within 30 days).</div>
       <label class="chk"><input type="radio" name="driveAction" value="subfolder"> Save to an “Enhanced” subfolder</label>
       <div class="note" style="margin-left:23px">Each photo stays with its own match folder, even when several folders are selected.</div>
+      <label class="chk"><input type="radio" name="driveAction" value="newfolder"> Upload to a new folder</label>
+      <div id="newFolderBox" style="margin-left:23px">
+        <input type="text" id="destName" placeholder="New folder name, e.g. Omagh 22 11 26" spellcheck="false" style="width:100%">
+        <div class="note" style="margin:6px 0 4px">Create it inside:</div>
+        <label class="chk" style="margin:4px 0"><input type="radio" name="destWhere" value="rugby" checked> my Rugby folder</label>
+        <label class="chk" style="margin:4px 0"><input type="radio" name="destWhere" value="link"> another Drive folder:</label>
+        <input type="text" id="destLink" placeholder="Paste the Drive folder link" spellcheck="false" style="width:100%">
+      </div>
       <label class="chk"><input type="radio" name="driveAction" value="local"> Save on this PC only</label>
       <div class="note" style="margin-left:23px">Drive isn’t changed. Each match folder is recreated inside:</div>
       <div class="path" style="margin-left:23px"><input type="text" id="driveLocalDir" spellcheck="false"><button class="btn ghost sm" data-browse="driveLocalDir" data-title="Where to save enhanced photos">Browse</button></div>
@@ -344,6 +355,7 @@
       mode: document.querySelector("input[name=mode]:checked").value,
       keepLocal: $("keepLocal").checked, localDir: $("localDir").value.trim(), dest: $("dest").value.trim(),
       keepOriginals: $("keepOriginals").checked, driveLocalDir: $("driveLocalDir").value.trim(),
+      driveDestLink: $("destLink").value.trim(),
     };
   }
   let saveT; const saveSettings = () => { clearTimeout(saveT); saveT = setTimeout(() => api("/api/settings", settings()), 400); };
@@ -368,7 +380,10 @@
     $("keepLocal").checked = st.keepLocal; $("localDir").value = st.localDir; $("dest").value = st.dest;
     $("keepOriginals").checked = st.keepOriginals; $("skipEnhanced").checked = S.drive.skipEnhanced;
     $("driveLocalDir").value = st.driveLocalDir;
-    document.querySelector(`input[name=driveAction][value=${["subfolder","local"].includes(S.drive.action) ? S.drive.action : "replace"}]`).checked = true;
+    $("destLink").value = st.driveDestLink || "";
+    if (st.driveDestLink) document.querySelector("input[name=destWhere][value=link]").checked = true;
+    document.querySelector(`input[name=driveAction][value=${["subfolder","local","newfolder"].includes(S.drive.action) ? S.drive.action : "replace"}]`).checked = true;
+    paintDriveAction();
     document.querySelector(`input[name=mode][value=${st.mode === "folder" ? "folder" : "direct"}]`).checked = true;
     $("presets").innerHTML = `<button data-p="Auto" class="on">Auto</button>`;
     const d = new Date(); $("folderName").value = [d.getDate(), d.getMonth()+1, d.getFullYear()%100].map(n => String(n).padStart(2,"0")).join(" ");
@@ -382,7 +397,7 @@
 
   /* ---------- sidebar events ---------- */
   ["source","day","onlyDate","skip"].forEach(id => $(id).addEventListener("change", () => { saveSettings(); scan(); }));
-  ["quality","keepLocal","localDir","dest","keepOriginals","driveLocalDir"].forEach(id => $(id).addEventListener("change", saveSettings));
+  ["quality","keepLocal","localDir","dest","keepOriginals","driveLocalDir","destLink"].forEach(id => $(id).addEventListener("change", saveSettings));
   $("presets").addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
     document.querySelectorAll("#presets button").forEach(x => x.classList.toggle("on", x === b));
@@ -400,7 +415,15 @@
     else if (!r.ok) toast(r.error);
   }));
   $("folderName").addEventListener("input", updateGo);
-  document.querySelectorAll("input[name=driveAction]").forEach(r => r.addEventListener("change", updateGo));
+  function paintDriveAction(){
+    const act = document.querySelector("input[name=driveAction]:checked").value;
+    $("newFolderBox").style.display = act === "newfolder" ? "" : "none";
+    $("destLink").disabled = document.querySelector("input[name=destWhere]:checked").value !== "link";
+  }
+  document.querySelectorAll("input[name=driveAction]").forEach(r => r.addEventListener("change", () => { paintDriveAction(); updateGo(); }));
+  document.querySelectorAll("input[name=destWhere]").forEach(r => r.addEventListener("change", () => { paintDriveAction(); if (r.value === "link" && r.checked) $("destLink").focus(); }));
+  $("destLink").addEventListener("focus", () => { document.querySelector("input[name=destWhere][value=link]").checked = true; paintDriveAction(); });
+  $("destName").addEventListener("input", updateGo);
 
   /* ---------- source switch ---------- */
   $("srcTabs").addEventListener("click", e => {
@@ -420,14 +443,39 @@
 
   async function loadDriveFolders(){
     if (!S.drive.ok) { $("driveFolders").innerHTML = `<div class="note">Connect Google Drive first. <button class="link" onclick="">Set up…</button></div>`; $("driveFolders").querySelector("button").onclick = () => openSetup(); return; }
-    if ((S.drive.version || 1) < S.drive.needed) { needUpdate(); return; }
+    if ((S.drive.version || 1) < 2) { needUpdate(); return; }
     $("driveFolders").innerHTML = `<div class="note">Loading folders…</div>`;
     const r = await api("/api/drive/folders", {});
     if (!r.ok) { if (r.error === "update") needUpdate(); else $("driveFolders").innerHTML = `<div class="note">${esc(r.error)}</div>`; return; }
-    driveFolderList = r.folders;
-    if (!r.folders.length) { $("driveFolders").innerHTML = `<div class="note">No folders in Rugby yet.</div>`; return; }
-    $("driveFolders").innerHTML = `<div class="flist">` + r.folders.map((f, i) => `<label><input type="checkbox" data-i="${i}"><span>${esc(f.name)}</span><small>${new Date(f.updated).toLocaleDateString("en-GB")}</small></label>`).join("") + `</div>`;
+    driveFolderList = r.folders.concat(linkedFolders);
+    paintFolderList();
+    if ((S.drive.version || 1) < S.drive.needed) {
+      $("srcLinkNote").innerHTML = `To use other folder links or “Upload to a new folder”, give the uploader a 1-minute update. <button class="link" id="updNow">Update…</button>`;
+      $("updNow").onclick = () => openSetup(true);
+    }
   }
+  let linkedFolders = [];
+  function paintFolderList(){
+    const keep = new Set([...document.querySelectorAll("#driveFolders input[type=checkbox]:checked")].map(c => driveFolderList[+c.dataset.i] && driveFolderList[+c.dataset.i].id));
+    if (!driveFolderList.length) { $("driveFolders").innerHTML = `<div class="note">No folders in Rugby yet — paste a folder link below.</div>`; return; }
+    $("driveFolders").innerHTML = `<div class="flist">` + driveFolderList.map((f, i) =>
+      `<label><input type="checkbox" data-i="${i}" ${keep.has(f.id) || f.justAdded ? "checked" : ""}><span>${f.linked ? "🔗 " : ""}${esc(f.name)}</span><small>${f.linked ? (f.photos ? f.photos + (f.photos === 1 ? " photo" : " photos") : "folder") : new Date(f.updated).toLocaleDateString("en-GB")}</small></label>`).join("") + `</div>`;
+    driveFolderList.forEach(f => delete f.justAdded);
+  }
+  $("srcLinkAdd").onclick = async () => {
+    const link = $("srcLink").value.trim(); if (!link) { $("srcLink").focus(); return; }
+    if (!S.drive.ok) { openSetup(); return; }
+    if ((S.drive.version || 1) < S.drive.needed) { needUpdate(); toast("Update the uploader first (1 minute) — then paste the link again"); return; }
+    $("srcLinkNote").textContent = "Opening that folder…";
+    const r = await api("/api/drive/link", {link});
+    if (!r.ok) { if (r.error === "update") { needUpdate(); $("srcLinkNote").textContent = ""; } else $("srcLinkNote").textContent = r.error; return; }
+    if (!r.folders.length) { $("srcLinkNote").textContent = `“${r.name}” has no photos or sub-folders.`; return; }
+    const known = new Set(driveFolderList.map(f => f.id));
+    r.folders.forEach(f => { if (!known.has(f.id)) { f.linked = true; f.justAdded = true; driveFolderList.push(f); linkedFolders.push(f); } else { const ex = driveFolderList.find(x => x.id === f.id); if (ex) ex.justAdded = true; } });
+    paintFolderList();
+    $("srcLinkNote").textContent = `Added “${r.name}”` + (r.folders.length > 1 ? ` (${r.folders.length} folders)` : "") + " — now click Load photos.";
+    $("srcLink").value = "";
+  };
   function needUpdate(){
     $("driveFolders").innerHTML = `<div class="note" style="color:var(--accent2)">Your Drive uploader needs a 1-minute update to read earlier uploads.</div><button class="btn sm" id="doUpd">Update uploader…</button>`;
     $("doUpd").onclick = () => openSetup(true);
@@ -542,7 +590,7 @@
     if (!S) return;
     const n = photos.filter(p => p.include).length;
     let verb;
-    if (source === "drive") verb = document.querySelector("input[name=driveAction]:checked").value === "replace" ? "replace" : "save";
+    if (source === "drive") { const act = document.querySelector("input[name=driveAction]:checked").value; verb = act === "replace" ? "replace" : act === "newfolder" ? "upload" : "save"; }
     else verb = settings().mode === "direct" ? "upload" : "save";
     $("cancelReview").classList.toggle("gone", !reviewing);
     document.body.classList.toggle("review-on", reviewing);
@@ -565,7 +613,7 @@
     const [txt, cls] = BADGE[st] || [st, ""];
     b.className = "badge " + cls;
     const dAct = document.querySelector("input[name=driveAction]:checked").value;
-    b.textContent = st === "done" ? (source === "drive" ? (dAct === "local" ? "✓ Saved" : "✓ Improved") : settings().mode === "direct" ? "✓ In Drive" : "✓ Saved") : txt;
+    b.textContent = st === "done" ? (source === "drive" ? (dAct === "local" ? "✓ Saved" : dAct === "newfolder" ? "✓ Uploaded" : "✓ Improved") : settings().mode === "direct" ? "✓ In Drive" : "✓ Saved") : txt;
     if (st === "ready" && p.lookAtRun && lookStr(p) !== p.lookAtRun) { b.textContent = "↻ Will redo"; b.className = "badge work"; }
     if (st === "ready" && !p.include) { b.textContent = "Won't upload"; b.className = "badge"; }
     b.title = st === "error" && p.err ? p.err : "";
@@ -578,7 +626,18 @@
     const chosen = photos.filter(p => p.include);
     const looks = {}; chosen.forEach(p => { looks[p.id] = lookVals(p); p.lookAtRun = lookStr(p); });
     const body = {ids: chosen.map(p => p.id), looks, settings: settings(), source};
-    if (source === "drive") body.action = document.querySelector("input[name=driveAction]:checked").value;
+    if (source === "drive") {
+      body.action = document.querySelector("input[name=driveAction]:checked").value;
+      if (body.action === "newfolder") {
+        body.destName = $("destName").value.trim();
+        if (!body.destName) { toast("Type a name for the new folder"); $("destName").focus(); return; }
+        if (document.querySelector("input[name=destWhere]:checked").value === "link") {
+          body.destLink = $("destLink").value.trim();
+          if (!body.destLink) { toast("Paste the link of the Drive folder to upload into"); $("destLink").focus(); return; }
+        }
+        if ((S.drive.version || 1) < S.drive.needed) { needUpdate(); toast("Update the uploader first (1 minute)"); return; }
+      }
+    }
     else body.name = $("folderName").value.trim();
     const r = await api("/api/run", body);
     if (!r.ok) { if (r.error === "setup") openSetup(); else toast(r.error); return; }
@@ -605,10 +664,14 @@
   function askHappy(j){
     const n = photos.filter(p => lastStatus[p.id] === "ready").length;
     const replace = source === "drive" && document.querySelector("input[name=driveAction]:checked").value === "replace";
-    const sub = source === "drive" && !replace;
+    const act = source === "drive" ? document.querySelector("input[name=driveAction]:checked").value : "";
+    const sub = act === "subfolder";
+    const newf = act === "newfolder";
     $("happyTitle").textContent = `${n} photo${n === 1 ? "" : "s"} enhanced — are you happy with them?`;
+    const where = document.querySelector("input[name=destWhere]:checked").value === "link" ? "the Drive folder you pasted" : "your Rugby folder";
     $("happyText").textContent = (replace ? "If you say yes, they replace the photos in Google Drive (the originals go to Drive’s Bin for 30 days). "
       : sub ? "If you say yes, they're saved into an “Enhanced” folder inside each match folder. "
+      : newf ? `If you say yes, they're uploaded to a new “${$("destName").value.trim()}” folder in ${where}. The originals aren't changed. `
       : `If you say yes, they're uploaded to a new “${$("folderName").value.trim()}” folder in Rugby. `)
       + "Nothing has been uploaded yet — you can check them first, untick any, or fine-tune one (it's redone automatically)."
       + (j.fail ? ` ${j.fail} couldn't be enhanced and will be left out.` : "");
