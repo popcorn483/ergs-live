@@ -1,11 +1,11 @@
 {
-  "version": "2.5.0",
+  "version": "2.5.1",
   "file": "rugby_photo_enhancer.py",
-  "sha256": "dad6a3291a6e85a7c21e31e3bb3d1bb35765779861489d26a20d8c6ee8f353c3",
+  "sha256": "28880e04432157aa98392b93bd5b893710d378c5b327efe5cc4ce95b4f36ef5e",
   "requires": [
     "pillow",
     "numpy",
     "opencv-python-headless"
   ],
-  "notes": "Paste any Google Drive folder link, enhance, and upload to a new named folder (in Rugby or another Drive folder)."
+  "notes": "Clearer step-by-step instructions for updating the Drive uploader."
 }

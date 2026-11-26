@@ -24,7 +24,7 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 APP_NAME = "Rugby Photo Enhancer"
-APP_VERSION = "2.5.0"
+APP_VERSION = "2.5.1"
 # Updates are published here (branch "photo-enhancer" of github.com/popcorn483/ergs-live)
 UPDATE_BASE = "https://raw.githubusercontent.com/popcorn483/ergs-live/photo-enhancer/"
 DEFAULT_SOURCE = r"E:\DCIM\100CANON"
@@ -2464,14 +2464,17 @@ UI_HTML = r"""<!DOCTYPE html>
 <div class="dlg" id="setup">
   <div class="card">
     <h3 id="setupTitle">Connect to Google Drive</h3>
-    <p id="setupIntro">One-time setup, about 3 minutes. It creates a private uploader in your own Google account that can only add folders and photos inside your Rugby folder.</p>
-    <div class="note gone" id="updateSteps" style="font-size:13.5px;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:14px">
-      <b>Updating an existing uploader (about 1 minute):</b> click <b>Copy script</b> below, open your existing script at
-      script.google.com, select all its code and paste over it, save, then <b>Deploy → Manage deployments → ✏️ Edit → Version: New version → Deploy</b>.
-      The URL stays the same — just click <b>Test &amp; save</b>.
-    </div>
-    <div class="row gone" id="updLinkRow" style="margin-bottom:12px"><button class="btn sm" id="copyScript2">Copy new script</button><button class="btn ghost sm" id="openScript2">Open my Apps Script projects</button></div>
-    <ol class="steps">
+    <p id="setupIntro">One-time setup, about 3 minutes. It creates a private uploader in your own Google account. It only works with a secret key that stays on this PC.</p>
+    <ol class="steps gone" id="updateSteps">
+      <li><button class="btn sm" id="copyScript2">Copy new script</button> <span class="count">(your secret key is already in it)</span></li>
+      <li><button class="btn ghost sm" id="openScript2">Open my Apps Script projects</button><br>
+        <span class="count">Open the uploader project you made before (it may be called “Untitled project”).</span></li>
+      <li>Click inside the code, press <code>Ctrl+A</code> then <code>Ctrl+V</code> to replace it all, then <code>Ctrl+S</code> to save.</li>
+      <li><b>Deploy → Manage deployments</b> → click the <b>✏️ pencil</b> → Version: <b>New version</b> → <b>Deploy</b>.
+        <span class="count">If Google asks for permission again, allow it like the first time.</span></li>
+      <li>Click <b>Test &amp; save</b> below — no need to paste the link again, it stays the same.</li>
+    </ol>
+    <ol class="steps" id="setupSteps">
       <li>Rugby folder link:<div style="margin-top:6px"><input type="text" id="folderLink" spellcheck="false"></div></li>
       <li><button class="btn sm" id="copyScript">Copy script</button> then <button class="btn ghost sm" id="openScript">Open Apps Script</button><br>
         <span class="count">In the new project: delete the sample, paste (Ctrl+V), save (Ctrl+S).</span></li>
@@ -2986,10 +2989,9 @@ UI_HTML = r"""<!DOCTYPE html>
   /* ---------- Drive setup / update ---------- */
   function openSetup(update){
     update = update === true;
-    $("setupTitle").textContent = update ? "Update your Drive uploader" : "Connect to Google Drive";
+    $("setupTitle").textContent = update ? "Update your Drive uploader (about 1 minute)" : "Connect to Google Drive";
     $("setupIntro").classList.toggle("gone", update); $("updateSteps").classList.toggle("gone", !update);
-    document.querySelector("#setup .steps").classList.toggle("gone", update);
-    $("updLinkRow").classList.toggle("gone", !update);
+    $("setupSteps").classList.toggle("gone", update);
     $("setupMsg").textContent = ""; $("setup").classList.add("open");
   }
   $("setupClose").onclick = () => $("setup").classList.remove("open");
