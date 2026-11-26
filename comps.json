@@ -715,38 +715,42 @@
     "games": [
      {
       "date": "",
-      "time": "14:00",
-      "h": "Rathfriland HS",
-      "a": "Antrim Grammar School",
-      "venue": "Rathfriland HS"
-     },
-     {
-      "date": "2026-11-28",
       "time": "10:00",
       "h": "Dromore HS",
       "a": "Bangor GS",
       "venue": "Dromore HS"
      },
      {
-      "date": "2026-11-28",
+      "date": "",
       "time": "10:00",
       "h": "Bangor Academy",
       "a": "Down HS",
       "venue": "Bangor Academy"
      },
      {
-      "date": "2026-11-28",
+      "date": "",
       "time": "10:30",
       "h": "Grosvenor GS",
       "a": "Dalriada School",
       "venue": "Grosvenor GS"
      },
      {
-      "date": "2026-11-28",
+      "date": "",
       "time": "10:30",
       "h": "Carrickfergus GS",
       "a": "Royal School Dungannon",
       "venue": "Carrickfergus GS"
+     },
+     {
+      "date": "2026-11-26",
+      "time": "14:00",
+      "h": "Rathfriland HS",
+      "a": "Antrim Grammar School",
+      "venue": "Rathfriland HS",
+      "hs": 24,
+      "as": 24,
+      "ht": 4,
+      "at": 4
      },
      {
       "date": "2026-11-26",
@@ -4252,5 +4256,5 @@
    }
   ]
  },
- "updated": "2026-11-26T14:04:44.283Z"
+ "updated": "2026-11-26T23:07:41.284Z"
 }
