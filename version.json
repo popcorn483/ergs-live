@@ -1,11 +1,11 @@
 {
-  "version": "2.5.1",
+  "version": "2.6.0",
   "file": "rugby_photo_enhancer.py",
-  "sha256": "28880e04432157aa98392b93bd5b893710d378c5b327efe5cc4ce95b4f36ef5e",
+  "sha256": "268242daab78f27a99aa98e09409544a9124d28f77d29bb58de7184dcaba3c48",
   "requires": [
     "pillow",
     "numpy",
     "opencv-python-headless"
   ],
-  "notes": "Clearer step-by-step instructions for updating the Drive uploader."
+  "notes": "Bright shine, flash and white kit keep their detail; dark blazers/kit no longer make photos over-brighten."
 }

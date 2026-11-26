@@ -24,7 +24,7 @@ import numpy as np
 from PIL import Image, ImageFilter, ImageOps
 
 APP_NAME = "Rugby Photo Enhancer"
-APP_VERSION = "2.5.1"
+APP_VERSION = "2.6.0"
 # Updates are published here (branch "photo-enhancer" of github.com/popcorn483/ergs-live)
 UPDATE_BASE = "https://raw.githubusercontent.com/popcorn483/ergs-live/photo-enhancer/"
 DEFAULT_SOURCE = r"E:\DCIM\100CANON"
@@ -398,12 +398,18 @@ def pro_analyse(arr, noise=None):
     skin = cv2.morphologyEx(skin.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)).astype(bool)
     dark = float((disp < 0.27).mean())
     bright = float((disp > 0.84).mean())
+    hot = float((disp > 0.92).mean())                     # shine / flash / white kit near clipping
     backlit = float(np.clip((dark - 0.04) / 0.12, 0, 1) * np.clip(bright / 0.15, 0, 1))
     # subject: skin first (faces, arms, legs), else centre-weighted - sky excluded when backlit
     wgt = 0.35 + centre
     if backlit > 0.15:
         wgt = wgt * (disp < 0.8)
     skin_frac = float((skin & (centre > 0.25)).mean())
+    # how well lit the people are: a well-lit face means dark areas are clothing/kit (meant to be dark),
+    # not a backlit subject - the key to not over-brightening flash and indoor shots
+    skin_lum = float(np.median(disp[skin])) if skin.mean() > 0.002 else None
+    if skin_lum is not None:
+        backlit *= float(np.clip((0.52 - skin_lum) / 0.17, 0, 1))
     if skin_frac > 0.002:
         wgt = 0.15 * wgt + 6.0 * skin * (0.3 + centre)
     key = float(np.exp((np.log(Y + 1e-4) * wgt).sum() / max(wgt.sum(), 1e-6)))
@@ -437,7 +443,8 @@ def pro_analyse(arr, noise=None):
     sharp = float(np.percentile(np.abs(cv2.Laplacian(G, cv2.CV_32F)), 99))
     if noise is None:
         noise = estimate_noise(arr)
-    return {"key": key, "backlit": backlit, "dark": dark, "bright": bright, "skin": skin_frac,
+    return {"key": key, "backlit": backlit, "dark": dark, "bright": bright, "hot": hot, "skin": skin_frac,
+            "skin_lum": skin_lum if skin_lum is not None else -1.0,
             "gains": gains, "cast": cast, "trust": trust, "warm": warm, "sat": meansat, "spread": float(p95 - p5),
             "sharp": sharp, "noise": noise, "black": float(np.percentile(Y, 0.1)), "white": float(np.percentile(Y, 99.9))}
 
@@ -713,6 +720,11 @@ def auto_plan(arr, s, noise=None, meta=None):
     return arr, a, s, pre_notes + notes
 
 
+def _smooth(e0, e1, x):
+    t = np.clip((x - e0) / (e1 - e0), 0, 1)
+    return t * t * (3 - 2 * t)
+
+
 def _tone(rgb8, A, B, P):
     """Linear-light exposure/WB, local tone mapping, highlight roll-off, contrast and vibrance.
     Returns display-space float32 (0..1) before the final levels."""
@@ -721,6 +733,13 @@ def _tone(rgb8, A, B, P):
     L = 0.2126 * lin[..., 0] + 0.7152 * lin[..., 1] + 0.0722 * lin[..., 2]
     logL = np.log2(np.maximum(L, 1e-5))
     base = A.astype(np.float32) * logL + B.astype(np.float32)
+    logL0 = logL
+    ev = P.get("ev", 0.0)
+    if ev > 0:
+        # brightening fades out towards white: shine, flash and sunlit kit keep their level (and detail)
+        pull = ev * _smooth(np.log2(0.22), np.log2(0.8), base - ev)
+        base = base - pull
+        logL = logL - pull
     mid = P["mid"]
     d = base - mid
     # stops beyond a protected zone (1.2 stops below / 1.5 above mid-grey), with a smooth start
@@ -728,14 +747,19 @@ def _tone(rgb8, A, B, P):
     bright = np.logaddexp(0, (d - 1.5) * 2.0) / 2.0
     nb = base + P["sh"] * 0.55 * deep - P["hl"] * 0.5 * bright
     sh_zone = np.clip(deep / 2.0, 0, 1)
-    newlog = nb + (logL - base) * (1 + P["clarity"] + 0.35 * P["sh"] * sh_zone)   # keep texture where lifted
-    lin = lin * np.exp2(np.clip(newlog - logL, -3, 3))[..., None]
+    wb = _smooth(np.log2(0.3), np.log2(0.9), nb)                  # how close to white this area is
+    det = logL - base
+    det_gain = 1 + P["clarity"] * (1 - wb) + 0.35 * P["sh"] * sh_zone     # keep texture where lifted, no clarity on shine
+    det_gain = np.where(det > 0, det_gain * (1 - 0.4 * P.get("spot", 0.0) * wb), det_gain)   # tame small hot spots
+    newlog = nb + det * det_gain
+    lin = lin * np.exp2(np.clip(newlog - logL0, -3, 3))[..., None]
     t = P.get("knee", 0.75)                              # lower knee in harsh sun: softer shine on skin/kit
     lin = np.where(lin > t, t + (1 - t) * (1 - np.exp(-(lin - t) / (1 - t))), lin)
     x = _to_srgb(lin).astype(np.float32)
     k = P["k"]
     if k > 0.01:
-        x = x + (x * x * (3 - 2 * x) - x) * k
+        dx = (x * x * (3 - 2 * x) - x) * k
+        x = x + np.where(dx > 0, dx * (1 - _smooth(0.7, 0.97, x)), dx)   # contrast never pushes whites over
     vib = P["vib"]
     if vib > 0.01:
         mx, mn = x.max(2), x.min(2)
@@ -778,13 +802,16 @@ def pro_enhance(arr, s, noise=None, meta=None):
     gain = 2.0 ** ev
     black = min(a["black"] * gain, 0.015 + 0.08 * flat) * S
     need_sh = max(float(np.clip((a["dark"] - 0.12) / 0.25, 0, 1)), a["backlit"])
+    if a.get("skin_lum", -1) >= 0:
+        need_sh *= float(np.clip((0.55 - a["skin_lum"]) / 0.2, 0.15, 1))   # faces well lit: dark kit stays dark
     sh = s.get("shadows", 0.0) * need_sh * (1 + 0.35 * a["backlit"])
-    hl = s.get("highlights", 0.0) * (0.2 + 0.8 * min(1.0, max(0.0, (a["bright"] - 0.03) / 0.25)))
+    hl = s.get("highlights", 0.0) * (0.2 + 0.8 * min(1.0, max((a["bright"] - 0.03) / 0.25, a.get("hot", 0) / 0.02, 0.0)))
     harsh = a.get("cond", {}).get("harsh", 0.0)
     P = {"mul": gains * gain, "black": float(black), "mid": float(np.log2(0.18)), "sh": min(sh, 1.2), "hl": min(hl, 1.0),
          "knee": 0.75 - 0.1 * harsh,
          "clarity": s["contrast"] * 0.35 * (1 - 0.6 * min(1.0, a["noise"] / 5)), "k": s["contrast"] * 0.5,
-         "vib": s["vibrance"] * 0.9}
+         "vib": s["vibrance"] * 0.9, "ev": max(0.0, float(ev)),
+         "spot": float(min(1.0, s.get("highlights", 0.0) * 1.5 * min(1.0, a.get("hot", 0) / 0.005)))}
     # ---- edge-aware base layer (fast guided filter on a small copy)
     f = max(1, int(round(max(h, w) / 800)))
     small = cv2.resize(arr, (max(1, w // f), max(1, h // f)), interpolation=cv2.INTER_AREA) if f > 1 else arr
@@ -806,7 +833,8 @@ def pro_enhance(arr, s, noise=None, meta=None):
             break
         P["sh"] *= 0.6
         P["hl"] *= 0.6
-    lo, hi = np.percentile(Ls, [0.3, 99.7])
+    lo = float(np.percentile(Ls, 0.3))
+    hi = float(np.percentile(Ls, 99.95))                  # include small bright areas (shine, white kit) - never clip them
     # black point: strong for hazy/flat photos, but never re-darken shadows that were just lifted
     lo = float(np.clip(lo, 0, 0.12)) * S * (0.15 + 0.85 * flat) * (1 - 0.9 * a["backlit"])
     # re-anchor the blacks: after lifting shadows the darkest ~1% should still be close to black (keeps depth)
@@ -853,6 +881,7 @@ def pro_enhance(arr, s, noise=None, meta=None):
         detail = Yf - blur
         edge = cv2.GaussianBlur(np.abs(cv2.Sobel(blur, cv2.CV_32F, 1, 0)) + np.abs(cv2.Sobel(blur, cv2.CV_32F, 0, 1)), (0, 0), 1.5)
         mask = np.clip((edge - 4) / 20, 0, 1)                 # sharpen edges, not noise or flat sky
+        mask *= 1 - _smooth(205, 250, blur)                    # and not where it would clip whites
         ycc[..., 0] = np.clip(Yf + detail * mask * (sp * 1.6), 0, 255).astype(np.uint8)
         tags.append("sharpened")
     out = cv2.cvtColor(ycc, cv2.COLOR_YCrCb2RGB)
