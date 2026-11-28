@@ -557,6 +557,40 @@ body.dr-lock{overflow:hidden}
 @keyframes slam{0%{opacity:0;transform:scale(3.4) translateY(-30%);filter:blur(6px)}100%{opacity:1;transform:none;filter:none}}
 .fx.tryfx.on .fx-who,.fx.tryfx.on .fx-score{animation-delay:1.45s}
 .fx.tryfx.on .fx-burst i{animation-delay:calc(1s + var(--d))}
+/* FIVE WAYS TO SCORE A TRY (28 November 2026): see tryScene() in app.js. Each grounds the ball at 0.9s like the original dive. */
+/* corner: in low along the grass, grounded at the flag, which whips over */
+.fx-try.v-corner :is(.fx-tball,.fx-impact,.fx-spray){left:70%}.fx-try.v-corner .fx-turf i{left:62%}.fx-try.v-corner .fx-turf b{inset:0 0 0 calc(62% + 7px)}
+.fx.on .fx-try.v-corner .fx-tball{animation:tslide .75s .15s cubic-bezier(.2,.6,.3,1) forwards,squash .35s .9s ease-out forwards}
+@keyframes tslide{0%{opacity:1;transform:translate(-290px,-34px) rotate(-900deg) scale(1.25)}55%{opacity:1;transform:translate(-90px,-2px) rotate(-200deg) scale(1.05)}100%{opacity:1;transform:translate(0,0) rotate(-18deg) scale(1)}}
+.fx-streak{position:absolute;left:4%;bottom:38px;height:5px;width:62%;border-radius:5px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.85));transform-origin:0 50%;transform:scaleX(0);opacity:0;z-index:1}
+.fx.on .fx-streak{animation:tstreak .9s .3s ease-out forwards}@keyframes tstreak{0%{opacity:.9;transform:scaleX(0)}55%{opacity:.9;transform:scaleX(1)}100%{opacity:0;transform:scaleX(1)}}
+.fx-flag{position:absolute;left:88%;bottom:30px;width:6px;height:120px;transform-origin:50% 100%;z-index:2}
+.fx-flag i{position:absolute;inset:0;border-radius:3px;background:linear-gradient(#fff,#d9d9d9)}.fx-flag b{position:absolute;left:5px;top:2px;width:46px;height:30px;background:var(--gold);clip-path:polygon(0 0,100% 50%,0 100%);transform-origin:0 50%}
+.fx.on .fx-flag{animation:tflag .9s .9s cubic-bezier(.3,1.4,.5,1) forwards}.fx.on .fx-flag b{animation:tflap .22s .2s ease-in-out 8 alternate}
+@keyframes tflag{0%{transform:rotate(0)}25%{transform:rotate(34deg)}55%{transform:rotate(-12deg)}80%{transform:rotate(6deg)}100%{transform:rotate(0)}}@keyframes tflap{from{transform:scaleX(1) skewY(0)}to{transform:scaleX(.82) skewY(9deg)}}
+/* posts: down between the uprights and touched down under them */
+.fx-try.v-posts :is(.fx-tball,.fx-impact,.fx-spray){left:50%}.fx-try.v-posts .fx-turf i{left:0;right:0;top:30%;bottom:auto;width:auto;height:7px}.fx-try.v-posts .fx-turf b{inset:0 0 70% 0}
+.fx-tposts{position:absolute;left:50%;bottom:58px;width:190px;height:190px;margin-left:-95px;z-index:1;opacity:0;transform-origin:50% 100%}
+.fx-tposts rect{fill:#fff;filter:drop-shadow(0 0 8px rgba(255,255,255,.45))}.fx-tposts .pad{fill:var(--tc);stroke:#fff;stroke-width:2}
+.fx.on .fx-tposts{animation:tpostsin .3s .05s ease-out forwards,tpostshake .5s .9s ease-out,tpostsout .35s 1.3s ease-in forwards}
+@keyframes tpostsin{from{opacity:0;transform:scaleY(.6)}to{opacity:1;transform:none}}@keyframes tpostshake{0%,100%{transform:none}20%{transform:rotate(-2.5deg)}45%{transform:rotate(2deg)}70%{transform:rotate(-1deg)}}@keyframes tpostsout{to{opacity:.16}}
+.fx.on .fx-try.v-posts .fx-tball{animation:tunder .75s .15s cubic-bezier(.45,0,.8,.45) forwards,squash .35s .9s ease-out forwards}
+@keyframes tunder{0%{opacity:1;transform:translate(120px,-250px) rotate(260deg) scale(.45)}45%{opacity:1;transform:translate(26px,-150px) rotate(90deg) scale(.7)}100%{opacity:1;transform:translate(0,0) rotate(-18deg) scale(1)}}
+/* step: a zig-zag through two defenders, who are left behind */
+.fx.on .fx-try.v-step .fx-tball{animation:tstep .75s .15s linear forwards,squash .35s .9s ease-out forwards}
+@keyframes tstep{0%{opacity:1;transform:translate(-236px,-8px) rotate(-30deg) scale(.9)}26%{opacity:1;transform:translate(-168px,-44px) rotate(18deg) scale(.95)}52%{opacity:1;transform:translate(-98px,8px) rotate(-34deg) scale(1)}76%{opacity:1;transform:translate(-40px,-30px) rotate(14deg) scale(1)}100%{opacity:1;transform:translate(0,0) rotate(-18deg) scale(1)}}
+.fx-def{position:absolute;bottom:40px;width:34px;height:46px;z-index:1;transform-origin:50% 100%}.fx-def.a{left:17%}.fx-def.b{left:38%}
+.fx-def i{position:absolute;inset:0;border-radius:46% 46% 30% 30%;background:linear-gradient(#5b6590,#2a3156);box-shadow:inset 0 0 0 2px rgba(255,255,255,.35)}.fx-def i::before{content:"";position:absolute;left:25%;top:-34%;width:50%;aspect-ratio:1;border-radius:50%;background:#5b6590;box-shadow:inset 0 0 0 2px rgba(255,255,255,.35)}
+.fx.on .fx-def.a{animation:tdefa .5s .34s ease-in forwards}.fx.on .fx-def.b{animation:tdefb .5s .54s ease-in forwards}
+@keyframes tdefa{0%{transform:none;opacity:1}100%{transform:translate(-16px,6px) rotate(-74deg);opacity:.25}}@keyframes tdefb{0%{transform:none;opacity:1}100%{transform:translate(14px,6px) rotate(72deg);opacity:.25}}
+.fx-trail{position:absolute;left:0;bottom:30px;width:100%;height:120px;overflow:visible;z-index:1}
+.fx-trail path{fill:none;stroke:var(--gold);stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:1;opacity:.85}
+.fx.on .fx-trail path{animation:ttrail .75s .15s linear forwards,ttrailout .5s 1s ease-out forwards}@keyframes ttrail{to{stroke-dashoffset:0}}@keyframes ttrailout{to{opacity:0}}
+/* bounce: a kick ahead, two bounces, then the touchdown */
+.fx.on .fx-try.v-bounce .fx-tball{animation:tbounce .75s .15s linear forwards,squash .35s .9s ease-out forwards}
+@keyframes tbounce{0%{opacity:1;transform:translate(-250px,-170px) rotate(-420deg) scale(1.2);animation-timing-function:cubic-bezier(.5,0,.9,.5)}32%{opacity:1;transform:translate(-168px,0) rotate(-250deg) scale(1.1,.8);animation-timing-function:cubic-bezier(.1,.6,.5,1)}50%{opacity:1;transform:translate(-118px,-84px) rotate(-170deg) scale(1);animation-timing-function:cubic-bezier(.5,0,.9,.5)}68%{opacity:1;transform:translate(-70px,0) rotate(-100deg) scale(1.08,.84);animation-timing-function:cubic-bezier(.1,.6,.5,1)}84%{opacity:1;transform:translate(-32px,-34px) rotate(-50deg) scale(1);animation-timing-function:cubic-bezier(.5,0,.9,.5)}100%{opacity:1;transform:translate(0,0) rotate(-18deg) scale(1)}}
+.fx-hop{position:absolute;bottom:26px;width:54px;height:18px;margin-left:-27px;border-radius:50%;border:3px solid rgba(255,255,255,.8);opacity:0;z-index:1}.fx-hop.a{left:calc(58% - 168px)}.fx-hop.b{left:calc(58% - 70px)}
+.fx.on .fx-hop.a{animation:impact .5s .39s ease-out forwards}.fx.on .fx-hop.b{animation:impact .5s .66s ease-out forwards}
 /* missed kick: ball drifts wide of the upright, posts flash red, no confetti */
 .fx.kick.miss.on .fx-ball{animation:kickmiss 1.3s .2s cubic-bezier(.3,.55,.4,1) forwards}
 @keyframes kickmiss{0%{opacity:1;left:22%;top:108%;transform:scale(2) rotate(0)}45%{opacity:1;left:55%;top:55%;transform:scale(1) rotate(300deg)}70%{opacity:1;left:72%;top:40%;transform:scale(.72) rotate(500deg)}100%{opacity:.75;left:88%;top:28%;transform:scale(.5) rotate(680deg)}}
@@ -835,11 +869,11 @@ details.rg-cd>summary>b{display:grid;gap:3px;position:relative;padding-right:22p
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = 'd48cbae719';</script>
-<script src="config.js?v=d48cbae719"></script>
-<script src="crest.js?v=d48cbae719"></script>
-<script src="app.js?v=d48cbae719"></script>
-<script src="icons.js?v=d48cbae719"></script>
-<script type="module" src="fb.js?v=d48cbae719"></script>
+<script>window.ERGS_VER = '2fb3d7ccf4';</script>
+<script src="config.js?v=2fb3d7ccf4"></script>
+<script src="crest.js?v=2fb3d7ccf4"></script>
+<script src="app.js?v=2fb3d7ccf4"></script>
+<script src="icons.js?v=2fb3d7ccf4"></script>
+<script type="module" src="fb.js?v=2fb3d7ccf4"></script>
 </body>
 </html>

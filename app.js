@@ -2584,6 +2584,33 @@ async function publishFace(name){
     const d = c.toDataURL('image/jpeg', 0.82); FACES[k] = d; await FB.setFace(k, d);
   } catch(e){}
 }
+/* FIVE WAYS TO SCORE A TRY (28 November 2026). Each try in a match plays the next one in turn, so two tries in a row never look
+   the same, and everyone watching sees the same one. A penalty try is always awarded under the posts.
+     dive    the ball drops out of the air and is grounded on the line (the original)
+     corner  it slides in low along the grass and is grounded at the corner flag, which whips over
+     posts   it comes down between the posts and is touched down under them; the posts shake
+     step    a zig-zag through two defenders, who are left behind, then the touchdown
+     bounce  a kick ahead: two bounces, then it is touched down over the line
+   All five ground the ball at the same moment (0.9s), so the crest, TRY!, the scorer and the confetti keep their timing. */
+const TRY_VARS = ['dive', 'corner', 'posts', 'step', 'bounce'];
+let TRY_FORCE = '';   // for checks and previews: play this one whatever the turn
+function tryVar(m, e){
+  if (TRY_FORCE && TRY_VARS.includes(TRY_FORCE)) return TRY_FORCE; if (e.k === 'pt') return 'posts';
+  const tries = (m.events || []).filter(x => x.k === 'try').sort((a, b) => (a.ts || 0) - (b.ts || 0) || (a.m || 0) - (b.m || 0)), n = Math.max(0, tries.findIndex(x => x.id === e.id));
+  let h = 0; for (const c of String(m.id || '')) h = (h*31 + c.charCodeAt(0)) >>> 0;
+  return TRY_VARS[(h + n) % TRY_VARS.length];
+}
+function tryScene(m, e, team){
+  const v = tryVar(m, e), ball = '<svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#F6EFDF" stroke="#5a3a1a" stroke-width="2"/><path d="M8 20h44" stroke="#C8102E" stroke-width="3"/><path d="M26 14v12M30 13v14M34 14v12" stroke="#5a3a1a" stroke-width="1.6"/></svg>';
+  const extra = v === 'corner' ? '<div class="fx-streak"></div><div class="fx-flag"><i></i><b></b></div>'
+    : v === 'posts' ? '<svg class="fx-tposts" viewBox="0 0 200 200" aria-hidden="true"><rect x="52" y="4" width="8" height="196" rx="3"/><rect x="140" y="4" width="8" height="196" rx="3"/><rect x="52" y="112" width="96" height="8" rx="3"/><rect class="pad" x="47" y="150" width="18" height="50" rx="3"/><rect class="pad" x="135" y="150" width="18" height="50" rx="3"/></svg>'
+    : v === 'step' ? '<div class="fx-def a"><i></i></div><div class="fx-def b"><i></i></div><svg class="fx-trail" viewBox="0 0 320 120" aria-hidden="true"><path pathLength="1" d="M-50 96 L 18 60 L 88 112 L 146 74 L 186 104"/></svg>'
+    : v === 'bounce' ? '<div class="fx-hop a"></div><div class="fx-hop b"></div>' : '';
+  return `<div class="fx-try v-${v}" data-tryv="${v}"><div class="fx-turf"><b></b><i></i></div>${extra}<div class="fx-impact"><i></i><i></i></div>
+        <div class="fx-spray">${Array.from({length:16}, (_, i) => { const a = Math.PI*(1.05 + Math.random()*.9), d = 50 + Math.random()*90; return `<i style="--x:${Math.round(Math.cos(a)*d)}px;--y:${Math.round(Math.sin(a)*d*0.8)}px;--d:${(Math.random()*.12).toFixed(2)}s"></i>`; }).join('')}</div>
+        <div class="fx-tball">${ball}</div>
+        <div class="fx-plus">+${PTS[e.k]}</div><div class="fx-trycrest">${crest(team, 'huge')}</div></div>`;
+}
 function playFx(){
   const nx = Q.shift(); if (!nx){ busy = false; return; } busy = true;
   const [m, e] = nx, team = dn(e.s === 'H' ? m.home : m.away), [h, a] = score(m);
@@ -2601,10 +2628,7 @@ function playFx(){
   $('#fxCrest').innerHTML = card ? `<div class="fx-cardwrap"><div class="fx-rings"><i></i><i></i><i></i></div><div class="fx-card ${e.k}"><span></span></div></div>`
     : kickIn ? `<div class="fx-posts"><svg viewBox="0 0 200 230" aria-hidden="true"><rect class="up" x="56" y="6" width="7" height="224" rx="3"/><rect class="up" x="137" y="6" width="7" height="224" rx="3"/><rect class="bar" x="56" y="132" width="88" height="7" rx="3"/><rect class="pad" x="52" y="170" width="15" height="60" rx="3"/><rect class="pad" x="133" y="170" width="15" height="60" rx="3"/></svg>
         <div class="fx-ball"><svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#F6EFDF" stroke="#5a3a1a" stroke-width="2"/><path d="M8 20h44" stroke="#C8102E" stroke-width="3"/><path d="M26 14v12M30 13v14M34 14v12" stroke="#5a3a1a" stroke-width="1.6"/></svg></div><div class="fx-crestmini">${crest(team)}</div></div>`
-    : tryIn ? `<div class="fx-try"><div class="fx-turf"><b></b><i></i></div><div class="fx-impact"><i></i><i></i></div>
-        <div class="fx-spray">${Array.from({length:16}, (_, i) => { const a = Math.PI*(1.05 + Math.random()*.9), d = 50 + Math.random()*90; return `<i style="--x:${Math.round(Math.cos(a)*d)}px;--y:${Math.round(Math.sin(a)*d*0.8)}px;--d:${(Math.random()*.12).toFixed(2)}s"></i>`; }).join('')}</div>
-        <div class="fx-tball"><svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#F6EFDF" stroke="#5a3a1a" stroke-width="2"/><path d="M8 20h44" stroke="#C8102E" stroke-width="3"/><path d="M26 14v12M30 13v14M34 14v12" stroke="#5a3a1a" stroke-width="1.6"/></svg></div>
-        <div class="fx-plus">+${PTS[e.k]}</div><div class="fx-trycrest">${crest(team, 'huge')}</div></div>`
+    : tryIn ? tryScene(m, e, team)
     : crest(team, 'huge');
   let li = 0; $('#fxKind').innerHTML = lab.split(' ').map(w => `<span class="w">${w.split('').map(c => `<span style="--i:${li++}">${esc(c)}</span>`).join('')}</span>`).join('<span style="--i:0">&nbsp;</span>');
   $('#fxWho').textContent = [e.p, team].filter(Boolean).join(' · ');
