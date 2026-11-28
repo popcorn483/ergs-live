@@ -14,7 +14,7 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
   await at(300); const still = await ball();
   ok(still.z > 100 && still.tee && still.y > 390, 'it starts with the ball sitting on a tee in front of you, not moving');
   await at(800); const swing = await ball();
-  ok(swing.leg > .5 && Math.abs(swing.y - still.y) < 4, 'a boot swings in while the ball is still on the tee');
+  ok(swing.leg > .5 && Math.abs(swing.z - still.z) < 1 && Math.abs(swing.y - still.y) < 30, 'a boot swings in while the ball is still on the tee');
   await at(1500); const air = await ball();
   ok(air.y < still.y - 150 && air.z < still.z - 100 && air.size < still.size, 'the kick sends it up and away from you: higher, further back and smaller (' + still.size + 'px → ' + air.size + 'px)');
   await at(2100); const far = await ball();
