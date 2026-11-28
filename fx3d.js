@@ -4,7 +4,7 @@
      try-posts   it comes in under the crossbar and is grounded between the posts, seen from in front of them
      try-chase   a kick ahead: two bounces down the pitch, then it is grounded over the line, seen from the side
      kick        a kick at goal from behind the kicker: off the tee, up, and over the bar between the uprights; the posts flash gold
-     kick-miss   the same kick drifting wide of the right-hand upright; the posts flash red
+     kick-miss   the same kick drifting wide of the right-hand upright; the posts and the ball flash red
    When a try is grounded the whole try line flashes gold.
    Every scene is a pure function of time (nothing is accumulated frame to frame), so it can be stepped to an exact moment.
    FX3D.play(holder, name) starts one and returns {impact, dur, stop()}; FX3D.can() says whether this device can draw it.
@@ -93,6 +93,8 @@ function apply(S){
   g.posts.visible = S.posts !== false;
   // the posts flash: gold when the kick is good or the try is scored under them, red when a kick is missed
   { const f = clamp(S.glow || 0, 0, 1), hue = S.red ? 0xE0160C : 0xE2A21C; g.white.color.set(0xffffff).lerp(g.tint.set(hue), Math.min(1, f*1.25)); g.white.emissive.set(hue); g.white.emissiveIntensity = f*(S.red ? .6 : .3); }
+  // a missed kick: the ball flashes red along with the posts
+  { const f = S.red ? clamp(S.glow || 0, 0, 1) : 0, bm = g.ball.material; bm.color.set(0xffffff).lerp(g.tint.set(0xE0160C), Math.min(1, f*1.2)); bm.emissive.set(0xE0160C); bm.emissiveIntensity = f*.55; }
   g.tline.material.opacity = clamp(S.line || 0, 0, 1); g.tline.visible = (S.line || 0) > .01; g.tline.scale.y = 1 + (S.line || 0)*.9;
   const k = S.hit;   // seconds since the ball was grounded (or negative)
   [g.ring, g.ring2].forEach((rg, i) => { const u = u01(k, i*.12, .75 + i*.12); rg.visible = k > i*.12 && u < 1; rg.position.x = S.spot[0]; rg.position.z = S.spot[2]; rg.scale.setScalar(.6 + u*3.2); rg.material.opacity = (1 - u)*.9; });
@@ -151,5 +153,5 @@ FX3D.play = function(holder, name){
 FX3D.stop = function(){ const run = FX3D.cur; FX3D.cur = null; if (run) cancelAnimationFrame(run.raf); if (G && G.r.domElement.parentNode) G.r.domElement.parentNode.removeChild(G.r.domElement); };
 // where the ball is on screen right now, as fractions of the canvas (for checks)
 FX3D.where = function(){ if (!G || !FX3D.cur) return null; const v = G.spin.position.clone().project(G.cam), pv = n => { const q = new THREE.Vector3(n[0], n[1], n[2]).project(G.cam); return [(q.x + 1)/2, (1 - q.y)/2]; };
-  return {x:(v.x + 1)/2, y:(1 - v.y)/2, world:[G.spin.position.x, G.spin.position.y, G.spin.position.z], upL:pv([-POST.half, POST.bar, 0]), upR:pv([POST.half, POST.bar, 0]), top:pv([0, POST.top, 0]), line:+G.tline.material.opacity.toFixed(2), post:'#' + G.white.color.getHexString(), t:FX3D.cur.t, name:FX3D.cur.name}; };
+  return {x:(v.x + 1)/2, y:(1 - v.y)/2, world:[G.spin.position.x, G.spin.position.y, G.spin.position.z], upL:pv([-POST.half, POST.bar, 0]), upR:pv([POST.half, POST.bar, 0]), top:pv([0, POST.top, 0]), line:+G.tline.material.opacity.toFixed(2), ballc:'#' + G.ball.material.color.getHexString(), post:'#' + G.white.color.getHexString(), t:FX3D.cur.t, name:FX3D.cur.name}; };
 })();
