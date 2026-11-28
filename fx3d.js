@@ -111,7 +111,7 @@ const SCENES = {
     const c = ease(u01(t, 0, 2.4)); return {ball:p, rot:[u < 1 ? -u*9 : 1.35, .5, u < 1 ? u*2 : 1.35], sq:settle(k), spot, hit:k, line:flash(k), cam:[lerp(7.5, 5.2, c), lerp(2.3, 1.5, c), lerp(6.5, 3.6, c)], at:[-.4, .7, -1.2], posts:false}; }},
   /* in front of the posts: the ball comes in under the bar and is grounded between the uprights */
   'try-posts': {impact:1.25, dur:4.3, at(t){ const I = 1.25, u = u01(t, .1, I), k = t - I, spot = [0, R, -2.2], p = u < 1 ? arc([6.5, 2.6, 13], spot, u, 2.4) : [spot[0], R + hop(k), spot[2]];
-    const c = ease(u01(t, 0, 2.4)); return {ball:p, rot:[u < 1 ? -u*8 : 1.35, 0, u < 1 ? .6 : 1.2], sq:settle(k), spot, hit:k, line:flash(k), glow:flash(k), cam:[lerp(-2.2, -1, c), lerp(1.3, 1.7, c), lerp(15, 11.5, c)], at:[0, 2.5, -1]}; }},
+    const c = ease(u01(t, 0, 2.4)); return {ball:p, rot:[u < 1 ? -u*8 : 1.35, 0, u < 1 ? .6 : 1.2], sq:settle(k), spot, hit:k, line:flash(k), glow:flash(k), cam:[lerp(-2.2, -1, c), lerp(2.2, 3.4, c), lerp(15, 11.5, c)], at:[0, lerp(2.4, 1.7, c), -1]}; }},   // high enough to see the try line run under the posts
   /* from the side: a kick ahead bounces twice and is grounded over the line */
   'try-chase': {impact:1.35, dur:4.4, at(t){ const I = 1.35, k = t - I, spot = [0, R, -1.8], A = [-1, 4.5, 13], B1 = [-.6, R, 7.2], B2 = [-.2, R, 2.6]; let p, sq = [1, 1];
     if (t < .55) p = arc(A, B1, Math.pow(u01(t, .05, .55), 1.5), .2); else if (t < 1) p = arc(B1, B2, u01(t, .55, 1), 1.9); else if (t < I) p = arc(B2, spot, u01(t, 1, I), .9); else p = [spot[0], R + hop(k), spot[2]];
