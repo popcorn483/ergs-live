@@ -2606,6 +2606,18 @@ function tryVar(m, e){
   let h = 0; for (const c of String(m.id || '')) h = (h*31 + c.charCodeAt(0)) >>> 0;
   return TRY_VARS[(h + n) % TRY_VARS.length];
 }
+/* CONVERSIONS WITH SOME SHOW (28 November 2026), in the spirit of a bowling alley's strike animations. A converted try plays one of
+   four, taken in turn through a match: the plain kick, the rocket (corkscrewing, sparks, fireworks), the dancing posts (they
+   stretch up to help it over and hop for joy) and the fly-round (the camera swings round the ball as it clears the bar).
+   Penalties and drop goals keep the plain kick; a miss is never dressed up. */
+const KICK_VARS = ['kick', 'kick-rocket', 'kick-dance', 'kick-orbit'];
+let KICK_FORCE = '';
+function kickVar(m, e){
+  if (KICK_FORCE && KICK_VARS.includes(KICK_FORCE)) return KICK_FORCE; if (e.k !== 'con') return 'kick';
+  const cons = (m.events || []).filter(x => x.k === 'con' && !x.miss).sort((a, b) => (a.ts || 0) - (b.ts || 0) || (a.m || 0) - (b.m || 0)), n = Math.max(0, cons.findIndex(x => x.id === e.id));
+  let h = 0; for (const c of String(m.id || '')) h = (h*31 + c.charCodeAt(0)) >>> 0;
+  return KICK_VARS[(h + 1 + n) % KICK_VARS.length];
+}
 let FX3D_LOAD = null, FX3D_OFF = false;
 function fx3dLoad(){
   if (FX3D_LOAD) return FX3D_LOAD; const add = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
@@ -2637,7 +2649,7 @@ function playFx(){
   fx.classList.toggle('miss', missed);
   const tryIn = e.k === 'try' || e.k === 'pt';
   fx.classList.toggle('kick', kickIn); fx.classList.toggle('cardfx', card); fx.classList.toggle('tryfx', tryIn);
-  const d3 = (tryIn || kickIn) && fx3dOK(), scene3 = d3 ? (tryIn ? 'try-' + tryVar(m, e) : missed ? 'kick-miss' : 'kick') : ''; fx.classList.toggle('d3', d3);
+  const d3 = (tryIn || kickIn) && fx3dOK(), scene3 = d3 ? (tryIn ? 'try-' + tryVar(m, e) : missed ? 'kick-miss' : kickVar(m, e)) : ''; fx.classList.toggle('d3', d3);
   $('#fxCrest').innerHTML = card ? `<div class="fx-cardwrap"><div class="fx-rings"><i></i><i></i><i></i></div><div class="fx-card ${e.k}"><span></span></div></div>`
     : kickIn ? (d3 ? `<div class="fx-posts v3d"><div class="fx3d" id="fx3dHost"></div><div class="fx-crestmini">${crest(team)}</div></div>`
         : `<div class="fx-posts"><svg viewBox="0 0 200 230" aria-hidden="true"><rect class="up" x="56" y="6" width="7" height="224" rx="3"/><rect class="up" x="137" y="6" width="7" height="224" rx="3"/><rect class="bar" x="56" y="132" width="88" height="7" rx="3"/><rect class="pad" x="50.5" y="166" width="18" height="64" rx="3"/><rect class="pad" x="131.5" y="166" width="18" height="64" rx="3"/><text class="padt" x="59.5" y="180.5">E</text><text class="padt" x="59.5" y="195.1">R</text><text class="padt" x="59.5" y="209.7">G</text><text class="padt" x="59.5" y="224.3">S</text><text class="padt" x="140.5" y="180.5">E</text><text class="padt" x="140.5" y="195.1">R</text><text class="padt" x="140.5" y="209.7">G</text><text class="padt" x="140.5" y="224.3">S</text></svg>

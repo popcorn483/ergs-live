@@ -4,6 +4,7 @@
      try-posts   it comes in under the crossbar and is grounded between the posts, seen from in front of them
      try-carry   it is carried in level at waist height, over the line, and pressed down, seen from above and behind
    In every try the ball touches the ground once, where it is grounded, and stays there: no bounce, which would read as a knock-on.
+     kick-rocket, kick-dance, kick-orbit   three show-off conversions, in the spirit of a bowling alley's strike animations (see kick())
      kick        a kick at goal from behind the kicker: off the tee, up, and over the bar between the uprights; the posts flash gold
      kick-miss   the same kick drifting wide of the right-hand upright; the posts and the ball flash red
    When a try is grounded the whole try line flashes gold.
@@ -81,7 +82,14 @@ function build(){
   const N = 46, pos = new Float32Array(N*3), seed = []; for (let i = 0; i < N; i++){ const a = Math.random()*Math.PI*2, v = 1.6 + Math.random()*3.2; seed.push([Math.cos(a)*v, 3 + Math.random()*4.5, Math.sin(a)*v]); }
   const pg = new T.BufferGeometry(); pg.setAttribute('position', new T.BufferAttribute(pos, 3));
   const turf = new T.Points(pg, new T.PointsMaterial({color:0x8fe3a3, size:.2, transparent:true, opacity:0, depthWrite:false})); scene.add(turf);
-  return G = {T, r, scene, cam, posts, white, tline, tint:new T.Color(), ball, spin, shadow, tee, ring, ring2, turf, seed, N, look:new T.Vector3()};
+  // fireworks behind the posts (three bursts) and a streak of sparks behind the ball, for the show-off conversions
+  const FN = 3*54, fpos = new Float32Array(FN*3), fcol = new Float32Array(FN*3), fdir = [], fhue = [[1, .82, .3], [1, 1, 1], [.45, .6, 1]];
+  for (let i = 0; i < FN; i++){ const a = Math.random()*Math.PI*2, z = Math.random()*2 - 1, q = Math.sqrt(1 - z*z), v = 3.2 + Math.random()*2.2; fdir.push([Math.cos(a)*q*v, z*v, Math.sin(a)*q*v, fhue[(Math.floor(i/54) + (i % 3 === 0 ? 1 : 0)) % 3]]); fpos[i*3 + 1] = -99; }
+  const fg = new T.BufferGeometry(); fg.setAttribute('position', new T.BufferAttribute(fpos, 3)); fg.setAttribute('color', new T.BufferAttribute(fcol, 3));
+  const fw = new T.Points(fg, new T.PointsMaterial({size:.34, vertexColors:true, transparent:true, depthWrite:false, blending:T.AdditiveBlending})); fw.frustumCulled = false; scene.add(fw);
+  const TN = 26, tg = new T.BufferGeometry(); tg.setAttribute('position', new T.BufferAttribute(new Float32Array(TN*3), 3)); tg.setAttribute('color', new T.BufferAttribute(new Float32Array(TN*3), 3));
+  const trail = new T.Points(tg, new T.PointsMaterial({size:.5, vertexColors:true, transparent:true, depthWrite:false, blending:T.AdditiveBlending})); trail.frustumCulled = false; scene.add(trail);
+  return G = {T, r, scene, cam, posts, white, tline, fw, fdir, FN, trail, TN, tint:new T.Color(), ball, spin, shadow, tee, ring, ring2, turf, seed, N, look:new T.Vector3()};
 }
 
 /* what every scene sets, each frame: where the ball is and how it is turned, the camera, and the extras */
@@ -92,6 +100,18 @@ function apply(S){
   g.cam.position.set(S.cam[0], S.cam[1], S.cam[2]); g.look.set(S.at[0], S.at[1], S.at[2]); g.cam.lookAt(g.look);
   g.tee.visible = !!S.tee; if (S.tee) g.tee.position.set(S.tee[0], .11, S.tee[2]);
   g.posts.visible = S.posts !== false;
+  // the posts can stretch, sway and hop (they stand on the try line, so they grow from the ground up)
+  { const ps = S.ps || [1, 1]; g.posts.scale.set(ps[0], ps[1], ps[0]); g.posts.rotation.z = S.pr || 0; g.posts.position.y = S.py || 0; }
+  g.ball.rotation.y = S.roll || 0;
+  // fireworks: three bursts, each a shell of sparks that spreads, slows and falls
+  { const P = g.fw.geometry.attributes.position, C = g.fw.geometry.attributes.color, f = S.fw === undefined ? -1 : S.fw, at = S.fwAt || []; let any = false;
+    for (let i = 0; i < g.FN; i++){ const b = Math.floor(i/54), k = f - b*.3, c = at[b], d = g.fdir[i]; if (!c || k <= 0 || k > 1.5){ P.setXYZ(i, 0, -99, 0); continue; } any = true;
+      const e = 1 - Math.exp(-2.6*k), a = Math.pow(1 - k/1.5, 1.3); P.setXYZ(i, c[0] + d[0]*e, c[1] + d[1]*e - 1.1*k*k, c[2] + d[2]*e); C.setXYZ(i, d[3][0]*a, d[3][1]*a, d[3][2]*a); }
+    g.fw.visible = any; if (any){ P.needsUpdate = true; C.needsUpdate = true; } g.fwOn = any; }
+  // the trail: where the ball has just been, brightest nearest the ball
+  { const tr = S.trail || [], P = g.trail.geometry.attributes.position, C = g.trail.geometry.attributes.color; g.trail.visible = tr.length > 0;
+    for (let i = 0; i < g.TN; i++){ const q = tr[i]; if (!q){ P.setXYZ(i, 0, -99, 0); continue; } const a = Math.pow(1 - i/g.TN, 1.6); P.setXYZ(i, q[0], q[1], q[2]); C.setXYZ(i, a, a*.72, a*.2); }
+    if (tr.length){ P.needsUpdate = true; C.needsUpdate = true; } }
   // the posts flash: gold when the kick is good or the try is scored under them, red when a kick is missed
   { const f = clamp(S.glow || 0, 0, 1), hue = S.red ? 0xE0160C : 0xE2A21C; g.white.color.set(0xffffff).lerp(g.tint.set(hue), Math.min(1, f*1.25)); g.white.emissive.set(hue); g.white.emissiveIntensity = f*(S.red ? .6 : .3); }
   // a missed kick: the ball flashes red along with the posts
@@ -123,15 +143,38 @@ const SCENES = {
     else p = down(spot, k);
     const c = ease(u01(t, 0, 2.4)); return {ball:p, rot:[k < 0 ? .25 : .1, .5, 1.35], sq:settle(k), spot, hit:k, line:flash(k), cam:[lerp(4.5, 3.2, c), lerp(6.5, 5, c), lerp(10.5, 7, c)], at:[0, .3, lerp(1.5, -1.2, c)], posts:false}; }},
   /* behind the kicker: off the tee, up, and over the bar between the uprights */
-  'kick': {impact:1.35, dur:4, at(t){ return kick(t, 0); }},
-  'kick-miss': {impact:1.35, dur:3.6, at(t){ return kick(t, 4.4); }}
+  'kick': {impact:1.35, dur:4, at(t){ return kick(t, 0, ''); }},
+  'kick-rocket': {impact:1.35, dur:4, at(t){ return kick(t, 0, 'rocket'); }},
+  'kick-dance': {impact:1.35, dur:4, at(t){ return kick(t, 0, 'dance'); }},
+  'kick-orbit': {impact:1.35, dur:4, at(t){ return kick(t, 0, 'orbit'); }},
+  'kick-miss': {impact:1.35, dur:3.6, at(t){ return kick(t, 4.4, ''); }}
 };
-function kick(t, wide){
-  const K = .38, I = 1.35, tee = [0, 0, 15], u = u01(t, K, I), v = u01(t, I, 2.4); let p;
-  if (t < K) p = [0, R*1.55 + .2, 15]; else if (u < 1) p = arc([0, R*1.55 + .2, 15], [wide, 5.6, 0], out(u)*.55 + u*.45, 2.6); else p = [wide + wide*.35*v, 5.6 - 1.0*v*v - .3*v, -11*v];   // it stays above the height of the bar as it drops away behind the posts
-  const c = ease(u01(t, 0, 2)), over = flash(t - I);
-  return {ball:p, rot:[t < K ? 0 : -(t - K)*11, 0, t < K ? .12 : .12], sq:t >= K && t < K + .09 ? [.86, 1.12] : [1, 1], spot:tee, hit:t >= K ? (t - K)*1.6 + .001 : -1, noTurf:true, tee, glow:over, red:!!wide,
+/* A kick at goal. wide = how far past the middle it ends up (0 is good). style picks the show:
+     ''        the plain kick, from behind the kicker
+     'rocket'  the ball goes off like a rocket: nose first, corkscrewing, a streak of sparks behind it, fireworks beyond the posts
+     'dance'   the posts get excited: they sway as the kicker lines it up, stretch up tall as the ball comes, and hop for joy when it is over
+     'orbit'   the camera flies with the ball and swings right round it, slowing as it clears the bar, with fireworks behind
+   In every one the ball leaves the tee at 0.38s and is over the bar, between the uprights, at 1.35s. */
+function kick(t, wide, style){
+  const K = .38, I = 1.35, tee = [0, 0, 15], A = [0, R*1.55 + .2, 15], B = [wide, 5.6, 0];
+  const prog = x => style === 'orbit' ? 1 - Math.pow(1 - x, 1.9) : out(x)*.55 + x*.45;                    // 'orbit' slows as it reaches the bar
+  const path = tt => { const u = u01(tt, K, I), v = u01(tt, I, 2.4); if (tt < K) return A.slice(); if (u >= 1) return [wide + wide*.35*v, 5.6 - 1.0*v*v - .3*v, -11*v];   // it stays above bar height as it drops away
+    const p = arc(A, B, prog(u), 2.6); if (style === 'rocket'){ const r = .7*Math.sin(u*Math.PI), a = u*Math.PI*5; p[0] += r*Math.cos(a); p[1] += r*Math.sin(a)*.6; } return p; };
+  const p = path(t), u = u01(t, K, I), k = t - I, c = ease(u01(t, 0, 2)), over = flash(k), good = !wide;
+  const S = {ball:p, rot:[t < K ? 0 : -(t - K)*11, 0, .12], sq:t >= K && t < K + .09 ? [.86, 1.12] : [1, 1], spot:tee, hit:t >= K ? (t - K)*1.6 + .001 : -1, noTurf:true, tee, glow:over, red:!!wide,
     cam:[lerp(-1.4, -.5, c), lerp(1.4, 2.4, c), lerp(21, 19.5, c)], at:[wide*.2*u, lerp(3.4, 5, c), 0]};
+  const sky = [[-4.2, 9, -7], [4.4, 11, -9], [0, 13.2, -11]];
+  if (style === 'rocket'){ S.rot = [t < K ? 0 : -1.1, 0, 0]; S.roll = t < K ? 0 : (t - K)*26; S.trail = []; if (t > K && t < I + .5) for (let i = 1; i <= 26; i++){ const tt = t - i*.02; if (tt > K) S.trail.push(path(tt)); }
+    S.fw = k - .05; S.fwAt = sky; S.cam = [lerp(-2.4, -1, c), lerp(1.1, 2.2, c), lerp(20.5, 19, c)]; }
+  if (style === 'dance'){ const pre = t < K ? 1 : 0, s = ease(u), h = k > 0 && k < 1.3 ? Math.abs(Math.sin(k*Math.PI/.34))*(1 - k/1.3) : 0;
+    S.pr = pre*.045*Math.sin(t*17) + (k > 0 && k < 1.3 ? .07*Math.sin(k*11)*(1 - k/1.3) : 0);            // a sway while waiting, a wiggle after
+    S.ps = k < 0 ? [1 - .09*s, 1 + .16*s] : [1 + .1*(1 - h)*Math.max(0, 1 - k/1.3)*.6, 1 - .1*(1 - h)*Math.max(0, 1 - k/1.3)*.6];   // stretching up tall to help it over, then squashing as they land each hop
+    S.py = h*1.1; S.fw = k - .25; S.fwAt = [sky[2]]; S.cam = [lerp(-1.2, -.4, c), lerp(1.3, 2.1, c), lerp(19.5, 18, c)]; S.at = [0, lerp(3.6, 5.2, c), 0]; }
+  if (style === 'orbit'){ const a = ease(u01(t, K, I + .25))*Math.PI*1.12, d = lerp(6.5, 9, u01(t, K, I)), follow = u01(t, .15, K + .2);
+    const cx = p[0] + Math.sin(a)*d*follow, cz = p[2] + Math.cos(a)*d*follow + (1 - follow)*6; S.cam = [cx, Math.max(1.2, p[1]*.55 + 1.2), cz]; S.at = [p[0]*.6, lerp(p[1], 4.2, ease(u01(t, I - .2, I + .5))), lerp(p[2], 0, ease(u01(t, I - .3, I + .4)))];
+    S.fw = k - .1; S.fwAt = [[-4, 9, 7], [4.5, 11, 9], [0, 13, 5]]; }                                    // the camera ends up beyond the posts looking back, so the fireworks go off on the kicker's side
+  if (!good){ S.fw = -1; S.trail = []; S.ps = [1, 1]; S.py = 0; S.pr = 0; }
+  return S;
 }
 
 FX3D.scenes = Object.keys(SCENES);
@@ -156,5 +199,5 @@ FX3D.play = function(holder, name){
 FX3D.stop = function(){ const run = FX3D.cur; FX3D.cur = null; if (run) cancelAnimationFrame(run.raf); if (G && G.r.domElement.parentNode) G.r.domElement.parentNode.removeChild(G.r.domElement); };
 // where the ball is on screen right now, as fractions of the canvas (for checks)
 FX3D.where = function(){ if (!G || !FX3D.cur) return null; const v = G.spin.position.clone().project(G.cam), pv = n => { const q = new THREE.Vector3(n[0], n[1], n[2]).project(G.cam); return [(q.x + 1)/2, (1 - q.y)/2]; };
-  return {x:(v.x + 1)/2, y:(1 - v.y)/2, world:[G.spin.position.x, G.spin.position.y, G.spin.position.z], upL:pv([-POST.half, POST.bar, 0]), upR:pv([POST.half, POST.bar, 0]), top:pv([0, POST.top, 0]), line:+G.tline.material.opacity.toFixed(2), ballc:'#' + G.ball.material.color.getHexString(), post:'#' + G.white.color.getHexString(), t:FX3D.cur.t, name:FX3D.cur.name}; };
+  return {x:(v.x + 1)/2, y:(1 - v.y)/2, world:[G.spin.position.x, G.spin.position.y, G.spin.position.z], upL:pv([-POST.half, POST.bar, 0]), upR:pv([POST.half, POST.bar, 0]), top:pv([0, POST.top, 0]), line:+G.tline.material.opacity.toFixed(2), py:+G.posts.position.y.toFixed(3), psy:+G.posts.scale.y.toFixed(3), pr:+G.posts.rotation.z.toFixed(3), fw:!!G.fwOn, trail:G.trail.visible, camz:+G.cam.position.z.toFixed(2), ballc:'#' + G.ball.material.color.getHexString(), post:'#' + G.white.color.getHexString(), t:FX3D.cur.t, name:FX3D.cur.name}; };
 })();

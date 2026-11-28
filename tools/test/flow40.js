@@ -40,6 +40,22 @@ const M = k => ({id:'tvA', team:'1XV', home:'ERGS', away:'Portora', status:'1H',
     ok(calm.join() === '255,255,255' && f[0] > 200 && f[1] > 150 && f[2] < 150 && f[0] > f[2] + 80 && end.join() === '255,255,255', 'conversion: the posts are white, flash gold as it goes over (' + (await at(1520)).w.post + '), and go back to white');
     ok((await at(1520)).w.ballc === '#ffffff', 'conversion: the ball stays white when the kick is good');
     ok(/CONVERTED/.test(e.kind) && e.kindOn > .9 && /Cal Weir/.test(e.who), 'conversion: then CONVERTED and the kicker'); await done(); }
+  // conversions with some show: three more, taken in turn with the plain kick
+  const kord = await lv(p, () => { const ev = (i, k, s, miss) => ({id:'e' + i, k, s, p:'Cal Weir', m:i, ts:i, miss:!!miss}), m = {id:'tvA', team:'1XV', home:'ERGS', away:'Portora', events:[ev(1, 'con', 'H'), ev(2, 'con', 'A'), ev(3, 'con', 'H', true), ev(4, 'con', 'H'), ev(5, 'con', 'H'), ev(6, 'con', 'A'), ev(7, 'pen', 'H'), ev(8, 'dg', 'H')]};
+    const good = m.events.filter(e => e.k === 'con' && !e.miss); return {cons:good.map(e => kickVar(m, e)), pen:kickVar(m, m.events[6]), dg:kickVar(m, m.events[7]), all:KICK_VARS.slice()}; });
+  ok(kord.all.length === 4 && new Set(kord.cons.slice(0, 4)).size === 4 && kord.cons[4] === kord.cons[0], 'four conversion animations taken in turn through a match (' + kord.cons.slice(0, 4).map(x => x.replace('kick-', '')).join(' → ') + '), all four before any repeats');
+  ok(kord.pen === 'kick' && kord.dg === 'kick', 'penalties and drop goals keep the plain kick');
+  const rgbh = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  for (const v of ['kick-rocket', 'kick-dance', 'kick-orbit']){ await lv(p, v => { KICK_FORCE = v; }, v); await play('con', ''); const a = await at(200), mid = await at(900), o = await at(1350), f = await at(1520), late = await at(1900), e = await at(3300), n = v.replace('kick-', '');
+    ok(a.d3 && a.w.name === v && a.w.world[2] > 10 && a.w.world[1] < 1.5, n + ': starts with the ball on the tee');
+    ok(Math.abs(o.w.world[2]) < .6 && o.w.world[1] > 3.6 && Math.abs(o.w.world[0]) < 2.4, n + ': at 1.35s the ball is ' + o.w.world[1].toFixed(1) + ' m up, over the bar and between the uprights');
+    { const c = rgbh(f.w.post); ok(c[0] > 200 && c[1] > 130 && c[2] < 120 && f.w.ballc === '#ffffff', n + ': the posts flash gold (' + f.w.post + ') and the ball stays white'); }
+    ok(late.w.fw && !a.w.fw && !(await at(3950)).w.fw, n + ': fireworks go off after it is over, and are gone by the end');
+    if (n === 'rocket') ok(mid.w.trail && !a.w.trail && !e.w.trail, 'rocket: a streak of sparks follows the ball in flight');
+    if (n === 'dance'){ const hops = []; for (let ms = 1380; ms <= 2700; ms += 40) hops.push((await at(ms)).w.py); ok(mid.w.psy > 1.05 && Math.max(...hops) > .5 && e.w.py === 0 && e.w.psy === 1 && e.w.pr === 0 && a.w.pr !== 0, 'dance: the posts sway while waiting, stretch up as the ball comes (' + mid.w.psy + '× tall), hop when it is over (' + Math.max(...hops).toFixed(2) + ' m off the ground) and finish standing straight'); }
+    if (n === 'orbit') ok(a.w.camz > 15 && o.w.camz < 0, 'orbit: the camera starts behind the kicker and has swung right round to beyond the posts as the ball clears the bar');
+    ok(/CONVERTED/.test(e.kind) && e.kindOn > .9, n + ': then CONVERTED'); await done(); }
+  await lv(p, () => { KICK_FORCE = ''; });
   await play('miss', ''); { const o = await at(1350), e = await at(2700);
     ok(o.w.name === 'kick-miss' && o.w.world[0] > 2.9 && o.w.x > o.w.upR[0], 'a missed conversion goes wide of the right-hand upright (' + o.w.world[0].toFixed(1) + ' m from the middle; the upright is at 2.8 m)');
     const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), fw = (await at(1520)).w.post, f = rgb(fw);
