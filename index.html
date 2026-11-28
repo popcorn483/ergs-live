@@ -3,15 +3,14 @@
 <head>
 <script>if(/^#p[a-z0-9]{3,6}$/.test(location.hash))location.replace('app/'+location.hash);</script>
 <script>
-/* ONE INSTALL (28 November 2026): ERGS Live and the team app are one home-screen app. Tapping the icon opens whichever side was
-   used last. Only a plain launch of the installed app is sent on: a shared match link, a link from the team app, or the
-   "ERGS Live" shortcut (?side=live) always stays here. */
+/* ONE INSTALL (28 November 2026): ERGS Live and the team app are one home-screen app, and it always opens on the team app
+   (ERGS Rugby). The install file starts there; this catches an icon installed earlier that still starts here. A shared match
+   link, a link from the team app, or the "ERGS Live" shortcut (?side=live) always stays on ERGS Live. */
 (function(){ try {
   var inst = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
   var first = !sessionStorage.getItem('ergs.sideSeen'); sessionStorage.setItem('ergs.sideSeen', '1');
-  if (/[?&]side=live\b/.test(location.search)){ localStorage.setItem('ergs.side', 'live'); history.replaceState(null, '', location.pathname); return; }
-  if (inst && first && !location.search && !location.hash && !/\/app\//.test(document.referrer || '') && localStorage.getItem('ergs.side') === 'app'){ location.replace('app/'); return; }
-  localStorage.setItem('ergs.side', 'live');
+  if (/[?&]side=live\b/.test(location.search)){ history.replaceState(null, '', location.pathname); return; }
+  if (inst && first && !location.search && !location.hash && !/\/app\//.test(document.referrer || '')) location.replace('app/');
 } catch(e){} })();
 </script>
 <meta charset="utf-8">
@@ -836,11 +835,11 @@ details.rg-cd>summary>b{display:grid;gap:3px;position:relative;padding-right:22p
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = 'ad16833d62';</script>
-<script src="config.js?v=ad16833d62"></script>
-<script src="crest.js?v=ad16833d62"></script>
-<script src="app.js?v=ad16833d62"></script>
-<script src="icons.js?v=ad16833d62"></script>
-<script type="module" src="fb.js?v=ad16833d62"></script>
+<script>window.ERGS_VER = 'c8f060577d';</script>
+<script src="config.js?v=c8f060577d"></script>
+<script src="crest.js?v=c8f060577d"></script>
+<script src="app.js?v=c8f060577d"></script>
+<script src="icons.js?v=c8f060577d"></script>
+<script type="module" src="fb.js?v=c8f060577d"></script>
 </body>
 </html>

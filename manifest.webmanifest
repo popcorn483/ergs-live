@@ -2,8 +2,8 @@
  "name": "ERGS Rugby",
  "short_name": "ERGS Rugby",
  "description": "Enniskillen Royal Grammar School rugby in one app: live scores, fixtures and results, and the team app for players, parents and coaches.",
- "id": "./",
- "start_url": "./",
+ "id": "../",
+ "start_url": "./app/",
  "scope": "./",
  "launch_handler": {
   "client_mode": [

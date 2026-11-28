@@ -42,7 +42,7 @@ Needs Node and Playwright (`require('playwright')`). From this folder:
     STUB3=1 node flow35.js            # Squads: short one-line rows, No email marker and filter, no Team sheets tab
     node flow36.js                    # ERGS Live: the kicker is remembered for the match and carried over from the team's last match
     node flow37.js                    # ERGS Live on a phone: timeline split home left / away right, score pad labels aligned
-    STUB3=1 node flow38.js            # one install for ERGS Live and the team app; the icon opens the side last used
+    STUB3=1 node flow38.js            # one install for ERGS Live and the team app; the icon always opens the team app
     node kick.test.mjs                # the alert job: what counts as news (full time, postponed, new time, team named)
     STUB3=1 node flow12.js <folder>   # Play IQ: the rugby laws game (every question has one right answer and no giveaway)
     STUB3=1 node walk.js admin        # presses every control it can find on every screen (add "phone" for a phone)
