@@ -2594,11 +2594,15 @@ async function publishFace(name){
        dive   the ball drops in over the try line and is grounded, seen from low beside the line
        posts  it comes in under the bar and is grounded between the posts (always this one for a penalty try)
        carry  it is carried in level at waist height, over the line, and pressed down, seen from above and behind
+     and three with more show, in the same spirit as the conversions below:
+       meteor    it comes down out of the sky with a streak of sparks and lands with a jolt, a shockwave and fireworks
+       flyround  carried over and pressed down while the camera sweeps most of the way round it
+       party     grounded under the posts, which then hop for joy
      In every try the ball touches the ground once, where it is grounded, and stays down: a bounce would read as a knock-on.
      Kicks: from behind the kicker, off the tee and over the bar between the uprights; a miss drifts wide of the right post.
    The 3D code is fetched a moment after the page opens. Until it has arrived, and on a device that cannot draw it or has asked
    for less motion, the earlier flat pictures are used instead. */
-const TRY_VARS = ['dive', 'posts', 'carry'];
+const TRY_VARS = ['dive', 'meteor', 'posts', 'flyround', 'carry', 'party'];   // plain and show-off, turn about
 let TRY_FORCE = '';   // for checks and previews: play this one whatever the turn
 function tryVar(m, e){
   if (TRY_FORCE && TRY_VARS.includes(TRY_FORCE)) return TRY_FORCE; if (e.k === 'pt') return 'posts';
@@ -2606,15 +2610,16 @@ function tryVar(m, e){
   let h = 0; for (const c of String(m.id || '')) h = (h*31 + c.charCodeAt(0)) >>> 0;
   return TRY_VARS[(h + n) % TRY_VARS.length];
 }
-/* CONVERSIONS WITH SOME SHOW (28 November 2026), in the spirit of a bowling alley's strike animations. A converted try plays one of
-   four, taken in turn through a match: the plain kick, the rocket (corkscrewing, sparks, fireworks), the dancing posts (they
-   stretch up to help it over and hop for joy) and the fly-round (the camera swings round the ball as it clears the bar).
-   Penalties and drop goals keep the plain kick; a miss is never dressed up. */
-const KICK_VARS = ['kick', 'kick-rocket', 'kick-dance', 'kick-orbit'];
+/* KICKS WITH SOME SHOW (28 November 2026), in the spirit of a bowling alley's strike animations. Every successful kick at goal
+   (conversion, penalty or drop goal) plays one of six, taken in turn through a match: the plain kick, the rocket (corkscrewing,
+   sparks, fireworks), the hoops (the ball threads four gold hoops, each popping), the dancing posts (they stretch up to help it
+   over and hop for joy), the comet (from the side, with a long tail and rings bursting from the posts) and the fly-round (the
+   camera swings round the ball as it clears the bar). A drop goal has no kicking tee. A miss is never dressed up. */
+const KICK_VARS = ['kick', 'kick-rocket', 'kick-hoops', 'kick-dance', 'kick-comet', 'kick-orbit'];
 let KICK_FORCE = '';
 function kickVar(m, e){
-  if (KICK_FORCE && KICK_VARS.includes(KICK_FORCE)) return KICK_FORCE; if (e.k !== 'con') return 'kick';
-  const cons = (m.events || []).filter(x => x.k === 'con' && !x.miss).sort((a, b) => (a.ts || 0) - (b.ts || 0) || (a.m || 0) - (b.m || 0)), n = Math.max(0, cons.findIndex(x => x.id === e.id));
+  if (KICK_FORCE && KICK_VARS.includes(KICK_FORCE)) return KICK_FORCE;
+  const good = (m.events || []).filter(x => (x.k === 'con' || x.k === 'pen' || x.k === 'dg') && !x.miss).sort((a, b) => (a.ts || 0) - (b.ts || 0) || (a.m || 0) - (b.m || 0)), n = Math.max(0, good.findIndex(x => x.id === e.id));
   let h = 0; for (const c of String(m.id || '')) h = (h*31 + c.charCodeAt(0)) >>> 0;
   return KICK_VARS[(h + 1 + n) % KICK_VARS.length];
 }
@@ -2669,7 +2674,7 @@ function playFx(){
       c.style.cssText = `--x:${Math.round(Math.cos(ang)*v)}px;--y:${Math.round(Math.sin(ang)*v)}px;--f:${Math.round(380 + Math.random()*420)}px;--r:${Math.round(360 + Math.random()*1080)}deg;--d:${(Math.random()*.18).toFixed(2)}s;--c:${cols[i % cols.length]};--w:${(6 + Math.random()*8).toFixed(1)}px;--h:${(10 + Math.random()*12).toFixed(1)}px;--t:${(2 + Math.random()*1.1).toFixed(2)}s`;
       conf.appendChild(c); } }
   fx.hidden = false; void fx.offsetWidth; fx.classList.add('on');
-  if (d3){ const run = FX3D.play($('#fx3dHost'), scene3); if (!run){ FX3D_OFF = true; fx.hidden = true; fx.classList.remove('on'); Q.unshift(nx); return playFx(); } }   // could not draw it after all: play the flat one
+  if (d3){ const run = FX3D.play($('#fx3dHost'), scene3, {tee:e.k !== 'dg'}); if (!run){ FX3D_OFF = true; fx.hidden = true; fx.classList.remove('on'); Q.unshift(nx); return playFx(); } }   // could not draw it after all: play the flat one
   try { if (navigator.vibrate) navigator.vibrate(card ? [300] : ptsOf(e) ? [120, 60, 120] : 0); } catch(err){}
   const close = () => { fx.classList.remove('on'); fx.classList.add('off'); setTimeout(() => { fx.hidden = true; fx.classList.remove('off'); if (window.FX3D) FX3D.stop(); playFx(); }, 420); };
   clearTimeout(playFx.t); playFx.t = setTimeout(close, d3 ? (tryIn ? 4500 : missed ? 3700 : 4200) : kickIn ? 3700 : tryIn ? 3800 : card ? 3400 : ptsOf(e) ? 3000 : 2300); fx.onclick = () => { clearTimeout(playFx.t); close(); };

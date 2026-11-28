@@ -89,7 +89,9 @@ function build(){
   const fw = new T.Points(fg, new T.PointsMaterial({size:.34, vertexColors:true, transparent:true, depthWrite:false, blending:T.AdditiveBlending})); fw.frustumCulled = false; scene.add(fw);
   const TN = 26, tg = new T.BufferGeometry(); tg.setAttribute('position', new T.BufferAttribute(new Float32Array(TN*3), 3)); tg.setAttribute('color', new T.BufferAttribute(new Float32Array(TN*3), 3));
   const trail = new T.Points(tg, new T.PointsMaterial({size:.5, vertexColors:true, transparent:true, depthWrite:false, blending:T.AdditiveBlending})); trail.frustumCulled = false; scene.add(trail);
-  return G = {T, r, scene, cam, posts, white, tline, fw, fdir, FN, trail, TN, tint:new T.Color(), ball, spin, shadow, tee, ring, ring2, turf, seed, N, look:new T.Vector3()};
+  // gold hoops in the air for the ball to thread (also used as the shockwave through the posts)
+  const hoops = []; for (let i = 0; i < 5; i++){ const h = new T.Mesh(new T.TorusGeometry(1.25, .075, 10, 44), new T.MeshBasicMaterial({color:0xF2B31F, transparent:true, opacity:0, depthWrite:false})); h.visible = false; scene.add(h); hoops.push(h); }
+  return G = {T, r, scene, cam, posts, white, tline, fw, fdir, FN, trail, TN, hoops, tint:new T.Color(), ball, spin, shadow, tee, ring, ring2, turf, seed, N, look:new T.Vector3()};
 }
 
 /* what every scene sets, each frame: where the ball is and how it is turned, the camera, and the extras */
@@ -97,7 +99,9 @@ function apply(S){
   const g = G, b = S.ball;
   g.spin.position.set(b[0], b[1], b[2]); g.spin.rotation.set(S.rot[0], S.rot[1], S.rot[2]); g.ball.scale.set(S.sq[0], 1.55*S.sq[1], S.sq[0]);
   g.shadow.position.x = b[0]; g.shadow.position.z = b[2]; const h = Math.max(0, b[1] - R); g.shadow.scale.setScalar(1/(1 + h*.18)); g.shadow.material.opacity = .4/(1 + h*.35);
-  g.cam.position.set(S.cam[0], S.cam[1], S.cam[2]); g.look.set(S.at[0], S.at[1], S.at[2]); g.cam.lookAt(g.look);
+  { const sh = S.shake || 0, t = S.t || 0; g.cam.position.set(S.cam[0] + sh*Math.sin(t*97), S.cam[1] + sh*Math.cos(t*131), S.cam[2]); }   // a jolt, when something lands hard
+  g.look.set(S.at[0], S.at[1], S.at[2]); g.cam.lookAt(g.look);
+  g.hoops.forEach((h, i) => { const q = (S.hoops || [])[i]; h.visible = !!q && q.o > .01; if (h.visible){ h.position.set(q.p[0], q.p[1], q.p[2]); h.scale.setScalar(q.s); h.material.opacity = clamp(q.o, 0, 1); } });
   g.tee.visible = !!S.tee; if (S.tee) g.tee.position.set(S.tee[0], .11, S.tee[2]);
   g.posts.visible = S.posts !== false;
   // the posts can stretch, sway and hop (they stand on the try line, so they grow from the ground up)
@@ -118,7 +122,7 @@ function apply(S){
   { const f = S.red ? clamp(S.glow || 0, 0, 1) : 0, bm = g.ball.material; bm.color.set(0xffffff).lerp(g.tint.set(0xE0160C), Math.min(1, f*1.2)); bm.emissive.set(0xE0160C); bm.emissiveIntensity = f*.55; }
   g.tline.material.opacity = clamp(S.line || 0, 0, 1); g.tline.visible = (S.line || 0) > .01; g.tline.scale.y = 1 + (S.line || 0)*.9;
   const k = S.hit;   // seconds since the ball was grounded (or negative)
-  [g.ring, g.ring2].forEach((rg, i) => { const u = u01(k, i*.12, .75 + i*.12); rg.visible = k > i*.12 && u < 1; rg.position.x = S.spot[0]; rg.position.z = S.spot[2]; rg.scale.setScalar(.6 + u*3.2); rg.material.opacity = (1 - u)*.9; });
+  [g.ring, g.ring2].forEach((rg, i) => { const u = u01(k, i*.12, .75 + i*.12); rg.visible = k > i*.12 && u < 1; rg.position.x = S.spot[0]; rg.position.z = S.spot[2]; rg.scale.setScalar((.6 + u*3.2)*(S.ringK || 1)); rg.material.opacity = (1 - u)*.9; });
   const P = g.turf.geometry.attributes.position; g.turf.visible = !S.noTurf && k > 0 && k < 1; g.turf.material.opacity = k > 0 ? clamp(1 - k, 0, 1) : 0;
   if (g.turf.visible){ for (let i = 0; i < g.N; i++){ const s = g.seed[i]; P.setXYZ(i, S.spot[0] + s[0]*k, Math.max(.03, s[1]*k - 6.5*k*k), S.spot[2] + s[2]*k); } P.needsUpdate = true; }
 }
@@ -142,17 +146,37 @@ const SCENES = {
     else if (k < 0) p = [0, lerp(H, R, d*d), -1.7];                                                         // and straight down
     else p = down(spot, k);
     const c = ease(u01(t, 0, 2.4)); return {ball:p, rot:[k < 0 ? .25 : .1, .5, 1.35], sq:settle(k), spot, hit:k, line:flash(k), cam:[lerp(4.5, 3.2, c), lerp(6.5, 5, c), lerp(10.5, 7, c)], at:[0, .3, lerp(1.5, -1.2, c)], posts:false}; }},
+  /* THE SHOW-OFF TRIES. Same rule as the others: the ball touches the ground once and stays down. */
+  /* meteor: it comes down out of the sky with a streak of sparks, lands with a jolt and a big shockwave, and fireworks go up */
+  'try-meteor': {impact:1.3, dur:4.3, at(t){ const I = 1.3, k = t - I, spot = [0, R, -1.6], A = [-2.6, 15, 5.5], u = u01(t, .12, I), path = tt => { const q = u01(tt, .12, I); return [lerp(A[0], spot[0], q), lerp(A[1], spot[1], q*q), lerp(A[2], spot[2], q)]; };
+    const p = k < 0 ? path(t) : down(spot, k), tr = []; if (t > .14 && k < .25) for (let i = 1; i <= 26; i++){ const tt = t - i*.016; if (tt > .12 && tt < I) tr.push(path(tt)); }
+    const c = ease(u01(t, 0, 2.6)); return {ball:p, rot:[k < 0 ? .5 : .1, .5, k < 0 ? .5 : 1.35], sq:settle(k), spot, hit:k, line:flash(k), ringK:1.9, trail:tr, shake:k > 0 && k < .32 ? .16*(1 - k/.32) : 0, fw:k - .15, fwAt:[[-4, 5.5, -8], [3.5, 7, -10], [0, 8.5, -6]],
+      cam:[lerp(8.5, 5.6, c), lerp(1.1, 1.9, c), lerp(10.5, 5.6, c)], at:[p[0]*.8 - .2, k < 0 ? Math.max(1, p[1]*.82) : lerp(.5, 1, u01(k, 0, .6)), lerp(p[2], -1.2, u01(t, .6, I))], posts:false}; }},   // the camera watches it all the way down
+  /* fly-round: it is carried over and pressed down while the camera sweeps most of the way round it; fireworks all about */
+  'try-flyround': {impact:1.3, dur:4.3, at(t){ const I = 1.3, k = t - I, spot = [0, R, -1.7], H = 1.25, u = u01(t, .05, .92), d = u01(t, .92, I); let p;
+    if (t < .92) p = [lerp(-1.6, 0, ease(u)), H + .06*Math.sin(u*Math.PI*5), lerp(9.5, -1.7, u)]; else if (k < 0) p = [0, lerp(H, R, d*d), -1.7]; else p = down(spot, k);
+    const a = .35*Math.PI + ease(u01(t, .1, 3))*Math.PI*1.45, rad = lerp(9, 5.6, ease(u01(t, 0, 1.6)));
+    return {ball:p, rot:[k < 0 ? .25 : .1, .5, 1.35], sq:settle(k), spot, hit:k, line:flash(k), fw:k - .1, fwAt:[[-5, 6, -5], [5, 7.5, 2], [0, 9, -9]], cam:[p[0] + Math.sin(a)*rad, lerp(3.4, 2, ease(u01(t, 0, 2))), p[2]*.5 + Math.cos(a)*rad], at:[p[0], Math.max(.5, p[1]*.8), p[2]], posts:false}; }},
+  /* party: grounded under the posts, which then hop for joy */
+  'try-party': {impact:1.25, dur:4.3, at(t){ const I = 1.25, u = u01(t, .1, I), k = t - I, spot = [0, R, -2.2], p = u < 1 ? arc([-6.5, 2.6, 13], spot, u, 2.4) : down(spot, k);
+    const h = k > .05 && k < 1.4 ? Math.abs(Math.sin((k - .05)*Math.PI/.34))*(1 - k/1.4) : 0, c = ease(u01(t, 0, 2.4));
+    return {ball:p, rot:[u < 1 ? -u*8 : 1.35, 0, u < 1 ? -.6 : 1.2], sq:settle(k), spot, hit:k, line:flash(k), glow:flash(k), py:h*1.2, pr:k > 0 && k < 1.4 ? .07*Math.sin(k*11)*(1 - k/1.4) : .04*Math.sin(t*15)*(1 - u), ps:k > 0 ? [1 + .06*(1 - h)*Math.max(0, 1 - k/1.4), 1 - .06*(1 - h)*Math.max(0, 1 - k/1.4)] : [1, 1],
+      fw:k - .2, fwAt:[[-4.5, 9, -7], [4.5, 10.5, -8], [0, 12.5, -10]], cam:[lerp(2.2, 1, c), lerp(2.2, 3.4, c), lerp(15, 11.5, c)], at:[0, lerp(2.4, 2, c), -1]}; }},
   /* behind the kicker: off the tee, up, and over the bar between the uprights */
   'kick': {impact:1.35, dur:4, at(t){ return kick(t, 0, ''); }},
   'kick-rocket': {impact:1.35, dur:4, at(t){ return kick(t, 0, 'rocket'); }},
   'kick-dance': {impact:1.35, dur:4, at(t){ return kick(t, 0, 'dance'); }},
   'kick-orbit': {impact:1.35, dur:4, at(t){ return kick(t, 0, 'orbit'); }},
+  'kick-hoops': {impact:1.35, dur:4, at(t){ return kick(t, 0, 'hoops'); }},
+  'kick-comet': {impact:1.35, dur:4, at(t){ return kick(t, 0, 'comet'); }},
   'kick-miss': {impact:1.35, dur:3.6, at(t){ return kick(t, 4.4, ''); }}
 };
 /* A kick at goal. wide = how far past the middle it ends up (0 is good). style picks the show:
      ''        the plain kick, from behind the kicker
      'rocket'  the ball goes off like a rocket: nose first, corkscrewing, a streak of sparks behind it, fireworks beyond the posts
      'dance'   the posts get excited: they sway as the kicker lines it up, stretch up tall as the ball comes, and hop for joy when it is over
+     'hoops'   four gold hoops hang along the flight; the ball threads them and each one pops, then the posts send out a last ring
+     'comet'   seen from out to the side with a long tail of sparks, and two rings burst out of the posts as it goes over
      'orbit'   the camera flies with the ball and swings right round it, slowing as it clears the bar, with fireworks behind
    In every one the ball leaves the tee at 0.38s and is over the bar, between the uprights, at 1.35s. */
 function kick(t, wide, style){
@@ -173,7 +197,14 @@ function kick(t, wide, style){
   if (style === 'orbit'){ const a = ease(u01(t, K, I + .25))*Math.PI*1.12, d = lerp(6.5, 9, u01(t, K, I)), follow = u01(t, .15, K + .2);
     const cx = p[0] + Math.sin(a)*d*follow, cz = p[2] + Math.cos(a)*d*follow + (1 - follow)*6; S.cam = [cx, Math.max(1.2, p[1]*.55 + 1.2), cz]; S.at = [p[0]*.6, lerp(p[1], 4.2, ease(u01(t, I - .2, I + .5))), lerp(p[2], 0, ease(u01(t, I - .3, I + .4)))];
     S.fw = k - .1; S.fwAt = [[-4, 9, 7], [4.5, 11, 9], [0, 13, 5]]; }                                    // the camera ends up beyond the posts looking back, so the fireworks go off on the kicker's side
-  if (!good){ S.fw = -1; S.trail = []; S.ps = [1, 1]; S.py = 0; S.pr = 0; }
+  if (style === 'hoops'){ const us = [.2, .4, .6, .8]; S.hoops = us.map((uh, i) => { const q = arc(A, B, prog(uh), 2.6), th = K + uh*(I - K), born = u01(t, .05 + i*.07, .3 + i*.07), d = t - th;   // four hoops hang along the flight; each one pops as the ball goes through it
+      return {p:q, s:d < 0 ? out(born) : 1 + d*5, o:d < 0 ? born*.95 : Math.max(0, 1 - d/.35)}; });
+    S.hoops.push({p:[0, 5.6, 0], s:k < 0 ? 0 : 1 + k*6.5, o:k < 0 ? 0 : Math.max(0, 1 - k/.5)});            // and the posts send out one last ring as it goes over
+    S.fw = k - .15; S.fwAt = sky; S.cam = [lerp(-3.2, -2.2, c), lerp(2.2, 3, c), lerp(21.5, 20, c)]; S.at = [0, lerp(3.6, 4.8, c), 2]; }
+  if (style === 'comet'){ S.trail = []; if (t > K && t < I + .6) for (let i = 1; i <= 26; i++){ const tt = t - i*.026; if (tt > K) S.trail.push(path(tt)); }   // seen from out to the side, with a long tail
+    S.hoops = [{p:[0, 5.6, 0], s:k < 0 ? 0 : 1 + k*7, o:k < 0 ? 0 : Math.max(0, 1 - k/.55)}, {p:[0, 5.6, 0], s:k < .15 ? 0 : 1 + (k - .15)*7, o:k < .15 ? 0 : Math.max(0, 1 - (k - .15)/.55)}];
+    S.fw = k - .1; S.fwAt = [[-3, 9.5, -6], [2, 11.5, -9], [-6, 8, -2]]; S.cam = [lerp(13, 11, c), lerp(1.6, 2.6, c), lerp(13, 9, c)]; S.at = [0, lerp(3.2, 4.6, c), lerp(8, 2, ease(u01(t, K, I)))]; }
+  if (!good){ S.fw = -1; S.trail = []; S.hoops = []; S.ps = [1, 1]; S.py = 0; S.pr = 0; }
   return S;
 }
 
@@ -181,15 +212,15 @@ FX3D.scenes = Object.keys(SCENES);
 FX3D.info = name => { const s = SCENES[name]; return s ? {impact:s.impact, dur:s.dur} : null; };
 
 /* Start a scene inside holder (an element with a size). Returns null if it cannot be drawn here. */
-FX3D.play = function(holder, name){
+FX3D.play = function(holder, name, opts){
   const sc = SCENES[name]; if (!sc || !FX3D.can()) return null;
   try { if (!G) build(); } catch(e){ FX3D.ok = false; return null; }
   FX3D.stop();
   const g = G, cv = g.r.domElement, w = Math.max(120, holder.clientWidth || 320), h = Math.max(90, holder.clientHeight || 230);
   g.r.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); g.r.setSize(w, h, false); cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block'; cv.className = 'fx3d-cv';
   g.cam.aspect = w/h; g.cam.updateProjectionMatrix(); holder.appendChild(cv);
-  const run = {name, t0:performance.now(), raf:0, fixed:null, impact:sc.impact, dur:sc.dur};
-  const draw = t => { try { apply(sc.at(t)); g.r.render(g.scene, g.cam); } catch(e){ FX3D.stop(); } };
+  const run = {name, opts:opts || null, t0:performance.now(), raf:0, fixed:null, impact:sc.impact, dur:sc.dur};
+  const draw = t => { try { const S = sc.at(t); S.t = t; if (run.opts && run.opts.tee === false) S.tee = null; apply(S); g.r.render(g.scene, g.cam); } catch(e){ FX3D.stop(); } };
   const tick = () => { if (FX3D.cur !== run) return; const t = run.fixed !== null ? run.fixed : (performance.now() - run.t0)/1000; draw(Math.min(t, sc.dur)); run.t = t; if (run.fixed === null && t < sc.dur) run.raf = requestAnimationFrame(tick); };
   run.seek = t => { run.fixed = t; cancelAnimationFrame(run.raf); draw(t); run.t = t; };          // hold on one moment (for checks and captures)
   run.resume = () => { run.t0 = performance.now() - (run.t || 0)*1000; run.fixed = null; tick(); };
@@ -199,5 +230,5 @@ FX3D.play = function(holder, name){
 FX3D.stop = function(){ const run = FX3D.cur; FX3D.cur = null; if (run) cancelAnimationFrame(run.raf); if (G && G.r.domElement.parentNode) G.r.domElement.parentNode.removeChild(G.r.domElement); };
 // where the ball is on screen right now, as fractions of the canvas (for checks)
 FX3D.where = function(){ if (!G || !FX3D.cur) return null; const v = G.spin.position.clone().project(G.cam), pv = n => { const q = new THREE.Vector3(n[0], n[1], n[2]).project(G.cam); return [(q.x + 1)/2, (1 - q.y)/2]; };
-  return {x:(v.x + 1)/2, y:(1 - v.y)/2, world:[G.spin.position.x, G.spin.position.y, G.spin.position.z], upL:pv([-POST.half, POST.bar, 0]), upR:pv([POST.half, POST.bar, 0]), top:pv([0, POST.top, 0]), line:+G.tline.material.opacity.toFixed(2), py:+G.posts.position.y.toFixed(3), psy:+G.posts.scale.y.toFixed(3), pr:+G.posts.rotation.z.toFixed(3), fw:!!G.fwOn, trail:G.trail.visible, camz:+G.cam.position.z.toFixed(2), ballc:'#' + G.ball.material.color.getHexString(), post:'#' + G.white.color.getHexString(), t:FX3D.cur.t, name:FX3D.cur.name}; };
+  return {x:(v.x + 1)/2, y:(1 - v.y)/2, world:[G.spin.position.x, G.spin.position.y, G.spin.position.z], upL:pv([-POST.half, POST.bar, 0]), upR:pv([POST.half, POST.bar, 0]), top:pv([0, POST.top, 0]), line:+G.tline.material.opacity.toFixed(2), py:+G.posts.position.y.toFixed(3), psy:+G.posts.scale.y.toFixed(3), pr:+G.posts.rotation.z.toFixed(3), fw:!!G.fwOn, trail:G.trail.visible, hoops:G.hoops.filter(h => h.visible).length, tee:G.tee.visible, camx:+G.cam.position.x.toFixed(2), camz:+G.cam.position.z.toFixed(2), ballc:'#' + G.ball.material.color.getHexString(), post:'#' + G.white.color.getHexString(), t:FX3D.cur.t, name:FX3D.cur.name}; };
 })();
