@@ -2086,10 +2086,10 @@ function sheetFor(m){
 // what is being scored, as a picture: a ball for a try, posts for a kick at goal, a card
 function evIcon(k){
   const ball = (x, y, r) => `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r * .62}" transform="rotate(-35 ${x} ${y})" fill="currentColor"/>`;
-  const posts = '<path d="M14 6v34M34 6v34M14 26h20M24 26v16" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>';
+  const posts = '<path d="M14 5v39M34 5v39M14 28h20" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/>';   // rugby posts: an H, two uprights to the ground and a crossbar
   const svg = inner => `<svg viewBox="0 0 48 48" width="36" height="36">${inner}</svg>`;
   if (k === 'try') return svg(ball(24, 22, 15) + '<path d="M8 40h32" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>');
-  if (k === 'pt') return svg(posts + ball(24, 34, 6));
+  if (k === 'pt') return svg(posts + ball(24, 38, 5.5));
   if (k === 'con' || k === 'pen') return svg(posts + ball(24, 14, 6.5));
   if (k === 'dg') return svg(posts + ball(24, 14, 6.5) + '<path d="M38 44l4-6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>');
   if (k === 'yc' || k === 'rc') return svg('<rect x="14" y="7" width="20" height="34" rx="3.5" fill="currentColor"/>');
