@@ -89,7 +89,7 @@ function apply(S){
   g.tee.visible = !!S.tee; if (S.tee) g.tee.position.set(S.tee[0], .11, S.tee[2]);
   g.posts.visible = S.posts !== false;
   // the posts flash: gold when the kick is good or the try is scored under them, red when a kick is missed
-  { const f = clamp(S.glow || 0, 0, 1), hue = S.red ? 0xE0160C : 0xF0A800; g.white.color.set(0xffffff).lerp(g.tint.set(hue), Math.min(1, f*1.25)); g.white.emissive.set(hue); g.white.emissiveIntensity = f*.6; }
+  { const f = clamp(S.glow || 0, 0, 1), hue = S.red ? 0xE0160C : 0xE2A21C; g.white.color.set(0xffffff).lerp(g.tint.set(hue), Math.min(1, f*1.25)); g.white.emissive.set(hue); g.white.emissiveIntensity = f*(S.red ? .6 : .3); }
   const k = S.hit;   // seconds since the ball was grounded (or negative)
   [g.ring, g.ring2].forEach((rg, i) => { const u = u01(k, i*.12, .75 + i*.12); rg.visible = k > i*.12 && u < 1; rg.position.x = S.spot[0]; rg.position.z = S.spot[2]; rg.scale.setScalar(.6 + u*3.2); rg.material.opacity = (1 - u)*.9; });
   const P = g.turf.geometry.attributes.position; g.turf.visible = !S.noTurf && k > 0 && k < 1; g.turf.material.opacity = k > 0 ? clamp(1 - k, 0, 1) : 0;
@@ -119,7 +119,7 @@ const SCENES = {
 };
 function kick(t, wide){
   const K = .38, I = 1.35, tee = [0, 0, 15], u = u01(t, K, I), v = u01(t, I, 2.4); let p;
-  if (t < K) p = [0, R*1.55 + .2, 15]; else if (u < 1) p = arc([0, R*1.55 + .2, 15], [wide, 5.6, 0], out(u)*.55 + u*.45, 2.6); else p = [wide + wide*.35*v, 5.6 - 2.2*v*v - .4*v, -11*v];
+  if (t < K) p = [0, R*1.55 + .2, 15]; else if (u < 1) p = arc([0, R*1.55 + .2, 15], [wide, 5.6, 0], out(u)*.55 + u*.45, 2.6); else p = [wide + wide*.35*v, 5.6 - 1.0*v*v - .3*v, -11*v];   // it stays above the height of the bar as it drops away behind the posts
   const c = ease(u01(t, 0, 2)), over = flash(t - I);
   return {ball:p, rot:[t < K ? 0 : -(t - K)*11, 0, t < K ? .12 : .12], sq:t >= K && t < K + .09 ? [.86, 1.12] : [1, 1], spot:tee, hit:t >= K ? (t - K)*1.6 + .001 : -1, noTurf:true, tee, glow:over, red:!!wide,
     cam:[lerp(-1.4, -.5, c), lerp(1.4, 2.4, c), lerp(21, 19.5, c)], at:[wide*.2*u, lerp(3.4, 5, c), 0]};
