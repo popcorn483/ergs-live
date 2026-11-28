@@ -2584,15 +2584,16 @@ async function publishFace(name){
     const d = c.toDataURL('image/jpeg', 0.82); FACES[k] = d; await FB.setFace(k, d);
   } catch(e){}
 }
-/* FIVE WAYS TO SCORE A TRY (28 November 2026). Each try in a match plays the next one in turn, so two tries in a row never look
-   the same, and everyone watching sees the same one. A penalty try is always awarded under the posts.
-     dive    the ball drops out of the air and is grounded on the line (the original)
-     corner  it slides in low along the grass and is grounded at the corner flag, which whips over
-     posts   it comes down between the posts and is touched down under them; the posts shake
-     step    a zig-zag through two defenders, who are left behind, then the touchdown
-     bounce  a kick ahead: two bounces, then it is touched down over the line
-   All five ground the ball at the same moment (0.9s), so the crest, TRY!, the scorer and the confetti keep their timing. */
-const TRY_VARS = ['dive', 'corner', 'posts', 'step', 'bounce'];
+/* TRIES AND KICKS IN 3D (28 November 2026). The picture at the top of a try, conversion, penalty or drop goal is a real 3D scene
+   (fx3d.js, drawn with three.js): a pitch, rugby posts with navy pads and a smooth white ball.
+     Tries, taken in turn through a match so two in a row never look the same and everyone watching sees the same one:
+       dive   the ball drops in over the try line and is grounded, seen from low beside the line
+       posts  it comes in under the bar and is grounded between the posts (always this one for a penalty try)
+       chase  a kick ahead bounces twice and is grounded over the line, seen from the side
+     Kicks: from behind the kicker, off the tee and over the bar between the uprights; a miss drifts wide of the right post.
+   The 3D code is fetched a moment after the page opens. Until it has arrived, and on a device that cannot draw it or has asked
+   for less motion, the earlier flat pictures are used instead. */
+const TRY_VARS = ['dive', 'posts', 'chase'];
 let TRY_FORCE = '';   // for checks and previews: play this one whatever the turn
 function tryVar(m, e){
   if (TRY_FORCE && TRY_VARS.includes(TRY_FORCE)) return TRY_FORCE; if (e.k === 'pt') return 'posts';
@@ -2600,16 +2601,22 @@ function tryVar(m, e){
   let h = 0; for (const c of String(m.id || '')) h = (h*31 + c.charCodeAt(0)) >>> 0;
   return TRY_VARS[(h + n) % TRY_VARS.length];
 }
-function tryScene(m, e, team){
-  const v = tryVar(m, e), ball = '<svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#FFFFFF" stroke="#1C2342" stroke-width="2"/><path d="M12 8.5q6 11.5 0 23M48 8.5q-6 11.5 0 23" fill="none" stroke="#DCC08A" stroke-width="4"/><path d="M9.6 10.5q5.6 9.5 0 19M50.4 10.5q-5.6 9.5 0 19" fill="none" stroke="#1C2342" stroke-width="1.1"/><path d="M23 20h14M26 16.5v7M30 16v8M34 16.5v7" stroke="#1C2342" stroke-width="1.6" stroke-linecap="round"/></svg>';
-  const extra = v === 'corner' ? '<div class="fx-streak"></div><div class="fx-flag"><i></i><b></b></div>'
-    : v === 'posts' ? '<svg class="fx-tposts" viewBox="0 0 200 200" aria-hidden="true"><rect x="52" y="4" width="8" height="196" rx="3"/><rect x="140" y="4" width="8" height="196" rx="3"/><rect x="52" y="112" width="96" height="8" rx="3"/><rect class="pad" x="47" y="150" width="18" height="50" rx="3"/><rect class="pad" x="135" y="150" width="18" height="50" rx="3"/></svg>'
-    : v === 'step' ? '<div class="fx-def a"><i></i></div><div class="fx-def b"><i></i></div><svg class="fx-trail" viewBox="0 0 320 120" aria-hidden="true"><path pathLength="1" d="M-50 96 L 18 60 L 88 112 L 146 74 L 186 104"/></svg>'
-    : v === 'bounce' ? '<div class="fx-hop a"></div><div class="fx-hop b"></div>' : '';
-  return `<div class="fx-try v-${v}" data-tryv="${v}"><div class="fx-turf"><b></b><i></i></div>${extra}<div class="fx-impact"><i></i><i></i></div>
+let FX3D_LOAD = null, FX3D_OFF = false;
+function fx3dLoad(){
+  if (FX3D_LOAD) return FX3D_LOAD; const add = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  const v = window.ERGS_VER ? '?v=' + window.ERGS_VER : '';
+  return FX3D_LOAD = (window.THREE ? Promise.resolve() : add('app/vendor/three.min.js?v=147')).then(() => window.FX3D ? null : add('fx3d.js' + v)).then(() => !!(window.FX3D && FX3D.can())).catch(() => false);
+}
+const fx3dOK = () => !FX3D_OFF && !!(window.FX3D && FX3D.can()) && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+try { if (!(navigator.connection && navigator.connection.saveData)) setTimeout(fx3dLoad, 2500); } catch(e){}
+// the flat ball: white, a gold band at each end edged in navy. No lacing: a rugby ball has none.
+const FX_BALL = '<svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#FFFFFF" stroke="#1C2342" stroke-width="2"/><path d="M12 8.5q6 11.5 0 23M48 8.5q-6 11.5 0 23" fill="none" stroke="#DCC08A" stroke-width="4"/><path d="M9.6 10.5q5.6 9.5 0 19M50.4 10.5q-5.6 9.5 0 19" fill="none" stroke="#1C2342" stroke-width="1.1"/></svg>';
+function tryScene(m, e, team, d3){
+  const tail = `<div class="fx-plus">+${PTS[e.k]}</div><div class="fx-trycrest">${crest(team, 'huge')}</div></div>`;
+  if (d3) return `<div class="fx-try v3d" data-tryv="${tryVar(m, e)}"><div class="fx3d" id="fx3dHost"></div>${tail}`;
+  return `<div class="fx-try" data-tryv="flat"><div class="fx-turf"><b></b><i></i></div><div class="fx-impact"><i></i><i></i></div>
         <div class="fx-spray">${Array.from({length:16}, (_, i) => { const a = Math.PI*(1.05 + Math.random()*.9), d = 50 + Math.random()*90; return `<i style="--x:${Math.round(Math.cos(a)*d)}px;--y:${Math.round(Math.sin(a)*d*0.8)}px;--d:${(Math.random()*.12).toFixed(2)}s"></i>`; }).join('')}</div>
-        <div class="fx-tball">${ball}</div>
-        <div class="fx-plus">+${PTS[e.k]}</div><div class="fx-trycrest">${crest(team, 'huge')}</div></div>`;
+        <div class="fx-tball">${FX_BALL}</div>${tail}`;
 }
 function playFx(){
   const nx = Q.shift(); if (!nx){ busy = false; return; } busy = true;
@@ -2625,10 +2632,12 @@ function playFx(){
   fx.classList.toggle('miss', missed);
   const tryIn = e.k === 'try' || e.k === 'pt';
   fx.classList.toggle('kick', kickIn); fx.classList.toggle('cardfx', card); fx.classList.toggle('tryfx', tryIn);
+  const d3 = (tryIn || kickIn) && fx3dOK(), scene3 = d3 ? (tryIn ? 'try-' + tryVar(m, e) : missed ? 'kick-miss' : 'kick') : ''; fx.classList.toggle('d3', d3);
   $('#fxCrest').innerHTML = card ? `<div class="fx-cardwrap"><div class="fx-rings"><i></i><i></i><i></i></div><div class="fx-card ${e.k}"><span></span></div></div>`
-    : kickIn ? `<div class="fx-posts"><svg viewBox="0 0 200 230" aria-hidden="true"><rect class="up" x="56" y="6" width="7" height="224" rx="3"/><rect class="up" x="137" y="6" width="7" height="224" rx="3"/><rect class="bar" x="56" y="132" width="88" height="7" rx="3"/><rect class="pad" x="52" y="170" width="15" height="60" rx="3"/><rect class="pad" x="133" y="170" width="15" height="60" rx="3"/></svg>
-        <div class="fx-ball"><svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#FFFFFF" stroke="#1C2342" stroke-width="2"/><path d="M12 8.5q6 11.5 0 23M48 8.5q-6 11.5 0 23" fill="none" stroke="#DCC08A" stroke-width="4"/><path d="M9.6 10.5q5.6 9.5 0 19M50.4 10.5q-5.6 9.5 0 19" fill="none" stroke="#1C2342" stroke-width="1.1"/><path d="M23 20h14M26 16.5v7M30 16v8M34 16.5v7" stroke="#1C2342" stroke-width="1.6" stroke-linecap="round"/></svg></div><div class="fx-crestmini">${crest(team)}</div></div>`
-    : tryIn ? tryScene(m, e, team)
+    : kickIn ? (d3 ? `<div class="fx-posts v3d"><div class="fx3d" id="fx3dHost"></div><div class="fx-crestmini">${crest(team)}</div></div>`
+        : `<div class="fx-posts"><svg viewBox="0 0 200 230" aria-hidden="true"><rect class="up" x="56" y="6" width="7" height="224" rx="3"/><rect class="up" x="137" y="6" width="7" height="224" rx="3"/><rect class="bar" x="56" y="132" width="88" height="7" rx="3"/><rect class="pad" x="52" y="170" width="15" height="60" rx="3"/><rect class="pad" x="133" y="170" width="15" height="60" rx="3"/></svg>
+        <div class="fx-ball">${FX_BALL}</div><div class="fx-crestmini">${crest(team)}</div></div>`)
+    : tryIn ? tryScene(m, e, team, d3)
     : crest(team, 'huge');
   let li = 0; $('#fxKind').innerHTML = lab.split(' ').map(w => `<span class="w">${w.split('').map(c => `<span style="--i:${li++}">${esc(c)}</span>`).join('')}</span>`).join('<span style="--i:0">&nbsp;</span>');
   $('#fxWho').textContent = [e.p, team].filter(Boolean).join(' · ');
@@ -2643,9 +2652,10 @@ function playFx(){
       c.style.cssText = `--x:${Math.round(Math.cos(ang)*v)}px;--y:${Math.round(Math.sin(ang)*v)}px;--f:${Math.round(380 + Math.random()*420)}px;--r:${Math.round(360 + Math.random()*1080)}deg;--d:${(Math.random()*.18).toFixed(2)}s;--c:${cols[i % cols.length]};--w:${(6 + Math.random()*8).toFixed(1)}px;--h:${(10 + Math.random()*12).toFixed(1)}px;--t:${(2 + Math.random()*1.1).toFixed(2)}s`;
       conf.appendChild(c); } }
   fx.hidden = false; void fx.offsetWidth; fx.classList.add('on');
+  if (d3){ const run = FX3D.play($('#fx3dHost'), scene3); if (!run){ FX3D_OFF = true; fx.hidden = true; fx.classList.remove('on'); Q.unshift(nx); return playFx(); } }   // could not draw it after all: play the flat one
   try { if (navigator.vibrate) navigator.vibrate(card ? [300] : ptsOf(e) ? [120, 60, 120] : 0); } catch(err){}
-  const close = () => { fx.classList.remove('on'); fx.classList.add('off'); setTimeout(() => { fx.hidden = true; fx.classList.remove('off'); playFx(); }, 420); };
-  clearTimeout(playFx.t); playFx.t = setTimeout(close, kickIn ? 3700 : tryIn ? 3800 : card ? 3400 : ptsOf(e) ? 3000 : 2300); fx.onclick = () => { clearTimeout(playFx.t); close(); };
+  const close = () => { fx.classList.remove('on'); fx.classList.add('off'); setTimeout(() => { fx.hidden = true; fx.classList.remove('off'); if (window.FX3D) FX3D.stop(); playFx(); }, 420); };
+  clearTimeout(playFx.t); playFx.t = setTimeout(close, d3 ? (tryIn ? 4500 : missed ? 3700 : 4200) : kickIn ? 3700 : tryIn ? 3800 : card ? 3400 : ptsOf(e) ? 3000 : 2300); fx.onclick = () => { clearTimeout(playFx.t); close(); };
 }
 /* full time: a giant celebration when we win, a quiet card when we don't */
 function playFullTime(m){
