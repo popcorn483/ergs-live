@@ -1,4 +1,4 @@
-// The intro animation when the team app opens: a boot kicks the ball off a tee and through the posts in 3D, then the crest spins in (28 November 2026)
+// The intro animation when the team app opens: the ball is kicked off a tee and through the posts in 3D, then the crest spins in (28 November 2026)
 // usage: STUB3=1 node flow39.js
 const { chromium } = require('playwright'); const { open } = require('./real.js');
 let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + m); if (!c) fails++; };
@@ -10,16 +10,16 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
   ok(i.persp !== 'none' && i.p3 === 'preserve-3d,preserve-3d,preserve-3d' && i.pitch, 'it is real 3D: a perspective camera, and a pitch lying flat and running away to the posts');
   ok(i.slices === 12 && i.edge === 8 && i.back, 'the ball is solid (12 cross-sections) and the crest is a coin with an edge and a gold back');
   const at = ms => p.evaluate(ms => { document.getAnimations().forEach(a => { a.pause(); a.currentTime = ms; }); }, ms);
-  const ball = () => p.evaluate(() => { const w = document.querySelector('#intro .in-ballw'), m = getComputedStyle(w).transform, v = /matrix3d/.test(m) ? m.slice(9, -1).split(',').map(Number) : null, r = w.getBoundingClientRect(), leg = document.querySelector('#intro .in-leg'); return {z:v ? v[14] : 0, y:Math.round(r.top + r.height / 2), size:Math.round(r.width), leg:+getComputedStyle(leg).opacity, tee:!!document.querySelector('#intro .in-tee')}; });
+  const ball = () => p.evaluate(() => { const w = document.querySelector('#intro .in-ballw'), m = getComputedStyle(w).transform, v = /matrix3d/.test(m) ? m.slice(9, -1).split(',').map(Number) : null, r = w.getBoundingClientRect(); return {z:v ? v[14] : 0, y:Math.round(r.top + r.height / 2), size:Math.round(r.width), noLeg:!document.querySelector('#intro .in-leg'), tee:!!document.querySelector('#intro .in-tee')}; });
   await at(300); const still = await ball();
   ok(still.z > 100 && still.tee && still.y > 390, 'it starts with the ball sitting on a tee in front of you, not moving');
   await at(800); const swing = await ball();
-  ok(swing.leg > .5 && Math.abs(swing.z - still.z) < 1 && Math.abs(swing.y - still.y) < 30, 'a boot swings in while the ball is still on the tee');
+  ok(swing.noLeg && Math.abs(swing.z - still.z) < 1 && Math.abs(swing.y - still.y) < 30, 'it waits on the tee for most of a second, and there is no leg or boot in the picture');
   await at(1500); const air = await ball();
   ok(air.y < still.y - 150 && air.z < still.z - 100 && air.size < still.size, 'the kick sends it up and away from you: higher, further back and smaller (' + still.size + 'px → ' + air.size + 'px)');
-  const posts = () => p.evaluate(() => { const r = e => e.getBoundingClientRect(), bl = r(document.querySelector('#intro .in-ball i')), ps = [...document.querySelectorAll('#intro .in-posts path')].map(r); return {w:bl.width, cx:bl.left + bl.width / 2, cy:bl.top + bl.height / 2, upL:ps[0].right, upR:ps[1].left, bar:ps[2].top, top:ps[0].top, leg:+getComputedStyle(document.querySelector('#intro .in-leg')).opacity}; });
+  const posts = () => p.evaluate(() => { const r = e => e.getBoundingClientRect(), bl = r(document.querySelector('#intro .in-ball i')), ps = [...document.querySelectorAll('#intro .in-posts path')].map(r); return {w:bl.width, cx:bl.left + bl.width / 2, cy:bl.top + bl.height / 2, upL:ps[0].right, upR:ps[1].left, bar:ps[2].top, top:ps[0].top}; });
   await at(2000); const thru = await posts(), gap = thru.upR - thru.upL;
-  ok(thru.cx - thru.w / 2 > thru.upL && thru.cx + thru.w / 2 < thru.upR && thru.cy < thru.bar - 10 && thru.cy > thru.top && thru.w < gap * .5 && thru.leg < .05, 'at the posts the ball is between the uprights and above the bar, and small enough to fit clearly (' + Math.round(thru.w) + 'px in a ' + Math.round(gap) + 'px gap)');
+  ok(thru.cx - thru.w / 2 > thru.upL && thru.cx + thru.w / 2 < thru.upR && thru.cy < thru.bar - 10 && thru.cy > thru.top && thru.w < gap * .5, 'at the posts the ball is between the uprights and above the bar, and small enough to fit clearly (' + Math.round(thru.w) + 'px in a ' + Math.round(gap) + 'px gap)');
   await at(2300); const past = await posts(), z2 = (await ball()).z;
   ok(past.w < thru.w * .7 && z2 < -500 && past.cy < past.bar && past.cx > past.upL && past.cx < past.upR, 'it carries on beyond the posts, smaller still (' + Math.round(past.w) + 'px), seen through them');
   await at(3900);
