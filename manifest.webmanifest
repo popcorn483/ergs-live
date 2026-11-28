@@ -1,7 +1,7 @@
 {
- "name": "ERGS Rugby Live",
- "short_name": "ERGS Live",
- "description": "Live scores, fixtures and results for Enniskillen Royal Grammar School rugby.",
+ "name": "ERGS Rugby",
+ "short_name": "ERGS Rugby",
+ "description": "Enniskillen Royal Grammar School rugby in one app: live scores, fixtures and results, and the team app for players, parents and coaches.",
  "id": "./",
  "start_url": "./",
  "scope": "./",
@@ -11,7 +11,7 @@
    "auto"
   ]
  },
-  "handle_links": "preferred",
+ "handle_links": "preferred",
  "display": "standalone",
  "background_color": "#0F1530",
  "theme_color": "#0F1530",
@@ -31,6 +31,32 @@
    "sizes": "512x512",
    "type": "image/png",
    "purpose": "maskable"
+  }
+ ],
+ "shortcuts": [
+  {
+   "name": "ERGS Live: scores and fixtures",
+   "short_name": "ERGS Live",
+   "url": "./?side=live",
+   "icons": [
+    {
+     "src": "icons/icon-192.png",
+     "sizes": "192x192",
+     "type": "image/png"
+    }
+   ]
+  },
+  {
+   "name": "Team app: players, parents and coaches",
+   "short_name": "Team app",
+   "url": "./app/",
+   "icons": [
+    {
+     "src": "icons/icon-192.png",
+     "sizes": "192x192",
+     "type": "image/png"
+    }
+   ]
   }
  ]
 }

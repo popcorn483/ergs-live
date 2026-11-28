@@ -3625,7 +3625,7 @@ const gaWhere = () => { const ua = navigator.userAgent, ios = /iPhone|iPad|iPod/
     installed:matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || document.referrer.startsWith('android-app://')}; };
 const GA_SHARE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3m0 0L8 7m4-4l4 4"/><path d="M6 11H5v10h14V11h-1"/></svg>';
 const gaSteps = l => `<ol class="ga-steps">${l.map(x => `<li><span>${x}</span></li>`).join('')}</ol>`;
-const GA_IOS = ['Tap the <b>Share</b> button <i class="ga-ic">' + GA_SHARE + '</i> at the bottom of Safari.', 'Scroll down and tap <b>Add to Home Screen</b>.', 'Tap <b>Add</b>. ERGS Live is now on your home screen.'];
+const GA_IOS = ['Tap the <b>Share</b> button <i class="ga-ic">' + GA_SHARE + '</i> at the bottom of Safari.', 'Scroll down and tap <b>Add to Home Screen</b>.', 'Tap <b>Add</b>. The <b>ERGS Rugby</b> icon is now on your home screen: ERGS Live and the team app in one.'];
 const GA_AND = ['Open this page in <b>Chrome</b>.', 'Tap the <b>⋮</b> menu at the top right.', 'Tap <b>Add to Home screen</b>, then <b>Install</b>.'];
 function gaInstall(w){
   if (w.installed) return `<p class="ga-done"><b>✓ Installed.</b> You’re using the ERGS Live app.</p>`;
@@ -3727,7 +3727,7 @@ async function pushOn(teams, kinds){ kinds = kinds && kinds.length ? kinds : pus
 const PUSH_IN_APP = (() => { try { if (document.referrer.startsWith('android-app://')) sessionStorage.setItem('ergs.twa', '1'); return sessionStorage.getItem('ergs.twa') === '1'; } catch(e){ return false; } })();
 function pushBlocked(teams, kinds){
   const and = /Android/i.test(navigator.userAgent), ios = pushIOS(), alone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  const steps = and && PUSH_IN_APP ? ['Press and hold the <b>ERGS Live</b> icon on your home screen and tap <b>App info</b> (the ⓘ).', 'Tap <b>Notifications</b> and switch on <b>Allow notifications</b>.', 'Come back here and press <b>Try again</b>.']
+  const steps = and && PUSH_IN_APP ? ['Press and hold the <b>ERGS Rugby</b> icon on your home screen and tap <b>App info</b> (the ⓘ).', 'Tap <b>Notifications</b> and switch on <b>Allow notifications</b>.', 'Come back here and press <b>Try again</b>.']
     : and ? ['Tap the <b>icon at the left of the address bar</b> (or <b>⋮</b> › <b>ⓘ</b>), then <b>Permissions</b>.', 'Tap <b>Notifications</b> and choose <b>Allow</b>. If Chrome itself is silenced, your phone will offer to switch that on too.', 'Press <b>Try again</b>.']
     : ios ? ['Open the iPhone’s <b>Settings</b>, then <b>Notifications</b>.', 'Tap <b>ERGS Live</b> and switch on <b>Allow Notifications</b>.', 'Come back and press <b>Try again</b>.']
     : ['Click the <b>icon at the left of the address bar</b>.', 'Set <b>Notifications</b> to <b>Allow</b>.', 'Press <b>Try again</b>.'];
@@ -3742,7 +3742,7 @@ const PUSH_BELL = '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="
 async function pushDialog(pre){
   pushPopHide(); pre = Array.isArray(pre) ? pre.filter(k => TEAM_NAMES[k]) : null;
   if (!pushOK()){ openDialog(`<div class="pa-head"><span class="pa-ic">${PUSH_BELL}</span><div><h2>Match alerts</h2><p>${pushIOS() ? 'One step first on an iPhone or iPad.' : 'This browser can’t show notifications from ERGS Live.'}</p></div></div>
-      ${pushIOS() ? '<ol class="pa-steps"><li>Open ERGS Live in <b>Safari</b>.</li><li>Press <b>Share</b>, then <b>Add to Home Screen</b>.</li><li>Open ERGS Live from the new icon and press the bell again.</li></ol>' : '<p class="hint">On Android, use Chrome or the ERGS Live app. On a computer, use Chrome, Edge or Firefox.</p>'}
+      ${pushIOS() ? '<ol class="pa-steps"><li>Open ERGS Live in <b>Safari</b>.</li><li>Press <b>Share</b>, then <b>Add to Home Screen</b>.</li><li>Open the new <b>ERGS Rugby</b> icon and press the bell again.</li></ol>' : '<p class="hint">On Android, use Chrome or the ERGS Live app. On a computer, use Chrome, Edge or Firefox.</p>'}
       <div class="dlg-a"><span style="flex:1"></span><button type="button" class="btn primary" data-close>OK</button></div>`); return; }
   const sub = await pushSub(), on = !!sub && Notification.permission === 'granted', mine = new Set(!on && pre && pre.length ? pre : pushTeams()), codes = Object.keys(TEAM_NAMES), kd = new Set(pushKinds(on));
   openDialog(`<div class="pa-head"><span class="pa-ic${on ? ' on' : ''}">${PUSH_BELL}</span><div><h2>Match alerts</h2><p>${on ? 'Alerts are <b>on</b> for this phone.' : COACH ? 'Notifications on this phone: before kick-off, so you can open ERGS Live, press Kick off and keep the score, and whatever else you tick.' : 'Notifications on this phone for the teams you follow. Tick what you want to hear about.'}</p></div></div>
