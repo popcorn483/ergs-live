@@ -34,6 +34,13 @@ function ballTexture(){
   // no lacing: a rugby ball has none
   const t = new THREE.CanvasTexture(c); if ('colorSpace' in t) t.colorSpace = 'srgb'; else t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
 }
+// the navy post protector, with ERGS reading down it in white
+function padTexture(){
+  const c = document.createElement('canvas'); c.width = 128; c.height = 512; const g = c.getContext('2d');
+  g.fillStyle = '#121a3d'; g.fillRect(0, 0, 128, 512); g.fillStyle = '#ffffff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '800 104px "Big Shoulders Display","Barlow Condensed","Arial Narrow",Arial,sans-serif';
+  'ERGS'.split('').forEach((ch, i) => g.fillText(ch, 64, 76 + i*120));
+  const t = new THREE.CanvasTexture(c); if ('colorSpace' in t) t.colorSpace = 'srgb'; else t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; return t;
+}
 function pitchTexture(){
   const S = 1024, c = document.createElement('canvas'); c.width = c.height = S; const g = c.getContext('2d'), M = S/80;   // 80 m square, try line across the middle
   for (let i = 0; i < 16; i++){ g.fillStyle = i % 2 ? '#22853b' : '#1e7634'; g.fillRect(0, i*S/16, S, S/16); }          // mown stripes
@@ -55,9 +62,9 @@ function build(){
   const pitch = new T.Mesh(new T.PlaneGeometry(80, 80), pm); pitch.rotation.x = -Math.PI/2; scene.add(pitch);
   // rugby posts: an H, with a navy pad round the foot of each upright
   const posts = new T.Group(), white = new T.MeshStandardMaterial({color:0xffffff, roughness:.45, emissive:0xffe9b0, emissiveIntensity:0});
-  const cyl = (rad, len) => new T.Mesh(new T.CylinderGeometry(rad, rad, len, 14), white);
+  const cyl = (rad, len) => new T.Mesh(new T.CylinderGeometry(rad, rad, len, 14), white), padTex = padTexture(), side = new T.MeshLambertMaterial({map:padTex, emissive:0x1a2140, emissiveMap:padTex, emissiveIntensity:.55}), cap = new T.MeshLambertMaterial({color:0x0e1433});
   [-1, 1].forEach(s => { const up = cyl(.12, POST.top); up.position.set(s*POST.half, POST.top/2, 0); posts.add(up);
-    const pad = new T.Mesh(new T.BoxGeometry(.5, 1.9, .5), new T.MeshLambertMaterial({color:0x0e1433, emissive:0x070a1c})); pad.position.set(s*POST.half, .95, 0); posts.add(pad); });
+    const pad = new T.Mesh(new T.BoxGeometry(.62, 2.2, .62), [side, side, cap, cap, side, side]); pad.position.set(s*POST.half, 1.1, 0); posts.add(pad); });   // ERGS on all four sides, plain top and bottom
   const bar = cyl(.11, POST.half*2); bar.rotation.z = Math.PI/2; bar.position.set(0, POST.bar, 0); posts.add(bar); scene.add(posts);
   // the ball: a sphere stretched along one axis, smooth, white with gold bands
   const ball = new T.Mesh(new T.SphereGeometry(R, 40, 28), new T.MeshStandardMaterial({map:ballTexture(), roughness:.5, metalness:.02})); ball.scale.set(1, 1.55, 1);
