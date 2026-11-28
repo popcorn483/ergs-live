@@ -2601,7 +2601,7 @@ function tryVar(m, e){
   return TRY_VARS[(h + n) % TRY_VARS.length];
 }
 function tryScene(m, e, team){
-  const v = tryVar(m, e), ball = '<svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#F6EFDF" stroke="#5a3a1a" stroke-width="2"/><path d="M8 20h44" stroke="#C8102E" stroke-width="3"/><path d="M26 14v12M30 13v14M34 14v12" stroke="#5a3a1a" stroke-width="1.6"/></svg>';
+  const v = tryVar(m, e), ball = '<svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#FFFFFF" stroke="#1C2342" stroke-width="2"/><path d="M12 8.5q6 11.5 0 23M48 8.5q-6 11.5 0 23" fill="none" stroke="#DCC08A" stroke-width="4"/><path d="M9.6 10.5q5.6 9.5 0 19M50.4 10.5q-5.6 9.5 0 19" fill="none" stroke="#1C2342" stroke-width="1.1"/><path d="M23 20h14M26 16.5v7M30 16v8M34 16.5v7" stroke="#1C2342" stroke-width="1.6" stroke-linecap="round"/></svg>';
   const extra = v === 'corner' ? '<div class="fx-streak"></div><div class="fx-flag"><i></i><b></b></div>'
     : v === 'posts' ? '<svg class="fx-tposts" viewBox="0 0 200 200" aria-hidden="true"><rect x="52" y="4" width="8" height="196" rx="3"/><rect x="140" y="4" width="8" height="196" rx="3"/><rect x="52" y="112" width="96" height="8" rx="3"/><rect class="pad" x="47" y="150" width="18" height="50" rx="3"/><rect class="pad" x="135" y="150" width="18" height="50" rx="3"/></svg>'
     : v === 'step' ? '<div class="fx-def a"><i></i></div><div class="fx-def b"><i></i></div><svg class="fx-trail" viewBox="0 0 320 120" aria-hidden="true"><path pathLength="1" d="M-50 96 L 18 60 L 88 112 L 146 74 L 186 104"/></svg>'
@@ -2627,7 +2627,7 @@ function playFx(){
   fx.classList.toggle('kick', kickIn); fx.classList.toggle('cardfx', card); fx.classList.toggle('tryfx', tryIn);
   $('#fxCrest').innerHTML = card ? `<div class="fx-cardwrap"><div class="fx-rings"><i></i><i></i><i></i></div><div class="fx-card ${e.k}"><span></span></div></div>`
     : kickIn ? `<div class="fx-posts"><svg viewBox="0 0 200 230" aria-hidden="true"><rect class="up" x="56" y="6" width="7" height="224" rx="3"/><rect class="up" x="137" y="6" width="7" height="224" rx="3"/><rect class="bar" x="56" y="132" width="88" height="7" rx="3"/><rect class="pad" x="52" y="170" width="15" height="60" rx="3"/><rect class="pad" x="133" y="170" width="15" height="60" rx="3"/></svg>
-        <div class="fx-ball"><svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#F6EFDF" stroke="#5a3a1a" stroke-width="2"/><path d="M8 20h44" stroke="#C8102E" stroke-width="3"/><path d="M26 14v12M30 13v14M34 14v12" stroke="#5a3a1a" stroke-width="1.6"/></svg></div><div class="fx-crestmini">${crest(team)}</div></div>`
+        <div class="fx-ball"><svg viewBox="0 0 60 40" aria-hidden="true"><ellipse cx="30" cy="20" rx="28" ry="17" fill="#FFFFFF" stroke="#1C2342" stroke-width="2"/><path d="M12 8.5q6 11.5 0 23M48 8.5q-6 11.5 0 23" fill="none" stroke="#DCC08A" stroke-width="4"/><path d="M9.6 10.5q5.6 9.5 0 19M50.4 10.5q-5.6 9.5 0 19" fill="none" stroke="#1C2342" stroke-width="1.1"/><path d="M23 20h14M26 16.5v7M30 16v8M34 16.5v7" stroke="#1C2342" stroke-width="1.6" stroke-linecap="round"/></svg></div><div class="fx-crestmini">${crest(team)}</div></div>`
     : tryIn ? tryScene(m, e, team)
     : crest(team, 'huge');
   let li = 0; $('#fxKind').innerHTML = lab.split(' ').map(w => `<span class="w">${w.split('').map(c => `<span style="--i:${li++}">${esc(c)}</span>`).join('')}</span>`).join('<span style="--i:0">&nbsp;</span>');
