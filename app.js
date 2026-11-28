@@ -2060,7 +2060,11 @@ function vidBulk(){
       closeDialog(); render(); toast(`${ok} ${ok === 1 ? 'video' : 'videos'} saved.`); };
     sync(); });
 }
-function openDialog(html, onOpen){ $('#dialog').innerHTML = html; $('#modal').hidden = false; $$('#dialog [data-close]').forEach(b => b.onclick = closeDialog); if (onOpen) onOpen($('#dialog')); const f = $('#dialog input, #dialog button.btn.primary'); f && f.focus(); }
+/* A popup you type into opens at the TOP of a phone screen, not as a sheet at the bottom, so the on-screen keyboard cannot cover
+   the box or its buttons (28 November 2026). The popup is also kept inside the part of the screen the keyboard leaves visible. */
+function dlgFit(){ const m = $('#modal'), vv = window.visualViewport; if (!m || m.hidden || !vv) return; m.style.setProperty('--vvh', Math.round(vv.height) + 'px'); m.style.setProperty('--vvt', Math.round(vv.offsetTop) + 'px'); }
+if (window.visualViewport){ visualViewport.addEventListener('resize', dlgFit); visualViewport.addEventListener('scroll', dlgFit); }
+function openDialog(html, onOpen){ $('#dialog').innerHTML = html; $('#modal').hidden = false; $('#modal').classList.toggle('typing', !!$('#dialog input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="hidden"]), #dialog textarea')); dlgFit(); $$('#dialog [data-close]').forEach(b => b.onclick = closeDialog); if (onOpen) onOpen($('#dialog')); const f = $('#dialog input, #dialog button.btn.primary'); f && f.focus(); }
 function closeDialog(){ $('#modal').hidden = true; $('#dialog').innerHTML = ''; if (pendingRender){ pendingRender = false; render(); } }
 let pendingRender = false;
 $('#modal').addEventListener('click', e => { if (e.target.id === 'modal') closeDialog(); });

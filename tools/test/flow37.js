@@ -27,6 +27,15 @@ let fails = 0; const ok = (c, m) => { console.log((c ? '  ok   ' : '  FAIL ') + 
   ok(c1.h === 'Conversion' && / con/.test(c1.cls) && c1.svg !== t1.svg && !c1.seg && c1.btns.join() === 'No kick,Missed,Scored', 'then the conversion: its own picture, and just No kick / Missed / Scored (no separate Scored/Missed switch)');
   await p.click('#evMiss'); await p.waitForTimeout(1500);
   ok((await lv(p, () => DATA.matches.find(y => y.id === 'tlA').events.slice(-2).map(e => e.k + ':' + e.p + (e.miss ? ':miss' : '')))).join() === 'try:Gus Hart,con:Cal Weir:miss', 'Missed saves the try and a missed conversion by the remembered kicker');
+  // on a phone the popup you type into is at the top, clear of the on-screen keyboard
+  { await dlg('con', 'H'); const g = await p.evaluate(() => { const r = e => e.getBoundingClientRect(), d = r(document.querySelector('#dialog')); return {top:d.top, bottom:d.bottom, who:r(document.querySelector('#evWho')).bottom, btn:Math.max(...[...document.querySelectorAll('.ev-a .btn')].map(b => r(b).bottom)), h:innerHeight, typing:document.querySelector('#modal').classList.contains('typing')}; });
+    ok(g.typing && g.top < 40 && g.who < g.h * .4 && g.btn < g.h * .5, 'the add-score popup opens at the top of the phone screen: the box ends ' + Math.round(g.who) + 'px down and the buttons ' + Math.round(g.btn) + 'px down a ' + g.h + 'px screen, above where a keyboard comes up');
+    await p.evaluate(() => { Object.defineProperty(visualViewport, 'height', {configurable:true, get:() => 420}); visualViewport.dispatchEvent(new Event('resize')); }); await p.waitForTimeout(150);
+    const k = await p.evaluate(() => { const d = document.querySelector('#dialog').getBoundingClientRect(), m = document.querySelector('#modal').getBoundingClientRect(); return {mh:Math.round(m.height), bottom:d.bottom}; });
+    ok(k.mh === 420 && k.bottom <= 420, 'when the keyboard takes the bottom half, the popup stays inside the part still showing (' + k.mh + 'px)');
+    await p.evaluate(() => { delete visualViewport.height; visualViewport.dispatchEvent(new Event('resize')); }); await p.click('#evSkip'); await p.waitForTimeout(300);
+    await lv(p, () => ask('End the match?', 'This cannot be undone.', 'End', () => {})); await p.waitForTimeout(300);
+    ok(await p.evaluate(() => !document.querySelector('#modal').classList.contains('typing') && document.querySelector('#dialog').getBoundingClientRect().bottom > innerHeight - 5), 'a popup with nothing to type stays as a sheet at the bottom, by the thumb'); await lv(p, () => closeDialog()); await p.waitForTimeout(200); }
   const y1 = await dlg('yc', 'A'); ok(y1.ico && y1.h === 'Yellow card' && y1.btns.join() === 'Cancel,Add', 'a card has its own picture and one Add button'); await p.click('#evSkip'); await p.waitForTimeout(300);
   ok(!p.errs.length, 'no page errors ' + p.errs.join(' | '));
   await lv(p, () => save(d => { d.matches = d.matches.filter(m => m.id !== 'tlA'); }));

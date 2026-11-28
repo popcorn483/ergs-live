@@ -226,6 +226,10 @@ textarea.input{resize:vertical;line-height:1.4}
 .modal{position:fixed;inset:0;z-index:60;background:rgba(5,8,20,.72);display:flex;align-items:flex-end;justify-content:center;padding:max(12px,env(safe-area-inset-top,0px)) max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));backdrop-filter:blur(3px)}
 .dialog{width:min(560px,100%);max-height:calc(100vh - 24px);overflow:auto;background:var(--panel);border:1px solid var(--rule);border-bottom:0;border-radius:16px 16px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));display:grid;gap:12px;animation:rise .22s ease}
 @media (min-width:640px){.modal{align-items:center;padding-bottom:12px}.dialog{border-radius:16px;border-bottom:1px solid var(--rule)}}
+/* a popup with a box to type in sits at the top on a phone, clear of the keyboard, and never taller than what the keyboard leaves */
+.modal{height:var(--vvh,100%);top:var(--vvt,0);bottom:auto}.dialog{max-height:calc(var(--vvh,100vh) - 24px)}
+@media (max-width:639.98px){.modal.typing{align-items:flex-start;padding-bottom:12px}.modal.typing .dialog{border-radius:16px;border-bottom:1px solid var(--rule);padding-bottom:18px;animation:drop .2s ease}}
+@keyframes drop{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:none}}
 @keyframes rise{from{transform:translateY(24px);opacity:0}}
 .dialog h2{margin:0;font-family:var(--f-display);font-weight:900;font-size:28px;text-transform:uppercase;line-height:1;text-wrap:balance}
 .dialog p{margin:0;color:var(--mute)}
@@ -527,6 +531,7 @@ body.dr-lock{overflow:hidden}
   background:repeating-linear-gradient(90deg,#1f7a36 0 26px,#22883c 26px 52px);box-shadow:0 18px 40px rgba(0,0,0,.5);overflow:hidden}
 .fx-turf i{position:absolute;top:0;bottom:0;left:46%;width:7px;background:#fff;box-shadow:0 0 14px rgba(255,255,255,.7)}
 .fx-turf b{position:absolute;inset:0 0 0 calc(46% + 7px);background:rgba(255,255,255,.06)}
+.fx.tryfx.on .fx-turf i{animation:tlinegold .45s .9s ease 3}@keyframes tlinegold{50%{background:#F2B31F;box-shadow:0 0 22px #F2B31F,0 0 6px #fff}}   /* the whole try line flashes gold when the ball is grounded */
 .fx-tball{position:absolute;left:58%;bottom:34px;width:64px;aspect-ratio:60/40;margin-left:-32px;opacity:0;z-index:2}
 .fx-tball svg{width:100%;height:100%;display:block;filter:drop-shadow(0 8px 10px rgba(0,0,0,.55))}
 .fx.on .fx-tball{animation:dive .75s .15s cubic-bezier(.5,0,.85,.4) forwards,squash .35s .9s ease-out forwards}
@@ -847,11 +852,11 @@ details.rg-cd>summary>b{display:grid;gap:3px;position:relative;padding-right:22p
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = 'e087c6d158';</script>
-<script src="config.js?v=e087c6d158"></script>
-<script src="crest.js?v=e087c6d158"></script>
-<script src="app.js?v=e087c6d158"></script>
-<script src="icons.js?v=e087c6d158"></script>
-<script type="module" src="fb.js?v=e087c6d158"></script>
+<script>window.ERGS_VER = 'a91aec99f0';</script>
+<script src="config.js?v=a91aec99f0"></script>
+<script src="crest.js?v=a91aec99f0"></script>
+<script src="app.js?v=a91aec99f0"></script>
+<script src="icons.js?v=a91aec99f0"></script>
+<script type="module" src="fb.js?v=a91aec99f0"></script>
 </body>
 </html>

@@ -22,9 +22,12 @@ const M = k => ({id:'tvA', team:'1XV', home:'ERGS', away:'Portora', status:'1H',
     let lit = 0; try { const W = cv.width, H = cv.height, px = new Uint8Array(4), pts = [[.5, .15], [.5, .5], [.2, .2], [.8, .3], [.5, .08]]; pts.forEach(([x, y]) => { g.readPixels(Math.floor(W*x), Math.floor(H*y), 1, 1, g.RGBA, g.UNSIGNED_BYTE, px); if (px[3] > 0) lit++; }); } catch(e){ lit = -1; }
     return {w, lit, cvw:cv.clientWidth, cvh:cv.clientHeight, kind:q('#fxKind').textContent, kindOn:+cs(q('#fxKind span span') || q('#fxKind span')).opacity, who:q('#fxWho').textContent, crest:q('.fx-trycrest') ? +cs(q('.fx-trycrest')).opacity : null, d3:q('#fx').classList.contains('d3'), flat:!!q('#fx .fx-tball, #fx .fx-ball')}; }, ms);
   const done = async () => { await p.evaluate(() => { document.getAnimations().forEach(a => a.play()); document.querySelector('#fx').click(); }); await p.waitForTimeout(900); };
+  const FXI = await p.evaluate(() => Object.fromEntries(['dive', 'posts', 'chase'].map(v => [v, FX3D.info('try-' + v).impact])));
   for (const v of order.all){ await play('try', v); const a = await at(300), g = await at(1420), e = await at(2700);
     ok(a.d3 && !a.flat && a.cvw > 300 && a.lit !== 0 && a.w.name === 'try-' + v, v + ': drawn in 3D on a ' + a.cvw + '×' + a.cvh + ' canvas' + (a.lit > 0 ? ' (the picture has content)' : ''));
     ok(a.w.world[1] > 1.2 && g.w.world[1] < .95 && g.w.world[2] < 0 && a.kindOn < .1 && a.crest < .1, v + ': the ball is in the air at 0.3s and on the ground over the try line by 1.4s; the words wait for it');
+    const fl = (await at(Math.round(FXI[v]*1000) + 170)).w.line;
+    ok(a.w.line === 0 && fl > .7 && e.w.line === 0, v + ': the try line is plain, flashes gold when the ball is grounded (' + fl + '), and goes back');
     ok(e.crest > .9 && /TRY!/.test(e.kind) && e.kindOn > .9 && /Gus Hart/.test(e.who), v + ': then the crest, TRY! and the scorer'); await done(); }
   await play('con', ''); { const a = await at(200), o = await at(1350), e = await at(2700);
     ok(a.d3 && !a.flat && a.w.name === 'kick' && a.w.world[2] > 10 && a.w.world[1] < 1.5, 'conversion: in 3D, starting with the ball on the tee in front of the posts');

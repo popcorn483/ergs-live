@@ -5,6 +5,7 @@
      try-chase   a kick ahead: two bounces down the pitch, then it is grounded over the line, seen from the side
      kick        a kick at goal from behind the kicker: off the tee, up, and over the bar between the uprights; the posts flash gold
      kick-miss   the same kick drifting wide of the right-hand upright; the posts flash red
+   When a try is grounded the whole try line flashes gold.
    Every scene is a pure function of time (nothing is accumulated frame to frame), so it can be stepped to an exact moment.
    FX3D.play(holder, name) starts one and returns {impact, dur, stop()}; FX3D.can() says whether this device can draw it.
    One renderer and one set of models are built on first use and reused. */
@@ -60,6 +61,8 @@ function build(){
   const pm = new T.MeshLambertMaterial({map:pitchTexture(), transparent:true});
   { const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d'), gr = g.createRadialGradient(128, 128, 50, 128, 128, 128); gr.addColorStop(0, '#fff'); gr.addColorStop(1, '#000'); g.fillStyle = gr; g.fillRect(0, 0, 256, 256); pm.alphaMap = new T.CanvasTexture(c); }
   const pitch = new T.Mesh(new T.PlaneGeometry(80, 80), pm); pitch.rotation.x = -Math.PI/2; scene.add(pitch);
+  // the try line again, as a strip of its own lying on the painted one: it flashes gold from touchline to touchline when a try is scored
+  const tline = new T.Mesh(new T.PlaneGeometry(80, .5), new T.MeshBasicMaterial({color:0xF2B31F, transparent:true, opacity:0, depthWrite:false})); tline.rotation.x = -Math.PI/2; tline.position.set(0, .035, 0); scene.add(tline);
   // rugby posts: an H, with a navy pad round the foot of each upright
   const posts = new T.Group(), white = new T.MeshStandardMaterial({color:0xffffff, roughness:.45, emissive:0xffe9b0, emissiveIntensity:0});
   const cyl = (rad, len) => new T.Mesh(new T.CylinderGeometry(rad, rad, len, 14), white), padTex = padTexture(), side = new T.MeshLambertMaterial({map:padTex, emissive:0x1a2140, emissiveMap:padTex, emissiveIntensity:.55}), cap = new T.MeshLambertMaterial({color:0x0e1433});
@@ -77,7 +80,7 @@ function build(){
   const N = 46, pos = new Float32Array(N*3), seed = []; for (let i = 0; i < N; i++){ const a = Math.random()*Math.PI*2, v = 1.6 + Math.random()*3.2; seed.push([Math.cos(a)*v, 3 + Math.random()*4.5, Math.sin(a)*v]); }
   const pg = new T.BufferGeometry(); pg.setAttribute('position', new T.BufferAttribute(pos, 3));
   const turf = new T.Points(pg, new T.PointsMaterial({color:0x8fe3a3, size:.2, transparent:true, opacity:0, depthWrite:false})); scene.add(turf);
-  return G = {T, r, scene, cam, posts, white, tint:new T.Color(), ball, spin, shadow, tee, ring, ring2, turf, seed, N, look:new T.Vector3()};
+  return G = {T, r, scene, cam, posts, white, tline, tint:new T.Color(), ball, spin, shadow, tee, ring, ring2, turf, seed, N, look:new T.Vector3()};
 }
 
 /* what every scene sets, each frame: where the ball is and how it is turned, the camera, and the extras */
@@ -90,6 +93,7 @@ function apply(S){
   g.posts.visible = S.posts !== false;
   // the posts flash: gold when the kick is good or the try is scored under them, red when a kick is missed
   { const f = clamp(S.glow || 0, 0, 1), hue = S.red ? 0xE0160C : 0xE2A21C; g.white.color.set(0xffffff).lerp(g.tint.set(hue), Math.min(1, f*1.25)); g.white.emissive.set(hue); g.white.emissiveIntensity = f*(S.red ? .6 : .3); }
+  g.tline.material.opacity = clamp(S.line || 0, 0, 1); g.tline.visible = (S.line || 0) > .01; g.tline.scale.y = 1 + (S.line || 0)*.9;
   const k = S.hit;   // seconds since the ball was grounded (or negative)
   [g.ring, g.ring2].forEach((rg, i) => { const u = u01(k, i*.12, .75 + i*.12); rg.visible = k > i*.12 && u < 1; rg.position.x = S.spot[0]; rg.position.z = S.spot[2]; rg.scale.setScalar(.6 + u*3.2); rg.material.opacity = (1 - u)*.9; });
   const P = g.turf.geometry.attributes.position; g.turf.visible = !S.noTurf && k > 0 && k < 1; g.turf.material.opacity = k > 0 ? clamp(1 - k, 0, 1) : 0;
@@ -104,15 +108,15 @@ const hop = k => k > .12 && k < .5 ? .28*Math.sin((k - .12)/.38*Math.PI) : 0;
 const SCENES = {
   /* low beside the try line: the ball drops in from up the pitch and is grounded just over the line */
   'try-dive': {impact:1.25, dur:4.3, at(t){ const I = 1.25, u = u01(t, .05, I), k = t - I, spot = [0, R, -1.6], p = u < 1 ? arc([-4.6, 2.2, 4.4], spot, u, 2.9) : [spot[0], R + hop(k), spot[2]];
-    const c = ease(u01(t, 0, 2.4)); return {ball:p, rot:[u < 1 ? -u*9 : 1.35, .5, u < 1 ? u*2 : 1.35], sq:settle(k), spot, hit:k, cam:[lerp(7.5, 5.2, c), lerp(2.3, 1.5, c), lerp(6.5, 3.6, c)], at:[-.4, .7, -1.2], posts:false}; }},
+    const c = ease(u01(t, 0, 2.4)); return {ball:p, rot:[u < 1 ? -u*9 : 1.35, .5, u < 1 ? u*2 : 1.35], sq:settle(k), spot, hit:k, line:flash(k), cam:[lerp(7.5, 5.2, c), lerp(2.3, 1.5, c), lerp(6.5, 3.6, c)], at:[-.4, .7, -1.2], posts:false}; }},
   /* in front of the posts: the ball comes in under the bar and is grounded between the uprights */
   'try-posts': {impact:1.25, dur:4.3, at(t){ const I = 1.25, u = u01(t, .1, I), k = t - I, spot = [0, R, -2.2], p = u < 1 ? arc([6.5, 2.6, 13], spot, u, 2.4) : [spot[0], R + hop(k), spot[2]];
-    const c = ease(u01(t, 0, 2.4)); return {ball:p, rot:[u < 1 ? -u*8 : 1.35, 0, u < 1 ? .6 : 1.2], sq:settle(k), spot, hit:k, glow:flash(k), cam:[lerp(-2.2, -1, c), lerp(1.3, 1.7, c), lerp(15, 11.5, c)], at:[0, 2.5, -1]}; }},
+    const c = ease(u01(t, 0, 2.4)); return {ball:p, rot:[u < 1 ? -u*8 : 1.35, 0, u < 1 ? .6 : 1.2], sq:settle(k), spot, hit:k, line:flash(k), glow:flash(k), cam:[lerp(-2.2, -1, c), lerp(1.3, 1.7, c), lerp(15, 11.5, c)], at:[0, 2.5, -1]}; }},
   /* from the side: a kick ahead bounces twice and is grounded over the line */
   'try-chase': {impact:1.35, dur:4.4, at(t){ const I = 1.35, k = t - I, spot = [0, R, -1.8], A = [-1, 4.5, 13], B1 = [-.6, R, 7.2], B2 = [-.2, R, 2.6]; let p, sq = [1, 1];
     if (t < .55) p = arc(A, B1, Math.pow(u01(t, .05, .55), 1.5), .2); else if (t < 1) p = arc(B1, B2, u01(t, .55, 1), 1.9); else if (t < I) p = arc(B2, spot, u01(t, 1, I), .9); else p = [spot[0], R + hop(k), spot[2]];
     [.55, 1].forEach(b => { const d = t - b; if (d > 0 && d < .1) sq = [1.18, .8]; }); if (k >= 0) sq = settle(k);
-    const c = ease(u01(t, 0, 2.6)); return {ball:p, rot:[t < I ? -t*7.5 : 1.35, 0, .25], sq, spot, hit:k, cam:[lerp(11, 8.5, c), lerp(2.6, 1.9, c), lerp(6, 2.5, c)], at:[0, .9, lerp(4.5, -.6, c)], posts:false}; }},
+    const c = ease(u01(t, 0, 2.6)); return {ball:p, rot:[t < I ? -t*7.5 : 1.35, 0, .25], sq, spot, hit:k, line:flash(k), cam:[lerp(11, 8.5, c), lerp(2.6, 1.9, c), lerp(6, 2.5, c)], at:[0, .9, lerp(4.5, -.6, c)], posts:false}; }},
   /* behind the kicker: off the tee, up, and over the bar between the uprights */
   'kick': {impact:1.35, dur:4, at(t){ return kick(t, 0); }},
   'kick-miss': {impact:1.35, dur:3.6, at(t){ return kick(t, 4.4); }}
@@ -147,5 +151,5 @@ FX3D.play = function(holder, name){
 FX3D.stop = function(){ const run = FX3D.cur; FX3D.cur = null; if (run) cancelAnimationFrame(run.raf); if (G && G.r.domElement.parentNode) G.r.domElement.parentNode.removeChild(G.r.domElement); };
 // where the ball is on screen right now, as fractions of the canvas (for checks)
 FX3D.where = function(){ if (!G || !FX3D.cur) return null; const v = G.spin.position.clone().project(G.cam), pv = n => { const q = new THREE.Vector3(n[0], n[1], n[2]).project(G.cam); return [(q.x + 1)/2, (1 - q.y)/2]; };
-  return {x:(v.x + 1)/2, y:(1 - v.y)/2, world:[G.spin.position.x, G.spin.position.y, G.spin.position.z], upL:pv([-POST.half, POST.bar, 0]), upR:pv([POST.half, POST.bar, 0]), top:pv([0, POST.top, 0]), post:'#' + G.white.color.getHexString(), t:FX3D.cur.t, name:FX3D.cur.name}; };
+  return {x:(v.x + 1)/2, y:(1 - v.y)/2, world:[G.spin.position.x, G.spin.position.y, G.spin.position.z], upL:pv([-POST.half, POST.bar, 0]), upR:pv([POST.half, POST.bar, 0]), top:pv([0, POST.top, 0]), line:+G.tline.material.opacity.toFixed(2), post:'#' + G.white.color.getHexString(), t:FX3D.cur.t, name:FX3D.cur.name}; };
 })();
