@@ -11,6 +11,7 @@
    "auto"
   ]
  },
+  "handle_links": "preferred",
  "display": "standalone",
  "background_color": "#0F1530",
  "theme_color": "#0F1530",
