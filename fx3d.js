@@ -2,7 +2,8 @@
    A small pitch, a set of rugby posts with navy pads and a smooth white ball with gold bands, drawn with three.js. Six scenes:
      try-dive    the ball drops in over the try line and is grounded in the in-goal, seen from low beside the line
      try-posts   it comes in under the crossbar and is grounded between the posts, seen from in front of them
-     try-chase   a kick ahead: two bounces down the pitch, then it is grounded over the line, seen from the side
+     try-carry   it is carried in level at waist height, over the line, and pressed down, seen from above and behind
+   In every try the ball touches the ground once, where it is grounded, and stays there: no bounce, which would read as a knock-on.
      kick        a kick at goal from behind the kicker: off the tee, up, and over the bar between the uprights; the posts flash gold
      kick-miss   the same kick drifting wide of the right-hand upright; the posts and the ball flash red
    When a try is grounded the whole try line flashes gold.
@@ -101,24 +102,26 @@ function apply(S){
   const P = g.turf.geometry.attributes.position; g.turf.visible = !S.noTurf && k > 0 && k < 1; g.turf.material.opacity = k > 0 ? clamp(1 - k, 0, 1) : 0;
   if (g.turf.visible){ for (let i = 0; i < g.N; i++){ const s = g.seed[i]; P.setXYZ(i, S.spot[0] + s[0]*k, Math.max(.03, s[1]*k - 6.5*k*k), S.spot[2] + s[2]*k); } P.needsUpdate = true; }
 }
-// the ball settling after it is grounded: a squash, then one small hop that dies away
 // three quick flashes over about a second, each a little weaker than the last
 const flash = k => k < 0 || k > 1.05 ? 0 : Math.abs(Math.sin(k/.35*Math.PI))*(1 - k/1.4);
-const settle = k => k < 0 ? [1, 1] : k < .12 ? [1 + .22*(1 - k/.12)*1, 1 - .26*(1 - k/.12)] : [1, 1];
-const hop = k => k > .12 && k < .5 ? .28*Math.sin((k - .12)/.38*Math.PI) : 0;
-
+/* Grounding a try: the ball is pressed down and STAYS down. It never touches the ground before that moment and never leaves it
+   afterwards: a ball that bounces or pops back up reads as a knock-on, not a try. All that happens is a slight press for a
+   moment as it is held on the turf. */
+const settle = k => k < 0 || k > .22 ? [1, 1] : [1 - .1*(1 - k/.22), 1 + .05*(1 - k/.22)];
+const down = (spot, k) => [spot[0], R*(k >= 0 && k < .22 ? 1 - .1*(1 - k/.22) : 1), spot[2]];
 const SCENES = {
   /* low beside the try line: the ball drops in from up the pitch and is grounded just over the line */
-  'try-dive': {impact:1.25, dur:4.3, at(t){ const I = 1.25, u = u01(t, .05, I), k = t - I, spot = [0, R, -1.6], p = u < 1 ? arc([-4.6, 2.2, 4.4], spot, u, 2.9) : [spot[0], R + hop(k), spot[2]];
+  'try-dive': {impact:1.25, dur:4.3, at(t){ const I = 1.25, u = u01(t, .05, I), k = t - I, spot = [0, R, -1.6], p = u < 1 ? arc([-3.4, 1.5, 3.2], spot, u, 1.1) : down(spot, k);
     const c = ease(u01(t, 0, 2.4)); return {ball:p, rot:[u < 1 ? -u*9 : 1.35, .5, u < 1 ? u*2 : 1.35], sq:settle(k), spot, hit:k, line:flash(k), cam:[lerp(7.5, 5.2, c), lerp(2.3, 1.5, c), lerp(6.5, 3.6, c)], at:[-.4, .7, -1.2], posts:false}; }},
   /* in front of the posts: the ball comes in under the bar and is grounded between the uprights */
-  'try-posts': {impact:1.25, dur:4.3, at(t){ const I = 1.25, u = u01(t, .1, I), k = t - I, spot = [0, R, -2.2], p = u < 1 ? arc([6.5, 2.6, 13], spot, u, 2.4) : [spot[0], R + hop(k), spot[2]];
+  'try-posts': {impact:1.25, dur:4.3, at(t){ const I = 1.25, u = u01(t, .1, I), k = t - I, spot = [0, R, -2.2], p = u < 1 ? arc([6.5, 2.6, 13], spot, u, 2.4) : down(spot, k);
     const c = ease(u01(t, 0, 2.4)); return {ball:p, rot:[u < 1 ? -u*8 : 1.35, 0, u < 1 ? .6 : 1.2], sq:settle(k), spot, hit:k, line:flash(k), glow:flash(k), cam:[lerp(-2.2, -1, c), lerp(2.2, 3.4, c), lerp(15, 11.5, c)], at:[0, lerp(2.4, 1.7, c), -1]}; }},   // high enough to see the try line run under the posts
-  /* from the side: a kick ahead bounces twice and is grounded over the line */
-  'try-chase': {impact:1.35, dur:4.4, at(t){ const I = 1.35, k = t - I, spot = [0, R, -1.8], A = [-1, 4.5, 13], B1 = [-.6, R, 7.2], B2 = [-.2, R, 2.6]; let p, sq = [1, 1];
-    if (t < .55) p = arc(A, B1, Math.pow(u01(t, .05, .55), 1.5), .2); else if (t < 1) p = arc(B1, B2, u01(t, .55, 1), 1.9); else if (t < I) p = arc(B2, spot, u01(t, 1, I), .9); else p = [spot[0], R + hop(k), spot[2]];
-    [.55, 1].forEach(b => { const d = t - b; if (d > 0 && d < .1) sq = [1.18, .8]; }); if (k >= 0) sq = settle(k);
-    const c = ease(u01(t, 0, 2.6)); return {ball:p, rot:[t < I ? -t*7.5 : 1.35, 0, .25], sq, spot, hit:k, line:flash(k), cam:[lerp(11, 8.5, c), lerp(2.6, 1.9, c), lerp(6, 2.5, c)], at:[0, .9, lerp(4.5, -.6, c)], posts:false}; }},
+  /* from above and behind: the ball is carried in level, at about waist height, over the line, and then pressed down */
+  'try-carry': {impact:1.3, dur:4.3, at(t){ const I = 1.3, k = t - I, spot = [0, R, -1.7], H = 1.25, u = u01(t, .05, .92), d = u01(t, .92, I); let p;
+    if (t < .92) p = [lerp(-1.6, 0, ease(u)), H + .06*Math.sin(u*Math.PI*5), lerp(9.5, -1.7, u)];           // carried, with the little rise and fall of running
+    else if (k < 0) p = [0, lerp(H, R, d*d), -1.7];                                                         // and straight down
+    else p = down(spot, k);
+    const c = ease(u01(t, 0, 2.4)); return {ball:p, rot:[k < 0 ? .25 : .1, .5, 1.35], sq:settle(k), spot, hit:k, line:flash(k), cam:[lerp(4.5, 3.2, c), lerp(6.5, 5, c), lerp(10.5, 7, c)], at:[0, .3, lerp(1.5, -1.2, c)], posts:false}; }},
   /* behind the kicker: off the tee, up, and over the bar between the uprights */
   'kick': {impact:1.35, dur:4, at(t){ return kick(t, 0); }},
   'kick-miss': {impact:1.35, dur:3.6, at(t){ return kick(t, 4.4); }}

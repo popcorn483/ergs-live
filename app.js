@@ -2593,11 +2593,12 @@ async function publishFace(name){
      Tries, taken in turn through a match so two in a row never look the same and everyone watching sees the same one:
        dive   the ball drops in over the try line and is grounded, seen from low beside the line
        posts  it comes in under the bar and is grounded between the posts (always this one for a penalty try)
-       chase  a kick ahead bounces twice and is grounded over the line, seen from the side
+       carry  it is carried in level at waist height, over the line, and pressed down, seen from above and behind
+     In every try the ball touches the ground once, where it is grounded, and stays down: a bounce would read as a knock-on.
      Kicks: from behind the kicker, off the tee and over the bar between the uprights; a miss drifts wide of the right post.
    The 3D code is fetched a moment after the page opens. Until it has arrived, and on a device that cannot draw it or has asked
    for less motion, the earlier flat pictures are used instead. */
-const TRY_VARS = ['dive', 'posts', 'chase'];
+const TRY_VARS = ['dive', 'posts', 'carry'];
 let TRY_FORCE = '';   // for checks and previews: play this one whatever the turn
 function tryVar(m, e){
   if (TRY_FORCE && TRY_VARS.includes(TRY_FORCE)) return TRY_FORCE; if (e.k === 'pt') return 'posts';

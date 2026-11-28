@@ -14,7 +14,7 @@ const M = k => ({id:'tvA', team:'1XV', home:'ERGS', away:'Portora', status:'1H',
   ok(await lv(p, () => fx3dLoad()) === true && await lv(p, () => fx3dOK()), 'the 3D code loads and this browser can draw it');
   const order = await lv(p, () => { const ev = (i, k, s) => ({id:'t' + i, k, s, p:'Gus Hart', m:i, ts:i}), m = {id:'tvA', team:'1XV', home:'ERGS', away:'Portora', events:[ev(1, 'try', 'H'), ev(2, 'con', 'H'), ev(3, 'try', 'A'), ev(4, 'try', 'H'), ev(6, 'try', 'H'), ev(9, 'pt', 'H')]};
     return {tries:m.events.filter(e => e.k === 'try').map(e => tryVar(m, e)), again:m.events.filter(e => e.k === 'try').map(e => tryVar(m, e)), pt:tryVar(m, m.events[5]), all:TRY_VARS.slice()}; });
-  ok(order.all.join() === 'dive,posts,chase' && new Set(order.tries.slice(0, 3)).size === 3 && order.tries[3] === order.tries[0] && order.tries.join() === order.again.join(), 'three 3D tries taken in turn (' + order.tries.join(' → ') + '): no two in a row the same, and the same for everyone');
+  ok(order.all.join() === 'dive,posts,carry' && new Set(order.tries.slice(0, 3)).size === 3 && order.tries[3] === order.tries[0] && order.tries.join() === order.again.join(), 'three 3D tries taken in turn (' + order.tries.join(' → ') + '): no two in a row the same, and the same for everyone');
   ok(order.pt === 'posts', 'a penalty try is always the one under the posts');
   const play = async (k, v) => { await lv(p, a => { TRY_FORCE = a[1]; const m = a[2]; Q.length = 0; Q.push([m, m.events[a[0] === 'try' ? 0 : 1]]); playFx(); }, [k, v, M(k)]);
     await p.waitForFunction(() => document.querySelector('#fx.on') && document.getAnimations().length > 5 && window.FX3D && FX3D.cur); await p.waitForTimeout(60); };
@@ -22,10 +22,14 @@ const M = k => ({id:'tvA', team:'1XV', home:'ERGS', away:'Portora', status:'1H',
     let lit = 0; try { const W = cv.width, H = cv.height, px = new Uint8Array(4), pts = [[.5, .15], [.5, .5], [.2, .2], [.8, .3], [.5, .08]]; pts.forEach(([x, y]) => { g.readPixels(Math.floor(W*x), Math.floor(H*y), 1, 1, g.RGBA, g.UNSIGNED_BYTE, px); if (px[3] > 0) lit++; }); } catch(e){ lit = -1; }
     return {w, lit, cvw:cv.clientWidth, cvh:cv.clientHeight, kind:q('#fxKind').textContent, kindOn:+cs(q('#fxKind span span') || q('#fxKind span')).opacity, who:q('#fxWho').textContent, crest:q('.fx-trycrest') ? +cs(q('.fx-trycrest')).opacity : null, d3:q('#fx').classList.contains('d3'), flat:!!q('#fx .fx-tball, #fx .fx-ball')}; }, ms);
   const done = async () => { await p.evaluate(() => { document.getAnimations().forEach(a => a.play()); document.querySelector('#fx').click(); }); await p.waitForTimeout(900); };
-  const FXI = await p.evaluate(() => Object.fromEntries(['dive', 'posts', 'chase'].map(v => [v, FX3D.info('try-' + v).impact])));
+  const FXI = await p.evaluate(() => Object.fromEntries(['dive', 'posts', 'carry'].map(v => [v, FX3D.info('try-' + v).impact])));
   for (const v of order.all){ await play('try', v); const a = await at(300), g = await at(1420), e = await at(2700);
     ok(a.d3 && !a.flat && a.cvw > 300 && a.lit !== 0 && a.w.name === 'try-' + v, v + ': drawn in 3D on a ' + a.cvw + '×' + a.cvh + ' canvas' + (a.lit > 0 ? ' (the picture has content)' : ''));
-    ok(a.w.world[1] > 1.2 && g.w.world[1] < .95 && g.w.world[2] < 0 && a.kindOn < .1 && a.crest < .1, v + ': the ball is in the air at 0.3s and on the ground over the try line by 1.4s; the words wait for it');
+    ok(a.w.world[1] > 1 && g.w.world[1] < .95 && g.w.world[2] < 0 && a.kindOn < .1 && a.crest < .1, v + ': the ball is in the air at 0.3s and on the ground over the try line by 1.4s; the words wait for it');
+    // no knock-on: it touches the ground once, where it is grounded, and never leaves it again
+    { const I = Math.round(FXI[v]*1000), ys = []; for (let ms = 60; ms <= 3300; ms += 60) ys.push([ms, (await at(ms)).w.world]);
+      const before = ys.filter(([ms]) => ms < I - 70), after = ys.filter(([ms]) => ms >= I), lowB = Math.min(...before.map(x => x[1][1])), hiA = Math.max(...after.map(x => x[1][1])), still = after.every(x => Math.abs(x[1][0] - after[0][1][0]) < .001 && Math.abs(x[1][2] - after[0][1][2]) < .001);
+      ok(lowB > .8 && hiA <= .625 && still, v + ': no bounce. Before grounding the ball never comes lower than ' + lowB.toFixed(2) + ' m; once down it stays put and never rises (highest ' + hiA.toFixed(2) + ' m, resting on the turf)'); }
     const fl = (await at(Math.round(FXI[v]*1000) + 170)).w.line;
     ok(a.w.line === 0 && fl > .7 && e.w.line === 0, v + ': the try line is plain, flashes gold when the ball is grounded (' + fl + '), and goes back');
     ok(e.crest > .9 && /TRY!/.test(e.kind) && e.kindOn > .9 && /Gus Hart/.test(e.who), v + ': then the crest, TRY! and the scorer'); await done(); }
