@@ -157,6 +157,12 @@ footer{margin-top:28px;font-size:13px;color:var(--dim);display:flex;flex-wrap:wr
 .fx.on .fx-who,.fx.on .fx-score{animation:up .5s .8s ease forwards}
 @keyframes up{to{opacity:1;transform:none}}
 .fx-who{font-family:var(--f-cond);font-weight:700;font-size:clamp(18px,4vw,28px);letter-spacing:.06em;text-transform:uppercase}
+/* the scorer and team sit on their own dark plate (28 November 2026). The line used to be bare white text, and on a phone a long
+   name ran off the slanted navy band and across its gold edge, where the team name could not be read. */
+.fx:not(.k-ft) .fx-who{background:rgba(8,12,28,.88);padding:5px 14px;border-radius:8px;max-width:min(92vw,560px);text-wrap:balance;line-height:1.15;box-shadow:0 0 0 1px rgba(255,255,255,.14)}
+.fx:not(.k-ft) .fx-who:empty{display:none}
+/* and the big word fits a narrow phone: CONVERTED, PENALTY GOAL and DROP GOAL were a little wider than a 360px screen */
+.fx.kick .fx-kind{font-size:clamp(38px,12vw,130px);max-width:96vw}.fx.kick.miss .fx-kind{font-size:clamp(34px,9vw,96px)}.fx:not(.k-ft) .fx-score{margin-top:4px}
 .fx-score{font-family:var(--f-display);font-weight:800;font-size:clamp(20px,4.5vw,34px);text-transform:uppercase;color:var(--gold);background:rgba(8,12,28,.85);padding:6px 16px;border-radius:8px;margin-top:8px}
 .fx-score:empty{display:none}
 .fx-burst{position:absolute;left:50%;top:50%}
@@ -853,11 +859,11 @@ details.rg-cd>summary>b{display:grid;gap:3px;position:relative;padding-right:22p
 </style>
 </head>
 <body>
-<script>window.ERGS_VER = '621b9001b8';</script>
-<script src="config.js?v=621b9001b8"></script>
-<script src="crest.js?v=621b9001b8"></script>
-<script src="app.js?v=621b9001b8"></script>
-<script src="icons.js?v=621b9001b8"></script>
-<script type="module" src="fb.js?v=621b9001b8"></script>
+<script>window.ERGS_VER = '4622fe734c';</script>
+<script src="config.js?v=4622fe734c"></script>
+<script src="crest.js?v=4622fe734c"></script>
+<script src="app.js?v=4622fe734c"></script>
+<script src="icons.js?v=4622fe734c"></script>
+<script type="module" src="fb.js?v=4622fe734c"></script>
 </body>
 </html>

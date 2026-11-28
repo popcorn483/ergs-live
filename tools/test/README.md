@@ -45,6 +45,7 @@ Needs Node and Playwright (`require('playwright')`). From this folder:
     STUB3=1 node flow38.js            # one install for ERGS Live and the team app; the icon always opens the team app
     STUB3=1 node flow39.js            # the intro animation when the team app opens (add ?intro to replay)
     node flow40.js                    # ERGS Live: six 3D tries and six 3D kicks, plain and show-off; no bounce on a try (real 3D library, so no STUB3; takes a few minutes)
+    node flow41.js                    # ERGS Live on a narrow phone: the scorer line sits on a dark plate and the big word fits
     node kick.test.mjs                # the alert job: what counts as news (full time, postponed, new time, team named)
     STUB3=1 node flow12.js <folder>   # Play IQ: the rugby laws game (every question has one right answer and no giveaway)
     STUB3=1 node walk.js admin        # presses every control it can find on every screen (add "phone" for a phone)
