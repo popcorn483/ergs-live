@@ -29,9 +29,13 @@ const M = k => ({id:'tvA', team:'1XV', home:'ERGS', away:'Portora', status:'1H',
   await play('con', ''); { const a = await at(200), o = await at(1350), e = await at(2700);
     ok(a.d3 && !a.flat && a.w.name === 'kick' && a.w.world[2] > 10 && a.w.world[1] < 1.5, 'conversion: in 3D, starting with the ball on the tee in front of the posts');
     ok(Math.abs(o.w.world[2]) < .6 && o.w.world[1] > 3.6 && Math.abs(o.w.world[0]) < 2.4 && o.w.x > o.w.upL[0] && o.w.x < o.w.upR[0] && o.w.y < o.w.upL[1], 'conversion: at the posts the ball is ' + o.w.world[1].toFixed(1) + ' m up, over the 3 m bar and between the uprights');
+    const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), f = rgb((await at(1520)).w.post), calm = rgb(a.w.post), end = rgb(e.w.post);
+    ok(calm.join() === '255,255,255' && f[0] > 200 && f[1] > 150 && f[2] < 150 && f[0] > f[2] + 80 && end.join() === '255,255,255', 'conversion: the posts are white, flash gold as it goes over (' + (await at(1520)).w.post + '), and go back to white');
     ok(/CONVERTED/.test(e.kind) && e.kindOn > .9 && /Cal Weir/.test(e.who), 'conversion: then CONVERTED and the kicker'); await done(); }
   await play('miss', ''); { const o = await at(1350), e = await at(2700);
     ok(o.w.name === 'kick-miss' && o.w.world[0] > 2.9 && o.w.x > o.w.upR[0], 'a missed conversion goes wide of the right-hand upright (' + o.w.world[0].toFixed(1) + ' m from the middle; the upright is at 2.8 m)');
+    const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), fw = (await at(1520)).w.post, f = rgb(fw);
+    ok(f[0] > 200 && f[1] < 110 && f[2] < 110, 'a missed conversion makes the posts flash red (' + fw + ')');
     ok(/CONVERSION\s*MISSED/.test(e.kind), '…and says CONVERSION MISSED'); await done(); }
   ok(await p.evaluate(() => !document.querySelector('#fx3dHost canvas') && !FX3D.cur), 'the 3D picture is cleared away when the animation closes');
   ok(!p.errs.length, 'no page errors ' + p.errs.join(' | ')); await p.close();
